@@ -39,7 +39,13 @@ function MyTabs() {
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Register') {
-            iconName = focused ? 'person-add' : 'person-add-outline';
+            iconName = focused ? 'pencil' : 'pencil-outline';
+          } else if (route.name === 'Visualize') {
+            iconName = focused ? 'bar-chart' : 'bar-chart-outline'
+          } else if (route.name === 'Goals') {
+            iconName = focused ? 'map' : 'map-outline'
+          } else if (route.name === 'Settings') {
+            iconName = focused ? 'construct' : 'construct-outline'
           }
 
           return <Ionicons name={iconName as any} size={26} color={color}/>
@@ -49,6 +55,10 @@ function MyTabs() {
       })}>
         <Tab.Screen name="Home" component={Home} />
         <Tab.Screen name="Register" component={Register} />
+        <Tab.Screen name="Visualize" component={Visualize} />
+        <Tab.Screen name="Goals" component={Goals} />
+        <Tab.Screen name="Settings" component={Settings} />
+        
     </Tab.Navigator>
     );
 }
