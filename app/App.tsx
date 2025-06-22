@@ -36,10 +36,10 @@ function MyTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: string = '';
 
-          if (route.name === 'Início') {
-            iconName = focused ? 'person-add' : 'person-add-outline';
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Register') {
-            iconName = focused ? 'person-id' : 'person-add-outline';
+            iconName = focused ? 'person-add' : 'person-add-outline';
           }
 
           return <Ionicons name={iconName as any} size={26} color={color}/>
@@ -47,8 +47,8 @@ function MyTabs() {
         tabBarActiveTintColor: 'black',
         tabBarInactiveTintColor: 'gray',
       })}>
-        <Tab.Screen name="Início" component={Home} />
-        <Tab.Screen name="Registro" component={Register} />
+        <Tab.Screen name="Home" component={Home} />
+        <Tab.Screen name="Register" component={Register} />
     </Tab.Navigator>
     );
 }
