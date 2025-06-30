@@ -1,19 +1,16 @@
-import React from 'react'
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { StyleSheet, Text, View } from 'react-native';
-
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-import Home from '../app/src/screens/Home/Home'
-import Visualize from '../app/src/screens/Visualize/Visualize'
-import Register from '../app/src/screens/Register/Register'
-import Settings from '../app/src/screens/Settings/Settings'
-import Goals from '../app/src/screens/Goals/Goals'
+import Home from './src/screens/Home/Home';
+import Visualize from './src/screens/Visualize/Visualize';
+import Register from './src/screens/Register/Register';
+import Settings from './src/screens/Settings/Settings';
+import Goals from './src/screens/Goals/Goals';
+import { FinanceProvider } from './src/contexts/FinanceContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -31,7 +28,7 @@ function MyTabs() {
           borderTopWidth: 0,
           elevation: 10,
           zIndex: 10,
-          padding: insets.bottom > 0 ? insets.bottom: 10
+          padding: insets.bottom > 0 ? insets.bottom : 10,
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: string = '';
@@ -41,34 +38,37 @@ function MyTabs() {
           } else if (route.name === 'Register') {
             iconName = focused ? 'pencil' : 'pencil-outline';
           } else if (route.name === 'Visualize') {
-            iconName = focused ? 'bar-chart' : 'bar-chart-outline'
+            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Goals') {
-            iconName = focused ? 'map' : 'map-outline'
+            iconName = focused ? 'map' : 'map-outline';
           } else if (route.name === 'Settings') {
-            iconName = focused ? 'construct' : 'construct-outline'
+            iconName = focused ? 'construct' : 'construct-outline';
           }
 
-          return <Ionicons name={iconName as any} size={26} color={color}/>
+          return <Ionicons name={iconName as any} size={26} color={color} />;
         },
         tabBarActiveTintColor: 'black',
         tabBarInactiveTintColor: 'gray',
-      })}>
-        <Tab.Screen name="Home" component={Home} />
-        <Tab.Screen name="Register" component={Register} />
-        <Tab.Screen name="Visualize" component={Visualize} />
-        <Tab.Screen name="Goals" component={Goals} />
-        <Tab.Screen name="Settings" component={Settings} />
-        
+      })}
+    >
+      <Tab.Screen name="Home" component={Home} />
+      <Tab.Screen name="Register" component={Register} />
+      <Tab.Screen name="Visualize" component={Visualize} />
+      <Tab.Screen name="Goals" component={Goals} />
+      <Tab.Screen name="Settings" component={Settings} />
     </Tab.Navigator>
-    );
+  );
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <MyTabs />
-      </NavigationContainer>
+      <FinanceProvider>
+        <NavigationContainer>
+          <StatusBar style="auto" />
+          <MyTabs />
+        </NavigationContainer>
+      </FinanceProvider>
     </SafeAreaProvider>
   );
 }
