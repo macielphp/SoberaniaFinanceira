@@ -40,7 +40,8 @@ export const Register: React.FC = () => {
   const [filterState, setFilterState] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterAccount, setFilterAccount] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   const { operations, removeOperation } = useFinance();
 
@@ -531,10 +532,12 @@ export const Register: React.FC = () => {
               setCategory={setFilterCategory}
               account={filterAccount}
               setAccount={setFilterAccount}
-              date={filterDate}
-              setDate={setFilterDate}
               categories={categoryNames}
               accounts={accountNames}
+              startDate={startDate}
+              endDate={endDate}
+              setStartDate={setStartDate}
+              setEndDate={setEndDate}
             />
 
             <TouchableOpacity

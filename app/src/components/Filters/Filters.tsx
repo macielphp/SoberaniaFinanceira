@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import FilterBase from './FilterBase';
+import FilterDate from './FilterDate';
 
 interface FilterProps {
     nature: string;
@@ -11,10 +12,13 @@ interface FilterProps {
     setCategory: (value: string) => void;
     account: string;
     setAccount: (value: string) => void;
-    date: string;
-    setDate: (value: string) => void
     categories: string[];
     accounts: string[];
+    startDate: Date | null;
+    endDate: Date | null;
+    setStartDate: (date: Date | null) => void;
+    setEndDate: (date: Date | null) => void;
+
 }
 
 export const Filters: React.FC<FilterProps> = ({
@@ -22,9 +26,12 @@ export const Filters: React.FC<FilterProps> = ({
     state, setState,
     category, setCategory,  
     account, setAccount,
-    date, setDate,
     categories,
-    accounts
+    accounts,
+    startDate,
+    endDate,
+    setStartDate,
+    setEndDate
 }) => {
     return (
         <View style={styles.column}>
@@ -68,11 +75,11 @@ export const Filters: React.FC<FilterProps> = ({
             </View>
             
             <View style={styles.row}>
-                <FilterBase
-                    label="Data"
-                    selectedValue={date}
-                    onValueChange={setDate}
-                    options={[]} //pode substituir pode DatePicker
+                <FilterDate
+                   startDate={startDate}
+                   endDate={endDate}
+                   setStartDate={setStartDate}
+                   setEndDate={setEndDate}
                 />
             </View>
         </View>
