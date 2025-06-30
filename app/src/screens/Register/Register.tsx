@@ -7,12 +7,13 @@ import {
   StyleSheet, 
   ScrollView,
   Alert,
-  Modal,
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Category, Account } from '../../database/Index'
 import { useFinance } from '../../contexts/FinanceContext';
 import { useCategoriesAndAccounts } from '../../hooks/useCategoriesAndAccounts'
+import { Operation } from '../../services/FinanceService';
 import { OperationForm } from '../../components/OperationForm/OperationForm';
 import { AccountForm } from '../../components/AccountForm/AccountForm';
 import { CategoryForm } from '../../components/CategoryForm/CategoryForm';
@@ -20,7 +21,7 @@ import { MenuButton } from '../../components/MenuButton/MenuButton'
 import Layout from '../../components/Layout/Layout';
 import OperationCard from '../../components/OperationCard/OperationCard'
 import GlobalStyles from '../../styles/Styles';
-import { Operation } from '../../services/FinanceService';
+import { Filters } from '../../components/Filters/Filters'
 
 type ViewMode = 'menu' | 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
 
@@ -32,7 +33,17 @@ export const Register: React.FC = () => {
   const [editingCategory, setEditingCategory] = useState<Category | undefined>();
   const [editingOperation, setEditingOperation] = useState<Operation | undefined>();
 
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Variáveis para filtros
+  const [filterNature, setFilterNature] = useState('');
+  const [filterState, setFilterState] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterAccount, setFilterAccount] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+
   const { operations, removeOperation } = useFinance();
+
   const {
     categories,
     accounts,
@@ -44,8 +55,14 @@ export const Register: React.FC = () => {
     createAccount,
     editAccount,
     removeAccount,
-    clearError
+    clearError,
+    getCategoryNames,
+    getAccountNames
   } = useCategoriesAndAccounts();
+  
+  // Variáveis para filtros
+  const categoryNames = getCategoryNames();
+  const accountNames = getAccountNames(); 
 
   const handleSuccess = () => {
     // Se a operação está sendo editada, atualiza o estado
@@ -485,6 +502,50 @@ export const Register: React.FC = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Gerenciar Operações</Text>
       </View>
+      
+      
+
+      <TouchableOpacity
+        style={styles.filterButton}
+        onPress={() => setShowFilters(true)}
+      >
+        <Text style={styles.filterButtonText}>Filtros</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={showFilters}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={styles.modal}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Filtros</Text>
+
+            <Filters
+              nature={filterNature}
+              setNature={setFilterNature}
+              state={filterState}
+              setState={setFilterState}
+              category={filterCategory}
+              setCategory={setFilterCategory}
+              account={filterAccount}
+              setAccount={setFilterAccount}
+              date={filterDate}
+              setDate={setFilterDate}
+              categories={categoryNames}
+              accounts={accountNames}
+            />
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowFilters(false)}
+            >
+              <Text style={styles.closeButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <ScrollView style={styles.operationsList}>
         {operations.length === 0 ? (
@@ -560,7 +621,48 @@ export const Register: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  
+  // Modal Styles
+    filterButton: {
+      backgroundColor: '#2196F3',
+      padding: 12,
+      borderRadius: 8,
+      margin: 16,
+      alignItems: 'center',
+    },
+    filterButtonText: {
+      color: 'white',
+      fontWeight: '600',
+      fontSize: 16,
+    },
+
+    modal: {
+      justifyContent: 'flex-end',
+      margin: 0,
+    },
+    modalContent: {
+      backgroundColor: 'white',
+      padding: 16,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      maxHeight: '80%',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginBottom: 12,
+    },
+    closeButton: {
+      backgroundColor: '#f44336',
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    closeButtonText: {
+      color: 'white',
+      fontWeight: '600',
+    },
+
   // Menu Styles (existentes)
   menuContainer: {
     flex: 1,
@@ -626,7 +728,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 40,
+    
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
