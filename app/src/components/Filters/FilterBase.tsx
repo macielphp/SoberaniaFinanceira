@@ -4,8 +4,8 @@ import { Picker } from '@react-native-picker/picker';
 
 interface FilterBaseProps {
     label: string;
-    selectedValue: string;
-    onValueChange: (value: string) => void;
+    selectedValue?: string;
+    onValueChange: (value: string | undefined) => void;
     options: { label: string, value: string }[];
 }
 
@@ -20,8 +20,8 @@ const FilterBase: React.FC<FilterBaseProps> = ({
             <View style={styles.pickerContainer}>
                 <Text style={styles.label}>{label}</Text>
                 <Picker
-                    selectedValue={selectedValue}
-                    onValueChange={onValueChange}
+                    selectedValue={selectedValue || ''}
+                    onValueChange={(value) => onValueChange(value === '' ? undefined : value)}
                     style={styles.picker}
                 >
                     <Picker.Item label="Todos" value="" />
@@ -47,10 +47,9 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#333',
         paddingStart: 5,
-        
     },
     pickerContainer: {
-        width: 170,
+        width: 160,
         borderWidth: 1,
         borderColor: '#ddd',
         borderBottomStartRadius: 8,

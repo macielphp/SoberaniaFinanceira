@@ -22,6 +22,7 @@ import Layout from '../../components/Layout/Layout';
 import OperationCard from '../../components/OperationCard/OperationCard'
 import GlobalStyles from '../../styles/Styles';
 import { Filters } from '../../components/Filters/Filters'
+import { Nature, State } from '../../services/FinanceService'
 
 type ViewMode = 'menu' | 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
 
@@ -35,17 +36,17 @@ export const Register: React.FC = () => {
 
   const [showFilters, setShowFilters] = useState(false);
 
-  // Variáveis para filtros
-  const [filterNature, setFilterNature] = useState('');
-  const [filterState, setFilterState] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterAccount, setFilterAccount] = useState('');
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [selectedNature, setSelectedNature] = useState<Nature | undefined>();
+  const [selectedState, setSelectedState] = useState<State | undefined>();
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
+  const [selectedAccount, setSelectedAccount] = useState<string | undefined>();
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
 
-  const { operations, removeOperation } = useFinance();
 
-  const {
+  const { operations, removeOperation, filterOperations } = useFinance();
+
+   const {
     categories,
     accounts,
     loading,
@@ -60,10 +61,30 @@ export const Register: React.FC = () => {
     getCategoryNames,
     getAccountNames
   } = useCategoriesAndAccounts();
-  
+
   // Variáveis para filtros
   const categoryNames = getCategoryNames();
   const accountNames = getAccountNames(); 
+
+  const filteredOps = filterOperations({
+    nature: selectedNature,
+    state: selectedState,
+    category: selectedCategory,
+    account: selectedAccount,
+    startDate: selectedStartDate?.toISOString().split('T')[0],
+    endDate: selectedEndDate?.toISOString().split('T')[0],
+  });
+
+  const clearAllFilters = () => {
+    setSelectedNature(undefined)
+    setSelectedState(undefined);
+    setSelectedCategory(undefined);
+    setSelectedAccount(undefined);
+    setSelectedStartDate(null);
+    setSelectedEndDate(null);
+  }
+
+  const hasActiveFilters = selectedNature || selectedState || selectedCategory || selectedAccount || selectedStartDate || selectedEndDate;
 
   const handleSuccess = () => {
     // Se a operação está sendo editada, atualiza o estado
@@ -230,37 +251,29 @@ export const Register: React.FC = () => {
     <View style={styles.menuContainer}>
       <Text style={GlobalStyles.title}>Central de Operações</Text>
       <Text style={GlobalStyles.subtitle}>Escolha uma opção:</Text>
-      <MenuButton
-        title="Registrar Operação"
-        description="Adicionar nova receita ou despesa"
-        iconName="add-circle"
-        iconColor="#4CAF50"
-        onPress={() => setCurrentView('register')}
-      />
-      <MenuButton
-        title="Gerenciar Operações"
-        description="Visualizar e editar operações existentes"
-        iconName="list"
-        iconColor="#2196F3"
-        onPress={() => setCurrentView('manage')}
-      />
+      <View>
+        <MenuButton
+          title="Registrar Operação"
+          description="Adicionar nova receita ou despesa"
+          iconName="add-circle"
+          iconColor="#4CAF50"
+          onPress={() => setCurrentView('register')}
+        />
+        <MenuButton
+          title="Gerenciar Operações"
+          description="Visualizar e editar operações existentes"
+          iconName="list"
+          iconColor="#2196F3"
+          onPress={() => setCurrentView('manage')}
+        />
 
-      <MenuButton
-        title="Configurações"
-        description="Gerenciar categorias, contas e configurações"
-        iconName="settings"
-        iconColor="#FF9800"
-        onPress={() => setCurrentView('settings')}
-      />
-
-      <View style={styles.statsContainer}>
-        <Text style={styles.statsTitle}>Resumo Rápido</Text>
-        <Text style={styles.statsText}>
-          Total de operações: {operations.length}
-        </Text>
-        <Text style={styles.statsText}>
-          Categorias: {categories?.length || 0} | Contas: {accounts?.length || 0}
-        </Text>
+        <MenuButton
+          title="Configurações"
+          description="Gerenciar categorias, contas e configurações"
+          iconName="settings"
+          iconColor="#FF9800"
+          onPress={() => setCurrentView('settings')}
+        />
       </View>
     </View>
   );
@@ -503,16 +516,42 @@ export const Register: React.FC = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Gerenciar Operações</Text>
       </View>
-      
-      
 
-      <TouchableOpacity
-        style={styles.filterButton}
-        onPress={() => setShowFilters(true)}
-      >
-        <Text style={styles.filterButtonText}>Filtros</Text>
-      </TouchableOpacity>
+      {/* Botões de filtro e limpar */}
+      <View style={styles.filterControls}>
+        <TouchableOpacity
+          style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
+          onPress={() => setShowFilters(true)}
+        >
+          <Ionicons 
+            name="filter" 
+            size={16} 
+            color={hasActiveFilters ? "#fff" : "#333"} 
+          />
+          <Text style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}>
+            Filtros {hasActiveFilters && `(${Object.values({
+              selectedNature,
+              selectedState,
+              selectedCategory,
+              selectedAccount,
+              selectedStartDate,
+              selectedEndDate
+            }).filter(Boolean).length})`}
+          </Text>
+        </TouchableOpacity>
 
+        {hasActiveFilters && (
+          <TouchableOpacity
+            style={styles.clearFiltersButton}
+            onPress={clearAllFilters}
+          >
+            <Ionicons name="close-circle" size={16} color="#f44336" />
+            <Text style={styles.clearFiltersText}>Limpar</Text>
+          </TouchableOpacity>
+        )}
+      </View> 
+
+      {/* Modal de filtros */}
       <Modal
         visible={showFilters}
         transparent={true}
@@ -521,56 +560,88 @@ export const Register: React.FC = () => {
       >
         <View style={styles.modal}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Filtros</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filtros</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowFilters(false)}
+              >
+                <Ionicons name='close' size={24} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              <Filters
+                nature={selectedNature}
+                setNature={setSelectedNature}
+                state={selectedState}
+                setState={setSelectedState}
+                category={selectedCategory}
+                setCategory={setSelectedCategory}
+                account={selectedAccount}
+                setAccount={setSelectedAccount}
+                categories={categoryNames}
+                accounts={accountNames}
+                startDate={selectedStartDate}
+                endDate={selectedEndDate}
+                setStartDate={setSelectedStartDate}
+                setEndDate={setSelectedEndDate}
+              />
+            </ScrollView>
 
-            <Filters
-              nature={filterNature}
-              setNature={setFilterNature}
-              state={filterState}
-              setState={setFilterState}
-              category={filterCategory}
-              setCategory={setFilterCategory}
-              account={filterAccount}
-              setAccount={setFilterAccount}
-              categories={categoryNames}
-              accounts={accountNames}
-              startDate={startDate}
-              endDate={endDate}
-              setStartDate={setStartDate}
-              setEndDate={setEndDate}
-            />
-
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowFilters(false)}
-            >
-              <Text style={styles.closeButtonText}>Fechar</Text>
-            </TouchableOpacity>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.clearFiltersButtonModal}
+                onPress={clearAllFilters}
+              >
+                <Text style={styles.clearFiltersTextModal}>Limpar Filtros</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.applyFiltersButton}
+                onPress={() => setShowFilters(false)}
+              >
+                <Text style={styles.applyFiltersText}>Aplicar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
+      {/* Lista de operações */}
       <ScrollView style={styles.operationsList}>
-        {operations.length === 0 ? (
+        {filteredOps.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="document-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>Nenhuma operação encontrada</Text>
-            <TouchableOpacity 
-              style={styles.addFirstButton}
-              onPress={() => setCurrentView('register')}
-            >
-              <Text style={styles.addFirstButtonText}>Registrar Primeira Operação</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptyText}>
+              {hasActiveFilters
+                ? "Nenhuma operação encontrada com os filtros aplicados"
+                : "Nenhum operação encontrada"
+              }
+            </Text>
+            {!hasActiveFilters && (
+              <TouchableOpacity 
+                style={styles.addFirstButton}
+                onPress={() => setCurrentView('register')}
+              >
+                <Text style={styles.addFirstButtonText}>Registrar Primeira Operação</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
-          operations.map((operation) => (
-            <OperationCard
-              key={operation.id}
-              operation={operation}
-              onEdit={handleEditOperation}
-              onDelete={handleDeleteOperation}
-            />
-          ))
+          <>
+            <View style={styles.resultsHeader}>
+              <Text style={styles.resultsCount}>
+                {filteredOps.length} operaç{filteredOps.length !== 1 ? 'ões' : 'ão'} encontrada{filteredOps.length !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            {filteredOps.map((operation) => (
+              <OperationCard
+                key={operation.id}
+                operation={operation}
+                onEdit={handleEditOperation}
+                onDelete={handleDeleteOperation}
+              />
+            ))}
+          </>
         )}
       </ScrollView>
     </View>
@@ -609,7 +680,7 @@ export const Register: React.FC = () => {
     if (currentView !== 'register') {
       setEditingOperation(undefined);
     }
-  }, [currentView]);
+  }, [currentView, error, clearError]);
 
   return (
     <Layout>
@@ -625,34 +696,70 @@ export const Register: React.FC = () => {
 
 const styles = StyleSheet.create({
   // Modal Styles
-    filterButton: {
-      backgroundColor: '#2196F3',
-      padding: 12,
-      borderRadius: 8,
-      margin: 16,
-      alignItems: 'center',
-    },
-    filterButtonText: {
-      color: 'white',
-      fontWeight: '600',
-      fontSize: 16,
-    },
-
     modal: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
       justifyContent: 'flex-end',
       margin: 0,
     },
     modalContent: {
-      backgroundColor: 'white',
+      backgroundColor: '#fff',
       padding: 16,
       borderTopLeftRadius: 16,
       borderTopRightRadius: 16,
       maxHeight: '80%',
     },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: '#eee',
+    },
     modalTitle: {
       fontSize: 18,
       fontWeight: '600',
       marginBottom: 12,
+    },
+    modalCloseButton: {
+      padding: 5
+    },
+    modalFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      padding: 20,
+      borderTopWidth: 1,
+      borderTopColor: '#eee',
+      gap: 10,
+    },
+    clearFiltersButtonModal: {
+      flex: 1,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#f44336',
+      alignItems: 'center',
+    },
+    clearFiltersTextModal: {
+      color: '#f44336',
+      fontWeight: '600',
+      fontSize: 16,
+    },
+    applyFiltersButton:{
+      flex: 1,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      backgroundColor: '#2196F3',
+      alignItems: 'center',
+    },
+    applyFiltersText: {
+      color: '#fff',
+      fontWeight: '600',
+      fontSize: 16,
+
     },
     closeButton: {
       backgroundColor: '#f44336',
@@ -671,6 +778,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     paddingTop: 30,
+    backgroundColor: '#f5f5f5'
   },
   menuButton: {
     backgroundColor: 'white',
@@ -755,7 +863,53 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 8,
   },
-  
+
+  // Estilos dos controles de filtro
+  filterControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    gap: 10,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    gap: 5,
+  },
+  filterButtonActive: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
+  filterButtonText: {
+      color: '#333',
+      fontWeight: '600',
+      fontSize: 14,
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
+  clearFiltersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 5,
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    color: '#f44336',
+    fontWeight: '500',
+  },
+
   // Form Container (existente)
   formContainer: {
     flex: 1,
@@ -894,13 +1048,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
+    paddingVertical: 60,
+    paddingHorizontal: 40,
   },
   emptyText: {
     fontSize: 16,
     color: '#666',
-    marginTop: 16,
-    marginBottom: 24,
+    textAlign: 'center',
+    marginTop: 15,
+    marginBottom: 25,
+    lineHeight: 24,
   },
   addFirstButton: {
     backgroundColor: '#4CAF50',
@@ -909,10 +1066,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addFirstButtonText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
+  
+  // Estilos da lista de resultados
+  resultsHeader: {
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  resultsCount: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+
   
   // Manage Operations Styles (existentes)
   manageContainer: {

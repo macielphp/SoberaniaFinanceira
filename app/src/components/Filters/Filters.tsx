@@ -1,24 +1,25 @@
+// app\src\components\Filters\Filters.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import FilterBase from './FilterBase';
 import FilterDate from './FilterDate';
+import { Nature, State } from '../../services/FinanceService';
 
 interface FilterProps {
-    nature: string;
-    setNature: (value: string) => void;
-    state: string;
-    setState: (value: string) => void;
-    category: string;
-    setCategory: (value: string) => void;
-    account: string;
-    setAccount: (value: string) => void;
+    nature?: Nature;
+    setNature: (value: Nature | undefined) => void;
+    state?: State;
+    setState: (value: State | undefined) => void;
+    category?: string;
+    setCategory: (value: string | undefined) => void;
+    account?: string;
+    setAccount: (value: string | undefined) => void;
     categories: string[];
     accounts: string[];
     startDate: Date | null;
     endDate: Date | null;
     setStartDate: (date: Date | null) => void;
     setEndDate: (date: Date | null) => void;
-
 }
 
 export const Filters: React.FC<FilterProps> = ({
@@ -39,7 +40,7 @@ export const Filters: React.FC<FilterProps> = ({
                 <FilterBase
                     label="Natureza"
                     selectedValue={nature}
-                    onValueChange={setNature}
+                    onValueChange={value => setNature(value as Nature | undefined)}
                     options={[
                         { label: "Despesa", value: "despesa" },
                         { label: "Receita", value: "receita" }
@@ -49,7 +50,7 @@ export const Filters: React.FC<FilterProps> = ({
                 <FilterBase
                     label="Estado"
                     selectedValue={state}
-                    onValueChange={setState}
+                    onValueChange={value => setState(value as State | undefined)}
                     options={[
                         { label: "A Pagar", value: "pagar" },
                         { label: "Pago", value: "pago" },
@@ -90,7 +91,6 @@ const styles = StyleSheet.create({
     column: {
         padding: 0,
         flexDirection: 'column',
-    
     },
     row: {
         flexDirection: 'row',

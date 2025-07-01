@@ -16,6 +16,55 @@ export const useFinanceOperations = () => {
   const [error, setError] = useState<string | null>(null);
   const financeService = new FinanceService();
 
+  const filterOperations = ({
+    nature, 
+    state,
+    category,
+    account,
+    startDate,
+    endDate
+  } : {
+    nature?: Operation['nature'];
+    state?: Operation['state'];
+    category?: string;
+    account?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Operation[] => {
+    let filtered = [...operations];
+
+    if (nature) {
+      filtered = filtered.filter(op => op.nature === nature);
+    }
+
+    if (state) {
+      filtered = filtered.filter(op => op.state === state); 
+    }
+
+    if (category) {
+      filtered = filtered.filter(op => 
+        op.category && op.category === category
+      );
+    }
+
+    if (account) {
+      filtered = filtered.filter(op =>
+        op.sourceAccount === account || op.destinationAccount === account
+      )
+    }
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      filtered = filtered.filter(op => {
+        const opDate = new Date(op.date);
+        return opDate >= start && opDate <= end;
+      })
+    }
+    return filtered;
+  }
+
+
   // Carregar operações
   const loadOperations = async () => {
     try {
@@ -119,6 +168,7 @@ export const useFinanceOperations = () => {
     updateOperation,
     updateOperationState,
     removeOperation,
-    reloadOperations: loadOperations
+    reloadOperations: loadOperations,
+    filterOperations
   };
 };
