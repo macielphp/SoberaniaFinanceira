@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-nat
 import { Picker } from '@react-native-picker/picker';
 import Layout from './../../components/Layout/Layout';
 import GlobalStyles from '../../styles/Styles';
-import { useFinancialSummary } from '../../hooks/useFinancialSummary';
+import { useFinance } from '../../contexts/FinanceContext';
 
 function Visualize() {
   const {
@@ -16,7 +16,7 @@ function Visualize() {
     formatCurrency,
     getSelectedPeriodLabel,
     getCategoryStats
-  } = useFinancialSummary();
+  } = useFinance();
 
   const categoryStats = getCategoryStats();
 
