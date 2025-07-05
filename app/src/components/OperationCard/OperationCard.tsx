@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import GlobalStyles from '../../styles/Styles'
 
 interface Operation {
     id: string;
@@ -52,7 +53,7 @@ const OperationCard: React.FC<OperationCardProps> = ({
             </View>
             <View style={styles.operationActions}>
             <Text style={[
-                styles.operationValue,
+                GlobalStyles.operationValue,
                 operation.nature === 'receita' ? styles.positive : styles.negative
             ]}>
                 {operation.nature === 'receita' ? '+' : '-'}{formatCurrency(operation.value)}

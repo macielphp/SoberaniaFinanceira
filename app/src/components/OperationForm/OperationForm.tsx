@@ -261,7 +261,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
         <Text style={styles.loadingText}>Carregando dados...</Text>
       </View>
     );
-  }
+  } 
 
   return (
     <ScrollView style={styles.container}>

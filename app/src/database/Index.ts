@@ -76,6 +76,7 @@ export const setupDatabase = async () => {
     // Índices para categorias e contas
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_category_name ON categories (name);');
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_account_name ON accounts (name);');
+    // https://www.sqlite.org/lang_createindex.html
 
     // Inserir categorias padrão se não existirem
     await insertDefaultCategories();
