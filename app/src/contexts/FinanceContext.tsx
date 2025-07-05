@@ -1,10 +1,12 @@
 // app\src\contexts\FinanceContext.tsx
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useCallback } from 'react';
 import { useFinanceOperations } from '../hooks/useFinanceOperations';
 import { useCategoriesAndAccounts } from '../hooks/useCategoriesAndAccounts';
 
 type FinanceContextType = ReturnType<typeof useFinanceOperations> &
-  ReturnType<typeof useCategoriesAndAccounts>;
+  ReturnType<typeof useCategoriesAndAccounts> & {
+    refreshAllData: () => Promise<void>;
+  };
 
 const FinanceContext = createContext<FinanceContextType | null>(null);
 
@@ -12,9 +14,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const financeOperations = useFinanceOperations();
   const categoriesAndAccounts = useCategoriesAndAccounts();
 
+  const refreshAllData = useCallback(async () => {
+    try {
+      await Promise.all([
+        financeOperations.reloadOperations(),
+        categoriesAndAccounts.loadAll()
+      ])
+    } catch (error) {
+      console.error('Erro ao recarregar dados:', error)
+    }
+  }, [financeOperations.reloadOperations, categoriesAndAccounts.loadAll]);
+
   const combinedContext = {
     ...financeOperations,
-    ...categoriesAndAccounts
+    ...categoriesAndAccounts,
+    refreshAllData
   };
 
   return (

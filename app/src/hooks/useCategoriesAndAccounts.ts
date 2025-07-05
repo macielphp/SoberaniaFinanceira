@@ -1,5 +1,5 @@
 // app\src\hooks\useCategoriesAndAccounts.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Category, 
   Account,
@@ -20,7 +20,7 @@ export const useCategoriesAndAccounts = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Carregar categorias
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const data = await getAllCategories();
       setCategories(data);
@@ -29,10 +29,10 @@ export const useCategoriesAndAccounts = () => {
       setError('Erro ao carregar categorias');
       console.error(err);
     }
-  };
+  }, []);
 
   // Carregar contas
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     try {
       const data = await getAllAccounts();
       setAccounts(data);
@@ -41,10 +41,10 @@ export const useCategoriesAndAccounts = () => {
       setError('Erro ao carregar contas');
       console.error(err);
     }
-  };
+  }, []);
 
   // Carregar ambos
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       setLoading(true);
       await Promise.all([loadCategories(), loadAccounts()]);
@@ -53,10 +53,10 @@ export const useCategoriesAndAccounts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadCategories, loadAccounts]);
 
   // CRUD para Categorias
-  const createCategory = async (name: string): Promise<boolean> => {
+  const createCategory = useCallback(async (name: string): Promise<boolean> => {
     try {
       if (!name.trim()) {
         throw new Error('Nome da categoria é obrigatório');
@@ -78,15 +78,15 @@ export const useCategoriesAndAccounts = () => {
       };
 
       await insertCategory(newCategory);
-      await loadCategories();
+      await loadCategories(); // Recarrega imediatamente
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar categoria');
       throw err;
     }
-  };
+  }, [categories, loadCategories]);
 
-  const editCategory = async (id: string, name: string): Promise<boolean> => {
+  const editCategory = useCallback(async (id: string, name: string): Promise<boolean> => {
     try {
       if (!name.trim()) {
         throw new Error('Nome da categoria é obrigatório');
@@ -116,15 +116,15 @@ export const useCategoriesAndAccounts = () => {
       };
 
       await updateCategory(updatedCategory);
-      await loadCategories();
+      await loadCategories(); // Recarrega imediatamente
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao editar categoria');
       throw err;
     }
-  };
+  }, [categories, loadCategories]);
 
-  const removeCategory = async (id: string): Promise<boolean> => {
+  const removeCategory = useCallback(async (id: string): Promise<boolean> => {
     try {
       const category = categories.find(cat => cat.id === id);
       if (!category) {
@@ -136,16 +136,16 @@ export const useCategoriesAndAccounts = () => {
       }
 
       await deleteCategory(id);
-      await loadCategories();
+      await loadCategories(); // Recarrega imediatamente
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao excluir categoria');
       throw err;
     }
-  };
+  }, [categories, loadCategories]);
 
   // CRUD para Contas
-  const createAccount = async (name: string): Promise<boolean> => {
+  const createAccount = useCallback(async (name: string): Promise<boolean> => {
     try {
       if (!name.trim()) {
         throw new Error('Nome da conta é obrigatório');
@@ -167,15 +167,15 @@ export const useCategoriesAndAccounts = () => {
       };
 
       await insertAccount(newAccount);
-      await loadAccounts();
+      await loadAccounts(); // Recarrega imediatamente
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar conta');
       throw err;
     }
-  };
+  }, [accounts, loadAccounts]);
 
-  const editAccount = async (id: string, name: string): Promise<boolean> => {
+  const editAccount = useCallback(async (id: string, name: string): Promise<boolean> => {
     try {
       if (!name.trim()) {
         throw new Error('Nome da conta é obrigatório');
@@ -206,15 +206,15 @@ export const useCategoriesAndAccounts = () => {
       };
 
       await updateAccount(updatedAccount);
-      await loadAccounts();
+      await loadAccounts(); // Recarrega imediatamente
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao editar conta');
       throw err;
     }
-  };
+  }, [accounts, loadAccounts]);
 
-  const removeAccount = async (id: string): Promise<boolean> => {
+  const removeAccount = useCallback(async (id: string): Promise<boolean> => {
     try {
       const account = accounts.find(acc => acc.id === id);
       if (!account) {
@@ -226,27 +226,27 @@ export const useCategoriesAndAccounts = () => {
       }
 
       await deleteAccount(id);
-      await loadAccounts();
+      await loadAccounts(); // Recarrega imediatamente
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao excluir conta');
       throw err;
     }
-  };
+  }, [accounts, loadAccounts]);
 
-  // Obter nomes para usar nos selects
-  const getCategoryNames = (): string[] => {
+  // Obter nomes para usar nos selects - memo para performance
+  const getCategoryNames = useCallback((): string[] => {
     return categories.map(cat => cat.name).sort();
-  };
+  }, [categories]);
 
-  const getAccountNames = (): string[] => {
+  const getAccountNames = useCallback((): string[] => {
     return accounts.map(acc => acc.name).sort();
-  };
+  }, [accounts]);
 
   // Inicializar dados
   useEffect(() => {
     loadAll();
-  }, []);
+  }, [loadAll]);
 
   return {
     // Dados

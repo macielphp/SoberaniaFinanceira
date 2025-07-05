@@ -64,7 +64,6 @@ export const useFinanceOperations = () => {
     return filtered;
   }
 
-
   // Carregar operações
   const loadOperations = async () => {
     try {
