@@ -23,7 +23,7 @@ function MyTabs() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: 'white',
+          backgroundColor: 'rgb(1, 5, 255)',
           height: 35 + insets.bottom,
           borderTopWidth: 0,
           elevation: 10,
@@ -47,8 +47,8 @@ function MyTabs() {
 
           return <Ionicons name={iconName as any} size={26} color={color} />;
         },
-        tabBarActiveTintColor: 'black',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: 'white',
+        tabBarInactiveTintColor: 'rgb(182, 182, 182)',
       })}
     >
       <Tab.Screen name="Home" component={Home} />
