@@ -1,3 +1,4 @@
+// app\App.tsx
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';

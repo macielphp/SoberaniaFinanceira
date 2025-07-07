@@ -1,4 +1,5 @@
 // Estilos globais existentes
+// app\src\styles\Styles.tsx
 import { StyleSheet } from 'react-native';
 
 const GlobalStyles = StyleSheet.create({

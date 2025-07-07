@@ -20,6 +20,7 @@ import { MenuButton } from '../../components/MenuButton/MenuButton'
 import Layout from '../../components/Layout/Layout';
 import OperationCard from '../../components/OperationCard/OperationCard'
 import GlobalStyles from '../../styles/Styles';
+import { colors, spacing, typography } from '../../styles/themes'
 import { Filters } from '../../components/Filters/Filters'
 import { Nature, State } from '../../services/FinanceService'
 
