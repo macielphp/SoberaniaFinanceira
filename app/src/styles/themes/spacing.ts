@@ -6,7 +6,7 @@ const spacing = {
   lg: 24,   // 1.5rem
   xl: 32,   // 2rem
   xxl: 48,  // 3rem
-  xxxl: 64  // 4rem
+  xxxl: 64,  // 4rem
 };
 
 const componentSpacing = {

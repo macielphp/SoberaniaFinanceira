@@ -8,15 +8,18 @@ const formStyles = StyleSheet.create({
   container: {
     padding: componentSpacing.form.horizontal,
   },
+  textArea: {
+    minHeight: spacing.xxxl,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.gray[300],
     borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
     fontSize: 16,
     backgroundColor: colors.background.default,
-    minHeight: 44,
+    minHeight: spacing.xxxl,
   },
   inputFocused: {
     borderColor: colors.secondary[500],

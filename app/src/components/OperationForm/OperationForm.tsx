@@ -22,10 +22,10 @@ import {
   Operation 
 } from '../../services/FinanceService';
 import GlobalStyles from '../../styles/Styles';
-import colors from '../../styles/themes/colors';
-import { spacing, componentSpacing } from '../../styles/themes/spacing';
-import typography from '../../styles/themes/typography';
-
+import { colors, spacing, typography} from '../../styles/themes';
+import { componentSpacing } from '../../styles/themes/spacing'; 
+import { buttonStyles, formStyles } from '../../styles/components'
+import AppModal from '../AppModal/AppModal';
 
 interface OperationFormProps {
   onSuccess?: () => void;
@@ -261,24 +261,23 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   // Show loading indicator while data is being loaded
   if (dataLoading) {
     return (
-      <View style={[styles.container, styles.centered]}>
+      <View style={[GlobalStyles.container, GlobalStyles.centered]}>
         <ActivityIndicator size="large" color="#2196f3" />
         <Text style={styles.loadingText}>Carregando dados...</Text>
       </View>
     );
-  } 
+  }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.form}>
+    <ScrollView style={GlobalStyles.container}>
+      <View style={formStyles.container}>
         {/* Natureza */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Natureza</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={formStyles.label}>Natureza</Text>
+          <View style={formStyles.input}>
             <Picker
               selectedValue={nature}
               onValueChange={setNature}
-              style={styles.picker}
             >
               <Picker.Item label="Despesa" value="despesa" />
               <Picker.Item label="Receita" value="receita" />
@@ -289,12 +288,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
         {/* Estado - only for non-double operations */}
         {!doubleOperationCategories.includes(category) && (
           <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Estado</Text>
-            <View style={styles.pickerContainer}>
+            <Text style={formStyles.label}>Estado</Text>
+            <View style={formStyles.input}>
               <Picker
                 selectedValue={state}
                 onValueChange={setState}
-                style={styles.picker}
               >
                 <Picker.Item label="A Pagar" value="pagar" />
                 <Picker.Item label="Pago" value="pago" />
@@ -307,12 +305,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Category - Dynamic from database */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Categoria</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={formStyles.label}>Categoria</Text>
+          <View style={formStyles.input}>
             <Picker
               selectedValue={category}
               onValueChange={setCategory}
-              style={styles.picker}
             >
               {categoryNames.length > 0 ? (
                 categoryNames.map((categoryName) => (
@@ -327,12 +324,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Payment Method */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Forma de Pagamento</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={formStyles.label}>Forma de Pagamento</Text>
+          <View style={formStyles.input}>
             <Picker
               selectedValue={paymentMethod}
               onValueChange={setPaymentMethod}
-              style={styles.picker}
             >
               {paymentMethods.map((method) => (
                 <Picker.Item key={method} label={method} value={method} />
@@ -343,12 +339,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Source Account - Dynamic from database */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Conta de Origem</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={formStyles.label}>Conta de Origem</Text>
+          <View style={formStyles.input}>
             <Picker
               selectedValue={sourceAccount}
               onValueChange={setSourceAccount}
-              style={styles.picker}
             >
               <Picker.Item label="Selecione uma conta" value="" />
               {accountNames.length > 0 ? (
@@ -364,12 +359,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Destination Account - Dynamic from database */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Conta de Destino</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={formStyles.label}>Conta de Destino</Text>
+          <View style={formStyles.input}>
             <Picker
               selectedValue={destinationAccount}
               onValueChange={setDestinationAccount}
-              style={styles.picker}
             >
               <Picker.Item label="Selecione uma conta" value="" />
               {accountNames.length > 0 ? (
@@ -385,9 +379,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Value */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Valor (R$)</Text>
+          <Text style={formStyles.label}>Valor (R$)</Text>
           <TextInput
-            style={styles.input}
+            style={formStyles.input}
             value={value}
             onChangeText={setValue}
             placeholder="0,00"
@@ -398,9 +392,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Data */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Data</Text>
+          <Text style={formStyles.label}>Data</Text>
           <TextInput
-            style={styles.input}
+            style={formStyles.input}
             value={date}
             onChangeText={setDate}
             placeholder="YYYY-MM-DD"
@@ -410,9 +404,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Details */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Detalhes (Opcional)</Text>
+          <Text style={formStyles.label}>Detalhes (Opcional)</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[ formStyles.input ,formStyles.textArea]}
             value={details}
             onChangeText={setDetails}
             placeholder="Descrição adicional..."
@@ -424,7 +418,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Receipt */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Recibo (Opcional)</Text>
+          <Text style={formStyles.label}>Recibo (Opcional)</Text>
           
           {/* Botões de seleção de tipo */}
           <View style={styles.receiptTypeContainer}>
@@ -462,7 +456,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           {/* Campo de texto ou indicador de mídia */}
           {receiptType === 'text' ? (
             <TextInput
-              style={styles.input}
+              style={formStyles.input}
               value={receiptText}
               onChangeText={setReceiptText}
               placeholder="Número ou referência do recibo"
@@ -488,46 +482,32 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           )}
         </View>
 
-        {/* Modal para opções de imagem */}
-        <Modal
+        <AppModal
           visible={showReceiptOptions}
-          transparent
-          animationType="slide"
           onRequestClose={() => setShowReceiptOptions(false)}
+          title="Selecionar Recibo"
+          footer={null} 
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Selecionar Recibo</Text>
-              
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => handleImagePicker(true)}
-              >
-                <Text style={styles.modalOptionText}>📷 Tirar Foto</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => handleImagePicker(false)}
-              >
-                <Text style={styles.modalOptionText}>📁 Escolher da Galeria</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.modalCancel}
-                onPress={() => setShowReceiptOptions(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+          <TouchableOpacity 
+            style={GlobalStyles.modalOption}
+            onPress={() => handleImagePicker(true)}
+          >
+            <Text>📷 Tirar Foto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={GlobalStyles.modalOption}
+            onPress={() => handleImagePicker(false)}
+          >
+            <Text>📁 Escolher da Galeria</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowReceiptOptions(false)}></TouchableOpacity>
+        </AppModal>
 
         {/* Project */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Projeto (Opcional)</Text>
+          <Text style={formStyles.label}>Projeto (Opcional)</Text>
           <TextInput
-            style={styles.input}
+            style={formStyles.input}
             value={project}
             onChangeText={setProject}
             placeholder="Nome do projeto"
@@ -558,16 +538,17 @@ export const OperationForm: React.FC<OperationFormProps> = ({
         {/* Submit Button */}
         <TouchableOpacity
           style={[
-            styles.submitButton, 
-            (isLoading || categoryNames.length === 0 || accountNames.length === 0) && styles.submitButtonDisabled
+            buttonStyles.base,
+            buttonStyles.primary,
+            (isLoading || categoryNames.length === 0 || accountNames.length === 0) && buttonStyles.disabled
           ]}
           onPress={handleSubmit}
           disabled={isLoading || categoryNames.length === 0 || accountNames.length === 0}
         >
           {isLoading ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors.text.inverse} />
           ) : (
-            <Text style={styles.submitButtonText}>
+            <Text style={[typography.body1, { color: colors.text.inverse, fontWeight: 'bold' }]}> 
               {editOperation ? 'Atualizar Operação' : 'Criar Operação'}
             </Text>
           )}
@@ -575,11 +556,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
         {/* Reset Button */}
         <TouchableOpacity
-          style={styles.resetButton}
+          style={[buttonStyles.base, buttonStyles.secondary]}
           onPress={resetForm}
           disabled={isLoading}
         >
-          <Text style={styles.resetButtonText}>Limpar Formulário</Text>
+          <Text style={[typography.body1, { color: colors.text.inverse, fontWeight: 'bold' }]}>Limpar Formulário</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -587,23 +568,6 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.default,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  form: {
-    padding: componentSpacing.form.horizontal,
-    paddingBottom: componentSpacing.form.vertical,
-  },
-  title: {
-    ...typography.h2,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
   loadingText: {
     marginTop: spacing.sm,
     ...typography.body2,
@@ -611,35 +575,6 @@ const styles = StyleSheet.create({
   },
   fieldContainer: {
     marginBottom: spacing.md,
-  },
-  label: {
-    ...typography.body2,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-    color: colors.text.primary,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: 16,
-    backgroundColor: colors.background.default,
-    minHeight: 44,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 8,
-    backgroundColor: colors.background.default,
-  },
-  picker: {
-    height: 50,
   },
   infoContainer: {
     backgroundColor: colors.secondary[50],
@@ -740,49 +675,6 @@ const styles = StyleSheet.create({
   removeMediaButtonText: {
     color: colors.text.inverse,
     fontSize: 12,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background.default,
-    padding: spacing.lg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    color: colors.text.primary,
-  },
-  modalOption: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.gray[100],
-    borderRadius: 8,
-    marginBottom: spacing.sm,
-  },
-  modalOptionText: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: colors.text.primary,
-  },
-  modalCancel: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.gray[200],
-    borderRadius: 8,
-    marginTop: spacing.sm,
-  },
-  modalCancelText: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: colors.text.secondary,
     fontWeight: '600',
   },
 });

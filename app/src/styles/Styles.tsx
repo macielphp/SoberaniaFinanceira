@@ -9,6 +9,10 @@ const GlobalStyles = StyleSheet.    create({
     flex: 1,
     backgroundColor: colors.background.default,
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   page: {
     backgroundColor: colors.background.paper,
     color: colors.text.primary,
@@ -53,6 +57,53 @@ const GlobalStyles = StyleSheet.    create({
   },
   paddingHorizontal: {
     paddingHorizontal: spacing.md,
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: colors.text.primary,
+  },
+  modalContent: {
+    backgroundColor: colors.background.default,
+    padding: spacing.lg,
+    borderTopLeftRadius: spacing.md,
+    borderTopRightRadius: spacing.md,
+  },
+  modalBody: {
+    marginBottom: spacing.sm,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    gap: 10,
+  },
+  modalCloseButton: {
+    padding: spacing.sm,
+  },
+  modalOption: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.gray[100],
+    borderRadius: 8,
+    marginBottom: spacing.sm,
   },
 });
 

@@ -23,6 +23,7 @@ import GlobalStyles from '../../styles/Styles';
 import { colors, spacing, typography } from '../../styles/themes'
 import { Filters } from '../../components/Filters/Filters'
 import { Nature, State } from '../../services/FinanceService'
+import AppModal from '../../components/AppModal/AppModal';
 
 type ViewMode = 'menu' | 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
 
@@ -550,7 +551,7 @@ export const Register: React.FC = () => {
         </TouchableOpacity>
 
         {hasActiveFilters && (
-          <TouchableOpacity
+          <TouchableOpacity       
             style={styles.clearFiltersButton}
             onPress={clearAllFilters}
           >
@@ -561,25 +562,29 @@ export const Register: React.FC = () => {
       </View> 
 
       {/* Modal de filtros */}
-      <Modal
+      <AppModal
         visible={showFilters}
-        transparent={true}
-        animationType="slide"
         onRequestClose={() => setShowFilters(false)}
-      >
-        <View style={styles.modal}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filtros</Text>
+        title="Filtros"
+        scrollContent
+        footer={
+          <>
+            <TouchableOpacity
+                style={styles.clearFiltersButtonModal}
+                onPress={clearAllFilters}
+              >
+                <Text style={styles.clearFiltersTextModal}>Limpar Filtros</Text>
+              </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalCloseButton}
+                style={styles.applyFiltersButton}
                 onPress={() => setShowFilters(false)}
               >
-                <Ionicons name='close' size={24} />
+                <Text style={styles.applyFiltersText}>Aplicar</Text>
               </TouchableOpacity>
-            </View>
-            <ScrollView>
-              <Filters
+          </>
+        }
+      >
+        <Filters
                 nature={selectedNature}
                 setNature={setSelectedNature}
                 state={selectedState}
@@ -595,25 +600,7 @@ export const Register: React.FC = () => {
                 setStartDate={setSelectedStartDate}
                 setEndDate={setSelectedEndDate}
               />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.clearFiltersButtonModal}
-                onPress={clearAllFilters}
-              >
-                <Text style={styles.clearFiltersTextModal}>Limpar Filtros</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.applyFiltersButton}
-                onPress={() => setShowFilters(false)}
-              >
-                <Text style={styles.applyFiltersText}>Aplicar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      </AppModal>
 
       {/* Lista de operações */}
       <ScrollView style={styles.operationsList}>
