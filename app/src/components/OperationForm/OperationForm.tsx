@@ -11,6 +11,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Modal,
+  Image,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useFinance } from '../../contexts/FinanceContext';
@@ -26,6 +27,8 @@ import { colors, spacing, typography} from '../../styles/themes';
 import { componentSpacing } from '../../styles/themes/spacing'; 
 import { buttonStyles, formStyles } from '../../styles/components'
 import AppModal from '../AppModal/AppModal';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import * as FileSystem from 'expo-file-system';
 
 interface OperationFormProps {
   onSuccess?: () => void;
@@ -66,15 +69,101 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   const [project, setProject] = useState(editOperation?.project || '');
   const [isLoading, setIsLoading] = useState(false);
 
-  const [receiptType, setReceiptType] = useState<'text' | 'media'>('text');
+  // Determinar o tipo de receipt baseado na operação em edição
+  const getInitialReceiptType = (): 'text' | 'media' => {
+    if (editOperation?.receipt instanceof Uint8Array) {
+      return 'media';
+    }
+    return 'text';
+  };
+
+  const [receiptType, setReceiptType] = useState<'text' | 'media'>(getInitialReceiptType());
   const [receiptText, setReceiptText] = useState(
     typeof editOperation?.receipt === 'string' ? editOperation.receipt : ''
   );
   const [receiptMedia, setReceiptMedia] = useState<Uint8Array | undefined>(
     editOperation?.receipt instanceof Uint8Array ? editOperation.receipt : undefined
   );
+  const [receiptImageUri, setReceiptImageUri] = useState<string | undefined>(
+    undefined
+  );
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
 
+  // Função para converter Uint8Array para URI temporária
+  const convertUint8ArrayToUri = async (uint8Array: Uint8Array): Promise<string> => {
+    try {
+      const fileName = `receipt_${Date.now()}.jpg`;
+      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      
+      // Converter Uint8Array para base64 de forma mais robusta
+      let binaryString = '';
+      const len = uint8Array.length;
+      for (let i = 0; i < len; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
+      }
+      const base64 = btoa(binaryString);
+      
+      // Salvar no cache do sistema
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      console.log('✅ Arquivo temporário criado:', fileUri);
+      return fileUri;
+    } catch (error) {
+      console.error('❌ Erro ao converter Uint8Array para URI:', error);
+      
+      // Tentar método alternativo se o primeiro falhar
+      try {
+        console.log('🔄 Tentando método alternativo...');
+        const fileName = `receipt_alt_${Date.now()}.jpg`;
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+        
+        // Usar Buffer se disponível (React Native)
+        const base64 = Buffer.from(uint8Array).toString('base64');
+        
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        console.log('✅ Arquivo temporário criado (método alternativo):', fileUri);
+        return fileUri;
+      } catch (altError) {
+        console.error('❌ Método alternativo também falhou:', altError);
+        throw new Error('Falha ao processar imagem para visualização');
+      }
+    }
+  };
+
+  // Inicializar receiptImageUri quando há uma operação em edição com imagem
+  useEffect(() => {
+    const initializeReceiptImage = async () => {
+      if (editOperation?.receipt instanceof Uint8Array) {
+        try {
+          console.log('🔄 Inicializando imagem de recibo para edição...');
+          const uri = await convertUint8ArrayToUri(editOperation.receipt);
+          setReceiptImageUri(uri);
+          console.log('✅ Imagem de recibo inicializada com sucesso');
+        } catch (error) {
+          console.error('❌ Erro ao inicializar imagem de recibo:', error);
+          // Se falhar, volta para tipo texto
+          setReceiptType('text');
+        }
+      }
+    };
+
+    initializeReceiptImage();
+
+    // Cleanup: remover arquivo temporário quando componente for desmontado
+    return () => {
+      if (receiptImageUri && FileSystem.cacheDirectory && receiptImageUri.startsWith(FileSystem.cacheDirectory)) {
+        FileSystem.deleteAsync(receiptImageUri, { idempotent: true })
+          .then(() => console.log('🗑️ Arquivo temporário removido'))
+          .catch(err => console.log('⚠️ Erro ao remover arquivo temporário:', err));
+      }
+    };
+  }, [editOperation]);
 
   // Categories that support double operations
   const doubleOperationCategories = [
@@ -131,6 +220,13 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     setIsLoading(true);
     
     try {
+      // Log para debug do campo receipt
+      console.log('📋 Debug do campo receipt:');
+      console.log('  - receiptType:', receiptType);
+      console.log('  - receiptText:', receiptText);
+      console.log('  - receiptMedia:', receiptMedia ? `Uint8Array(${receiptMedia.length} bytes)` : 'undefined');
+      console.log('  - receipt (final):', receipt ? (typeof receipt === 'string' ? `string(${receipt.length})` : `Uint8Array(${receipt.length} bytes)`) : 'undefined');
+
       if (editOperation) {
         const operationData = {
           id: editOperation.id,
@@ -147,6 +243,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           state, // Include updated state
         };
 
+        console.log('🔄 Atualizando operação com receipt:', operationData.receipt ? 'presente' : 'ausente');
         await updateOperation(operationData);
         Alert.alert('Sucesso', 'Operação atualizada com sucesso!')
       } else {
@@ -163,6 +260,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           project: project.trim() || undefined,
           state,
         }
+        
+        console.log('🔄 Criando operação com receipt:', operationData.receipt ? 'presente' : 'ausente');
+        
         if (doubleOperationCategories.includes(category)) {
           await createDoubleOperation(operationData);
           Alert.alert('Sucesso', 'Operação dupla criada com sucesso!');
@@ -176,8 +276,8 @@ export const OperationForm: React.FC<OperationFormProps> = ({
       resetForm();
       onSuccess?.();
     } catch (error) {
+      console.error('❌ Erro ao salvar operação:', error);
       Alert.alert('Erro', editOperation ? 'Falha ao atualizar operação' : 'Falha ao criar operação');
-      console.error('Error creating operation:', error);
     } finally {
       setIsLoading(false);
     }
@@ -193,49 +293,109 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     setValue('');
     setCategory(categoryNames[0] || 'Alimento-supermercado');
     setDetails('');
-    setReceiptType('text'); // Adicionar esta linha
-    setReceiptText(''); // Adicionar esta linha
-    setReceiptMedia(undefined); // Adicionar esta linha
-    setReceipt(''); 
+    setReceiptType('text');
+    setReceiptText('');
+    setReceiptMedia(undefined);
+    setReceipt('');
     setProject('');
+    setReceiptImageUri(undefined);
   };
 
   const handleImagePicker = async (useCamera: boolean) => {
     try {
+      console.log('🔄 Iniciando seleção de imagem...');
+      
       const { status } = useCamera 
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      console.log('📱 Status da permissão:', status);
       
       if (status !== 'granted') {
         Alert.alert('Erro', 'Permissão necessária para acessar a câmera/galeria');
         return;
       }
 
+      console.log('📸 Lançando picker...');
       const result = useCamera
         ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.8,
-          })
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: undefined,
+          quality: 0.8,
+        })
         : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.8,
-          });
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: undefined,
+          quality: 0.8,
+        });
+
+      console.log('📋 Resultado do picker:', result);
 
       if (!result.canceled && result.assets[0]) {
+        console.log('🖼️ Imagem selecionada:', result.assets[0].uri);
+        
+        console.log('🌐 Fazendo fetch da imagem...');
         const response = await fetch(result.assets[0].uri);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        console.log('📦 Convertendo para blob...');
         const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
+        console.log('📦 Tamanho do blob:', blob.size);
+        
+        // Método compatível com React Native
+        console.log('🔄 Convertendo para Uint8Array...');
+        const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (reader.result instanceof ArrayBuffer) {
+              resolve(reader.result);
+            } else {
+              reject(new Error('Falha ao ler blob como ArrayBuffer'));
+            }
+          };
+          reader.onerror = () => reject(new Error('Erro ao ler blob'));
+          reader.readAsArrayBuffer(blob);
+        });
+        
+        console.log('🔄 Tamanho do ArrayBuffer:', arrayBuffer.byteLength);
+        
+        console.log('💾 Criando Uint8Array...');
         const uint8Array = new Uint8Array(arrayBuffer);
+        console.log('💾 Tamanho do Uint8Array:', uint8Array.length);
         
         setReceiptMedia(uint8Array);
         setReceiptType('media');
+        setReceiptImageUri(result.assets[0].uri);
+        console.log('✅ Imagem processada com sucesso!');
+      } else {
+        console.log('❌ Usuário cancelou a seleção');
       }
     } catch (error) {
-      Alert.alert('Erro', 'Falha ao processar imagem');
+      console.error('❌ Erro detalhado:', error);
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      
+      let errorMessage = 'Falha ao processar imagem';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          errorMessage = 'Erro ao carregar a imagem do dispositivo';
+        } else if (error.message.includes('blob')) {
+          errorMessage = 'Erro ao processar o formato da imagem';
+        } else if (error.message.includes('permission')) {
+          errorMessage = 'Permissão negada para acessar câmera/galeria';
+        } else if (error.message.includes('FileReader')) {
+          errorMessage = 'Erro ao processar a imagem no dispositivo';
+        } else {
+          errorMessage = `Erro: ${error.message}`;
+        }
+      }
+      
+      Alert.alert('Erro', errorMessage);
     } finally {
       setShowReceiptOptions(false);
     }
@@ -249,6 +409,10 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     } else {
       setState('receber');
     }
+  }, [nature]);
+
+  // Controlar o valor do receipt baseado no tipo
+  React.useEffect(() => {
     if (receiptType === 'text') {
       setReceipt(receiptText);
     } else if (receiptMedia !== undefined) {
@@ -256,7 +420,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     } else {
       setReceipt('');
     }
-  }, [nature, receiptType, receiptText, receiptMedia]);
+  }, [receiptType, receiptText, receiptMedia]);
 
   // Show loading indicator while data is being loaded
   if (dataLoading) {
@@ -442,13 +606,21 @@ export const OperationForm: React.FC<OperationFormProps> = ({
                 styles.receiptTypeButton,
                 receiptType === 'media' && styles.receiptTypeButtonActive
               ]}
-              onPress={() => setShowReceiptOptions(true)}
+              onPress={() => {
+                if (receiptMedia) {
+                  // Se já há uma imagem, mostrar preview
+                  setShowImagePreview(true);
+                } else {
+                  // Se não há imagem, mostrar opções para selecionar
+                  setShowReceiptOptions(true);
+                }
+              }}
             >
               <Text style={[
                 styles.receiptTypeButtonText,
                 receiptType === 'media' && styles.receiptTypeButtonTextActive
               ]}>
-                Imagem
+                {receiptMedia ? 'Imagem ✓' : 'Imagem'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -464,14 +636,28 @@ export const OperationForm: React.FC<OperationFormProps> = ({
             />
           ) : (
             <View style={styles.mediaIndicator}>
-              <Text style={styles.mediaIndicatorText}>
-                {receiptMedia ? '✓ Imagem anexada' : 'Nenhuma imagem selecionada'}
-              </Text>
+              <TouchableOpacity
+                style={styles.mediaIndicatorContent}
+                onPress={() => {
+                  if (receiptImageUri) {
+                    setShowImagePreview(true);
+                  }
+                }}
+                disabled={!receiptImageUri}
+              >
+                <Text style={styles.mediaIndicatorText}>
+                  {receiptImageUri ? '✓ Imagem anexada (clique para visualizar)' : 'Nenhuma imagem selecionada'}
+                </Text>
+                {receiptImageUri && (
+                  <Ionicons name="eye" size={20} color={colors.primary[500]} />
+                )}
+              </TouchableOpacity>
               {receiptMedia && (
                 <TouchableOpacity
                   style={styles.removeMediaButton}
                   onPress={() => {
                     setReceiptMedia(undefined);
+                    setReceiptImageUri(undefined);
                     setReceiptType('text');
                   }}
                 >
@@ -502,6 +688,37 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowReceiptOptions(false)}></TouchableOpacity>
         </AppModal>
+
+        {/* Modal de visualização da imagem */}
+        <Modal
+          visible={showImagePreview}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowImagePreview(false)}
+        >
+          <View style={styles.imagePreviewOverlay}>
+            <View style={styles.imagePreviewContainer}>
+              <View style={styles.imagePreviewHeader}>
+                <Text style={styles.imagePreviewTitle}>Visualizar Recibo</Text>
+                <TouchableOpacity
+                  style={styles.imagePreviewCloseButton}
+                  onPress={() => setShowImagePreview(false)}
+                >
+                  <Ionicons name="close" size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+              {receiptImageUri && (
+                <View style={styles.imagePreviewContent}>
+                  <Image
+                    source={{ uri: receiptImageUri }}
+                    style={styles.imagePreview}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Project */}
         <View style={styles.fieldContainer}>
@@ -662,6 +879,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  mediaIndicatorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.xs,
+  },
   mediaIndicatorText: {
     fontSize: 16,
     color: colors.text.secondary,
@@ -676,6 +899,48 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontSize: 12,
     fontWeight: '600',
+  },
+  imagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  imagePreviewContainer: {
+    backgroundColor: colors.background.default,
+    borderRadius: 12,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  imagePreviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  imagePreviewTitle: {
+    ...typography.h4,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  imagePreviewCloseButton: {
+    padding: spacing.xs,
+  },
+  imagePreviewContent: {
+    padding: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 220,
+    borderRadius: 8,
   },
 });
 

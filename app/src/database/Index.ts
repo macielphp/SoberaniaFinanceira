@@ -22,8 +22,18 @@ const db = SQLite.openDatabaseSync('finance.db');
 
 // Função auxiliar para converter Blob para Uint8Array
 const blobToUint8Array = async (blob: Blob): Promise<Uint8Array> => {
-    const arrayBuffer = await blob.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+    return new Promise<Uint8Array>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (reader.result instanceof ArrayBuffer) {
+                resolve(new Uint8Array(reader.result));
+            } else {
+                reject(new Error('Falha ao ler blob como ArrayBuffer'));
+            }
+        };
+        reader.onerror = () => reject(new Error('Erro ao ler blob'));
+        reader.readAsArrayBuffer(blob);
+    });
 };
 
 // Criando a tabela se não existir
@@ -133,22 +143,33 @@ const insertDefaultAccounts = async () => {
 // CRUD para operações
 export const insertOperation = async (operation: Operation) => {
     try {
+        console.log('🗄️ Iniciando inserção de operação no banco...');
+        
         const {
             id, nature, state, paymentMethod, sourceAccount, destinationAccount, date, value, category,
             details, receipt, project
         } = operation;
 
+        console.log('📋 Receipt recebido:', receipt ? (typeof receipt === 'string' ? `string(${receipt.length})` : `Uint8Array(${receipt.length} bytes)`) : 'null/undefined');
+
         // Converter receipt para Uint8Array se for Blob
         let receiptData: Uint8Array | null = null;
         if (receipt) {
             if (receipt instanceof Blob) {
+                console.log('🔄 Convertendo Blob para Uint8Array...');
                 receiptData = await blobToUint8Array(receipt);
             } else if (receipt instanceof Uint8Array) {
+                console.log('✅ Receipt já é Uint8Array, usando diretamente');
                 receiptData = receipt;
+            } else if (typeof receipt === 'string') {
+                console.log('📝 Receipt é string, não será salvo como imagem');
+                receiptData = null; // String não é salva no campo BLOB
             }
         }
 
-        return await db.runAsync(
+        console.log('💾 Receipt final para banco:', receiptData ? `Uint8Array(${receiptData.length} bytes)` : 'null');
+
+        const result = await db.runAsync(
             `INSERT INTO operations (
             id, nature, state, paymentMethod, sourceAccount, destinationAccount, date, value, category,
             details, receipt, project
@@ -156,8 +177,11 @@ export const insertOperation = async (operation: Operation) => {
             [id, nature, state, paymentMethod, sourceAccount, destinationAccount, date, value,
              category, details ?? null, receiptData, project ?? null]
         );
+        
+        console.log('✅ Operação inserida com sucesso!');
+        return result;
     } catch (err) {
-        console.error('Erro ao inserir operação:', err);
+        console.error('❌ Erro ao inserir operação:', err);
         throw new Error('Falha ao salvar operação no banco de dados.');
     }
 };
