@@ -1,1 +1,0 @@
-Deploy	Publicação em loja (ou via Expo) + documentação	1 semana	Expo, GitHub, Notion
