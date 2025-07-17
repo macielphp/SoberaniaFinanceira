@@ -10,7 +10,7 @@ import {
   Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Category, Account } from '../../database/Index'
+import { Category, Account } from '../../database'
 import { useFinance } from '../../contexts/FinanceContext';
 import { Operation } from '../../services/FinanceService';
 import { OperationForm } from '../../components/OperationForm/OperationForm';
@@ -217,12 +217,12 @@ export const Register: React.FC = () => {
     setShowCategoryForm(true);
   };
 
-  const handleCategorySubmit = async (name: string): Promise<boolean> => {
+  const handleCategorySubmit = async (name: string, type: 'income' | 'expense'): Promise<boolean> => {
     try {
       if (editingCategory) {
-        await editCategory(editingCategory.id, name);
+        await editCategory(editingCategory.id, name, type);
       } else {
-        await createCategory(name);
+        await createCategory(name, type);
       }
       return true;
     } catch (error) {
@@ -370,12 +370,27 @@ export const Register: React.FC = () => {
           categories.map((category: Category) => (
             <View key={category.id} style={styles.itemCard}>
               <View style={styles.itemInfo}>
-                <Ionicons name="pricetag" size={20} color="#9C27B0" />
+                <Ionicons 
+                  name={category.type === 'income' ? "trending-up" : "trending-down"} 
+                  size={20} 
+                  color={category.type === 'income' ? "#4CAF50" : "#F44336"} 
+                />
                 <View style={styles.itemDetails}>
                   <Text style={styles.itemName}>{category.name}</Text>
+                  <View style={styles.itemMeta}>
+                    <Text style={[
+                      styles.typeBadge, 
+                      { 
+                        backgroundColor: category.type === 'income' ? '#4CAF50' : '#F44336',
+                        color: 'white'
+                      }
+                    ]}>
+                      {category.type === 'income' ? 'Receita' : 'Despesa'}
+                    </Text>
                   {category.isDefault && (
                     <Text style={styles.defaultBadge}>Padrão</Text>
                   )}
+                  </View>
                 </View>
               </View>
               <View style={styles.itemActions}>
@@ -1038,6 +1053,19 @@ export const Register: React.FC = () => {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
+  },
+  itemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 8,
+  },
+  typeBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
 
   

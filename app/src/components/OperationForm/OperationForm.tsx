@@ -45,6 +45,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     updateOperationState,
     updateOperation,
     getCategoryNames,
+    getCategoryNamesByType,
     getAccountNames,
     categories,
     accounts,
@@ -174,6 +175,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
 
   // Get dynamic data from database
   const categoryNames = getCategoryNames();
+  const categoryNamesByType = getCategoryNamesByType(nature === 'receita' ? 'income' : 'expense');
   const accountNames = getAccountNames();
 
   const paymentMethods: PaymentMethod[] = [
@@ -230,6 +232,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
       if (editOperation) {
         const operationData = {
           id: editOperation.id,
+          user_id: editOperation.user_id || 'user-1',
           nature,
           paymentMethod,
           sourceAccount: sourceAccount.trim(),
@@ -248,6 +251,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
         Alert.alert('Sucesso', 'Operação atualizada com sucesso!')
       } else {
         const operationData = {
+          user_id: 'user-1', // Default user ID
           nature,
           paymentMethod,
           sourceAccount: sourceAccount.trim(),
@@ -411,6 +415,14 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     }
   }, [nature]);
 
+  // Reset category when nature changes
+  React.useEffect(() => {
+    const availableCategories = getCategoryNamesByType(nature === 'receita' ? 'income' : 'expense');
+    if (availableCategories.length > 0 && !availableCategories.includes(category)) {
+      setCategory(availableCategories[0]);
+    }
+  }, [nature, getCategoryNamesByType]);
+
   // Controlar o valor do receipt baseado no tipo
   React.useEffect(() => {
     if (receiptType === 'text') {
@@ -475,8 +487,8 @@ export const OperationForm: React.FC<OperationFormProps> = ({
               selectedValue={category}
               onValueChange={setCategory}
             >
-              {categoryNames.length > 0 ? (
-                categoryNames.map((categoryName) => (
+              {categoryNamesByType.length > 0 ? (
+                categoryNamesByType.map((categoryName) => (
                   <Picker.Item key={categoryName} label={categoryName} value={categoryName} />
                 ))
               ) : (

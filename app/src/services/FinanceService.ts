@@ -71,6 +71,7 @@ export type Category =
 // Interface principal
 export interface Operation {
   id: string;
+  user_id: string;
   nature: Nature;
   state: State;
   paymentMethod: PaymentMethod;
@@ -96,6 +97,7 @@ export class FinanceService {
 
   // Cria uma operação dupla (movimentação interna, adiantamento, reparação)
   createDoubleOperation({
+    user_id,
     nature,
     paymentMethod,
     sourceAccount,
@@ -108,6 +110,7 @@ export class FinanceService {
     project
   }: Omit<Operation, 'id' | 'state'>): Operation[] {
     const baseId = generateUUID();
+    const userId = user_id || 'user-1'; // Default user ID
 
     // Configurações baseadas na categoria
     let firstOperation: Operation;
@@ -118,6 +121,7 @@ export class FinanceService {
         // Caso 2: Movimentação interna entre contas próprias
         firstOperation = {
           id: `${baseId}-1`,
+          user_id: userId,
           nature: 'despesa',
           state: 'transferir',
           paymentMethod,
@@ -133,6 +137,7 @@ export class FinanceService {
 
         secondOperation = {
           id: `${baseId}-2`,
+          user_id: userId,
           nature: 'receita',
           state: 'receber',
           paymentMethod,
@@ -151,6 +156,7 @@ export class FinanceService {
         // Caso 4: Adiantamento
         firstOperation = {
           id: `${baseId}-1`,
+          user_id: userId,
           nature,
           state: nature === 'despesa' ? 'pagar' : 'recebido',
           paymentMethod,
@@ -166,6 +172,7 @@ export class FinanceService {
 
         secondOperation = {
           id: `${baseId}-2`,
+          user_id: userId,
           nature: nature === 'despesa' ? 'receita' : 'despesa',
           state: nature === 'despesa' ? 'receber' : 'pagar',
           paymentMethod,
@@ -184,6 +191,7 @@ export class FinanceService {
         // Caso 5: Reparação
         firstOperation = {
           id: `${baseId}-1`,
+          user_id: userId,
           nature,
           state: nature === 'despesa' ? 'pagar' : 'recebido',
           paymentMethod,
@@ -201,6 +209,7 @@ export class FinanceService {
         if (nature === 'receita') {
           secondOperation = {
             id: `${baseId}-2`,
+            user_id: userId,
             nature: 'despesa',
             state: 'pagar',
             paymentMethod,

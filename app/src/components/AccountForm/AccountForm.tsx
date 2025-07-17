@@ -8,7 +8,7 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Account } from '../../database/Index';
+import { Account } from '../../database';
 
 
 interface AccountFormProps {

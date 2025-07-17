@@ -13,7 +13,11 @@ Este documento define o modelo de dados lógico do sistema de finanças pessoais
 - **Operation (Operação)**: Registro de movimentação financeira
 - **Account (Conta)**: Contas bancárias e formas de pagamento
 - **Category (Categoria)**: Classificação das operações
+- **Budget (Orçamento)**
+- **Goal (Meta)**
+- **Projection (projeção)**
 
+## Tabela Operation
 ### 🔄 Tipos de Operações
 
 #### Por Natureza:
@@ -30,7 +34,7 @@ Este documento define o modelo de dados lógico do sistema de finanças pessoais
 
 ---
 
-## 📝 Casos de Uso Detalhados
+## Operation: 📝 Casos de Uso Detalhados
 
 ### 🔵 Caso 1: Despesa Simples - Cartão de Crédito
 
@@ -361,9 +365,9 @@ Operação: Receita e Despesa | PIX | Reparação | Recebido e Pago
 
 ---
 
-## 🔧 Regras de Negócio
+### 🔧 Regras de Negócio
 
-### 📊 Cálculo de Saldo
+#### 📊 Cálculo de Saldo
 
 ```javascript
 // Lógica de cálculo de saldo por conta
@@ -386,7 +390,7 @@ function calculateBalance(operations, account) {
 }
 ```
 
-### 🔄 Transições de Estado
+#### 🔄 Transições de Estado
 
 | Estado Atual | Estados Possíveis | Descrição |
 |--------------|-------------------|-----------|
@@ -397,35 +401,35 @@ function calculateBalance(operations, account) {
 | `pago` | - | Estado final |
 | `transferido` | - | Estado final |
 
-### 🏷️ Categorias Especiais
+#### 🏷️ Categorias Especiais
 
-#### Movimentação Interna
+##### Movimentação Interna
 - Sempre gera **duas operações** automáticas
 - Estados: `transferir/receber` → `transferido/recebido`
 - Contas: origem e destino do mesmo usuário
 
-#### Adiantamento
+##### Adiantamento
 - Primeira operação: valor recebido/pago
 - Segunda operação: obrigação de pagar/receber
 - Quitação: manual pelo usuário
 
-#### Reparação
+##### Reparação
 - Para recebimento: gera operação de reposição
 - Para pagamento: operação única
 - Categoria mantém histórico do motivo
 
 ---
 
-## 📋 Validações do Sistema
+### 📋 Validações do Sistema
 
-### ✅ Validações Obrigatórias
+#### ✅ Validações Obrigatórias
 
 1. **Contas**: Origem e destino devem existir
 2. **Valores**: Positivos na entrada, negativos na saída
 3. **Datas**: Formato ISO (YYYY-MM-DD)
 4. **Estados**: Compatíveis com a natureza da operação
 
-### ⚠️ Validações de Negócio
+#### ⚠️ Validações de Negócio
 
 1. **Movimentação Interna**: Origem ≠ Destino
 2. **Datas Futuras**: Apenas para estados planejados
@@ -434,26 +438,26 @@ function calculateBalance(operations, account) {
 
 ---
 
-## 🎯 Considerações Importantes
+### 🎯 Considerações Importantes
 
-### 🔗 Relacionamentos
+#### 🔗 Relacionamentos
 - Operações duplas compartilham ID base
 - Categorias especiais têm lógicas próprias
 - Estados controlam impacto no saldo
 
-### 📊 Performance
+#### 📊 Performance
 - Índices em data, categoria e contas
 - Consultas otimizadas por período
 - Cálculos de saldo em tempo real
 
-### 🛡️ Integridade
+#### 🛡️ Integridade
 - Validações antes da persistência
 - Transações para operações duplas
 - Rollback em caso de falha
 
 ---
 
-## 📖 Glossário
+### 📖 Glossário
 
 - **Operação**: Registro de movimentação financeira
 - **Natureza**: Tipo da operação (receita/despesa)
@@ -463,3 +467,75 @@ function calculateBalance(operations, account) {
 - **Operação Dupla**: Duas operações relacionadas
 - **Saldo**: Valor atual de uma conta
 - **Pendência**: Operação não concluída
+
+## Budget: Casos de Uso Detalhados
+
+### Caso 1: Laisa
+**Situação Financeira:**
+- Renda: R$ 5.000,00/mês
+- Gastos fixos:
+  - Aluguel: R$ 1.400,00
+  - Alimentação: R$ 1.000,00
+  - Assinaturas: R$ 200,00
+  - Outros: R$ 100,00
+- Total de gastos: R$ 2.700,00
+- Saldo disponível: R$ 2.300,00
+**Resultado:** Saldo positivo de R$ 2.300(46%)
+
+### Sistema de Indicadores
+
+#### Indicador de Performance
+- **Superávit**: Quando gasto < orçamento
+- **Equilibrado**: Quando gasto = orçamento
+- **Déficit**: Quando gasto > orçamento
+
+#### Cálculos dos Indicadores
+- **Percentual de economia:** ((Orçamento - Gasto Real) / Orçamento) × 100
+- **Percentual de estouro:** ((Gasto Real - Orçamento) / Orçamento) × 100
+- **Valor absoluto da diferença:** |Orçamento - Gasto Real|
+
+#### Estrutura de dados
+
+### Regras de negócio
+
+## Goal: Casos de Uso Detalhados
+
+### Caso 1: Faculdade
+Hugo quer fazer uma pós-graduação. Já viu que vem economizando R$2.500 mensalmente.
+1. Quer fazer uma graduação.
+2. Valor Monetário: Ele mensurá que vai ter uma gasto total R$12.000,00 com as mensalidades.
+3. Datas: 01/05/2026 - 01/11/2027
+4. Renda Mensal Atual R$8.000,00
+5. Gastos Mensais Fixos: R$2.000,00
+6. Valor Disponível para Meta por Mês(Renda - Gastos Fixos): R$ 6.000,00
+7. Importância da Meta: Hugo quer aprofundar seus conhecimentos em Engenharia social e precisa do diploma pois é um requísito para o cargo de diretor.
+8. Prioridade: 5
+9. Estratégia de Execução: Aumentar receitas
+10. Valor Mensal Destinado: R$ 667.00
+#### Services
+1. Verificar se a data é está um dia além do atual.
+2. Verificar se a data final está à frente da data de inicio.
+3. Puxar qual foi a renda(receita) do mês anterior
+
+#### Estrutura de dados
+
+### Regras de negócio
+
+
+## Projection: Casos de Uso Detalhados
+
+### Caso 1: Hugo
+- 3 meses de histórico financeiro no app
+- Orçamento definido e sempre em superávit
+- Meta de fazer pós-graduação definida.
+- Necessidade de projetar cenários de financiamento:Cenário 6, 12, 18 meses...
+
+
+#### Estrutura de dados
+
+### Regras de negócio
+
+### Telas do Módulo
+1. **Visualização**: Projeções salvas e em acompanhamento
+2. **Criação**: Formulário para novas projeções
+3. **Gerenciamento**: Edição e análise de projeções existentes

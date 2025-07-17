@@ -1,7 +1,7 @@
 // app\src\contexts\FinanceContext.tsx
 import React, { createContext, useContext, useCallback, useEffect, useState, useMemo } from 'react';
 import { Operation } from '../services/FinanceService';
-import { Category, Account } from '../database/Index';
+import { Category, Account } from '../database';
 import { FinanceService } from '../services/FinanceService';
 import { 
   getAllOperations, 
@@ -16,8 +16,22 @@ import {
   updateCategory,
   updateAccount,
   deleteCategory,
-  deleteAccount
-} from '../database/Index';
+  deleteAccount,
+  // Budget functions
+  createManualBudget,
+  createAutomaticBudget,
+  getActiveBudget,
+  getBudgetById,
+  updateBudgetWithItems,
+  deleteBudget,
+  calculateBudgetPerformance,
+  calculateMonthlyBudgetPerformance,
+  getHistoricalDataForAutomaticBudget,
+  Budget,
+  BudgetPerformance,
+  BudgetItemInput,
+  MonthlyBudgetBalance
+} from '../database';
 
 // Interfaces para Financial Summary
 interface MonthOption {
@@ -59,6 +73,12 @@ interface FinanceContextType {
   financialSummary: FinancialSummaryData;
   filteredOperations: Operation[];
   
+  // Budget - Estados
+  activeBudget: Budget | null;
+  budgetLoading: boolean;
+  selectedBudgetMonth: string;
+  monthlyBudgetPerformance: MonthlyBudgetBalance | null;
+  
   // Operações
   createSimpleOperation: (operationData: Omit<Operation, 'id'>) => Promise<Operation>;
   createDoubleOperation: (operationData: Omit<Operation, 'id' | 'state'>) => Promise<Operation[]>;
@@ -75,16 +95,27 @@ interface FinanceContextType {
   }) => Operation[];
   
   // Categorias
-  createCategory: (name: string) => Promise<boolean>;
-  editCategory: (id: string, name: string) => Promise<boolean>;
+  createCategory: (name: string, type: 'income' | 'expense') => Promise<boolean>;
+  editCategory: (id: string, name: string, type: 'income' | 'expense') => Promise<boolean>;
   removeCategory: (id: string) => Promise<boolean>;
   getCategoryNames: () => string[];
+  getCategoryNamesByType: (type: 'income' | 'expense') => string[];
   
   // Contas
   createAccount: (name: string) => Promise<boolean>;
   editAccount: (id: string, name: string) => Promise<boolean>;
   removeAccount: (id: string) => Promise<boolean>;
   getAccountNames: () => string[];
+  
+  // Budget - Funções
+  createManualBudget: (name: string, start_period: string, end_period: string, budget_items: BudgetItemInput[]) => Promise<Budget>;
+  createAutomaticBudget: (name: string, start_period: string, end_period: string, base_month: string) => Promise<Budget>;
+  updateBudget: (budget: Budget, budget_items: BudgetItemInput[]) => Promise<Budget>;
+  deleteBudget: (id: string) => Promise<void>;
+  getBudgetPerformance: (budget_id: string) => Promise<BudgetPerformance>;
+  getHistoricalDataForBudget: (base_month: string) => Promise<{ category: string; nature: string; total_value: number }[]>;
+  refreshActiveBudget: () => Promise<void>;
+  loadMonthlyBudgetPerformance: (month: string) => Promise<void>;
   
   // Financial Summary - Funções
   setSelectedPeriod: (period: string) => void;
@@ -111,7 +142,39 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Financial Summary - Estados
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   
+  // Budget - Estados
+  const [activeBudget, setActiveBudget] = useState<Budget | null>(null);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [selectedBudgetMonth, setSelectedBudgetMonth] = useState<string>('');
+  const [monthlyBudgetPerformance, setMonthlyBudgetPerformance] = useState<MonthlyBudgetBalance | null>(null);
+  
   const financeService = new FinanceService();
+
+  // BUDGET FUNCTIONS
+  const refreshActiveBudget = useCallback(async () => {
+    try {
+      setBudgetLoading(true);
+      const budget = await getActiveBudget('user-1'); // TODO: Get real user ID
+      setActiveBudget(budget);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar orçamento ativo');
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, []);
+
+  const loadMonthlyBudgetPerformance = useCallback(async (month: string) => {
+    try {
+      setBudgetLoading(true);
+      const performance = await calculateMonthlyBudgetPerformance('user-1', month);
+      setMonthlyBudgetPerformance(performance);
+      setSelectedBudgetMonth(month);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar desempenho mensal');
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, []);
 
   // Financial Summary - Gerar opções de meses baseado nas operações existentes
   const monthOptions = useMemo((): MonthOption[] => {
@@ -287,25 +350,42 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Função para carregar todos os dados
   const loadAllData = useCallback(async () => {
     try {
+      console.log('🔄 Iniciando carregamento de dados...');
       setLoading(true);
       setError(null);
       
+      console.log('📊 Carregando operações, categorias e contas...');
       const [operationsData, categoriesData, accountsData] = await Promise.all([
         getAllOperations(),
         getAllCategories(),
         getAllAccounts()
       ]);
       
+      console.log(`✅ Dados carregados: ${operationsData.length} operações, ${categoriesData.length} categorias, ${accountsData.length} contas`);
+      
       setOperations(operationsData);
       setCategories(categoriesData);
       setAccounts(accountsData);
+      
+      // Load budgets (sem dependência circular)
+      try {
+        console.log('💰 Carregando orçamento ativo...');
+        const budget = await getActiveBudget('user-1');
+        setActiveBudget(budget);
+        console.log('✅ Orçamento carregado:', budget ? 'encontrado' : 'não encontrado');
+      } catch (budgetErr) {
+        console.error('❌ Erro ao carregar orçamento:', budgetErr);
+        // Não falhar o carregamento principal por causa do orçamento
+      }
+      
+      console.log('🎉 Carregamento de dados concluído!');
     } catch (err) {
+      console.error('❌ Erro ao carregar dados:', err);
       setError('Erro ao carregar dados');
-      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // Remover dependência circular
 
   // Função de refresh pública
   const refreshAllData = useCallback(async () => {
@@ -431,7 +511,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [loadAllData]);
 
   // CATEGORIAS
-  const createCategory = useCallback(async (name: string): Promise<boolean> => {
+  const createCategory = useCallback(async (name: string, type: 'income' | 'expense'): Promise<boolean> => {
     try {
       if (!name.trim()) {
         throw new Error('Nome da categoria é obrigatório');
@@ -447,6 +527,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const newCategory = {
         name: name.trim(),
+        type,
         isDefault: false,
         createdAt: new Date().toISOString()
       };
@@ -460,7 +541,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [categories, loadAllData]);
 
-  const editCategory = useCallback(async (id: string, name: string): Promise<boolean> => {
+  const editCategory = useCallback(async (id: string, name: string, type: 'income' | 'expense'): Promise<boolean> => {
     try {
       if (!name.trim()) {
         throw new Error('Nome da categoria é obrigatório');
@@ -486,7 +567,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const updatedCategory = {
         ...category,
-        name: name.trim()
+        name: name.trim(),
+        type
       };
 
       await updateCategory(updatedCategory);
@@ -611,9 +693,100 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return categories.map(cat => cat.name).sort();
   }, [categories]);
 
-  const getAccountNames = useCallback((): string[] => {
+    const getAccountNames = useCallback((): string[] => {
     return accounts.map(acc => acc.name).sort();
   }, [accounts]);
+
+  const getCategoryNamesByType = useCallback((type: 'income' | 'expense'): string[] => {
+    return categories
+      .filter(cat => cat.type === type)
+      .map(cat => cat.name)
+      .sort();
+  }, [categories]);
+
+  // BUDGET FUNCTIONS
+  const createManualBudgetContext = useCallback(async (
+    name: string, 
+    start_period: string, 
+    end_period: string, 
+    budget_items: BudgetItemInput[]
+  ): Promise<Budget> => {
+    try {
+      setBudgetLoading(true);
+      const budget = await createManualBudget('user-1', name, start_period, end_period, budget_items);
+      await refreshActiveBudget();
+      return budget;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar orçamento manual');
+      throw err;
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, [refreshActiveBudget]);
+
+  const createAutomaticBudgetContext = useCallback(async (
+    name: string, 
+    start_period: string, 
+    end_period: string, 
+    base_month: string
+  ): Promise<Budget> => {
+    try {
+      setBudgetLoading(true);
+      const budget = await createAutomaticBudget('user-1', name, start_period, end_period, base_month);
+      await refreshActiveBudget();
+      return budget;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar orçamento automático');
+      throw err;
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, [refreshActiveBudget]);
+
+  const updateBudget = useCallback(async (budget: Budget, budget_items: BudgetItemInput[]): Promise<Budget> => {
+    try {
+      setBudgetLoading(true);
+      const updatedBudget = await updateBudgetWithItems(budget, budget_items);
+      await refreshActiveBudget();
+      return updatedBudget;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar orçamento');
+      throw err;
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, [refreshActiveBudget]);
+
+  const deleteBudget = useCallback(async (id: string): Promise<void> => {
+    try {
+      setBudgetLoading(true);
+      await deleteBudget(id);
+      await refreshActiveBudget();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir orçamento');
+      throw err;
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, [refreshActiveBudget]);
+
+  const getBudgetPerformance = useCallback(async (budget_id: string): Promise<BudgetPerformance> => {
+    try {
+      return await calculateBudgetPerformance(budget_id, 'user-1'); // TODO: Get real user ID
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao calcular performance do orçamento');
+      throw err;
+    }
+  }, []);
+
+  const getHistoricalDataForBudget = useCallback(async (base_month: string) => {
+    try {
+      return await getHistoricalDataForAutomaticBudget('user-1', base_month); // TODO: Get real user ID
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao buscar dados históricos');
+      throw err;
+    }
+  }, []);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -621,8 +794,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Inicialização
   useEffect(() => {
-    setupDatabase().then(() => loadAllData());
-  }, [loadAllData]);
+    const initializeApp = async () => {
+      try {
+        console.log('🚀 Iniciando aplicação...');
+        await setupDatabase();
+        console.log('✅ Banco configurado, carregando dados...');
+        await loadAllData();
+        console.log('✅ Aplicação inicializada com sucesso!');
+      } catch (err) {
+        console.error('❌ Erro na inicialização:', err);
+        setError('Erro ao inicializar aplicação');
+      }
+    };
+    
+    initializeApp();
+  }, []); // Remover dependência circular
 
   const contextValue: FinanceContextType = {
     // Estados
@@ -638,6 +824,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     financialSummary,
     filteredOperations,
     
+    // Budget - Estados
+    activeBudget,
+    budgetLoading,
+    selectedBudgetMonth,
+    monthlyBudgetPerformance,
+    
     // Operações
     createSimpleOperation,
     createDoubleOperation,
@@ -651,12 +843,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     editCategory,
     removeCategory,
     getCategoryNames,
+    getCategoryNamesByType,
     
     // Contas
     createAccount,
     editAccount,
     removeAccount,
     getAccountNames,
+    
+    // Budget - Funções
+    createManualBudget: createManualBudgetContext,
+    createAutomaticBudget: createAutomaticBudgetContext,
+    updateBudget,
+    deleteBudget,
+    getBudgetPerformance,
+    getHistoricalDataForBudget,
+    refreshActiveBudget,
+    loadMonthlyBudgetPerformance,
     
     // Financial Summary - Funções
     setSelectedPeriod,

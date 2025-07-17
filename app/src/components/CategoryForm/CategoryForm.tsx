@@ -8,11 +8,12 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Category } from '../../database/Index';
+import { Picker } from '@react-native-picker/picker';
+import { Category } from '../../database';
 
 interface CategoryFormProps {
   category?: Category;
-  onSubmit: (name: string) => Promise<boolean>;
+  onSubmit: (name: string, type: 'income' | 'expense') => Promise<boolean>;
   onCancel: () => void;
   isEditing?: boolean;
 }
@@ -24,6 +25,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
   isEditing = false
 }) => {
   const [name, setName] = useState(category?.name || '');
+  const [type, setType] = useState<'income' | 'expense'>(category?.type || 'expense');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -34,9 +36,10 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
 
     try {
       setLoading(true);
-      const success = await onSubmit(name.trim());
+      const success = await onSubmit(name.trim(), type);
       if (success) {
         setName('');
+        setType('expense');
         onCancel();
       }
     } catch (error) {
@@ -67,6 +70,18 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
           maxLength={50}
           autoFocus
         />
+
+        <Text style={styles.label}>Tipo</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={type}
+            onValueChange={(value) => setType(value as 'income' | 'expense')}
+            style={styles.picker}
+          >
+            <Picker.Item label="Despesa" value="expense" />
+            <Picker.Item label="Receita" value="income" />
+          </Picker>
+        </View>
 
         <View style={styles.actions}>
           <TouchableOpacity
@@ -138,6 +153,16 @@ const styles = StyleSheet.create({
         padding: 12,
         fontSize: 16,
         backgroundColor: '#f9f9f9',
+    },
+    pickerContainer: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        backgroundColor: '#f9f9f9',
+        overflow: 'hidden',
+    },
+    picker: {
+        height: 50,
     },
     actions: {
         flexDirection: 'row',

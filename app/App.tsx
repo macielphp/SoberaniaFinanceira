@@ -10,7 +10,7 @@ import Home from './src/screens/Home/Home';
 import Visualize from './src/screens/Visualize/Visualize';
 import Register from './src/screens/Register/Register';
 import Settings from './src/screens/Settings/Settings';
-import Goals from './src/screens/Goals/Goals';
+import Goals from './src/screens/Plan/Plan';
 import { FinanceProvider } from './src/contexts/FinanceContext';
 
 const Tab = createBottomTabNavigator();
@@ -24,7 +24,7 @@ function MyTabs() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: 'rgb(1, 5, 255)',
+          backgroundColor: 'rgb(29, 29, 29)',
           height: 35 + insets.bottom,
           borderTopWidth: 0,
           elevation: 10,

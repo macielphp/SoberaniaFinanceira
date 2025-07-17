@@ -49,7 +49,7 @@ Acesso:
 Tela de Início com dados e informações relevantes.
 Tela de registro na qual deve dar o poder do usuário fazer registro e gerencia-los.
 Tela de visualização organizada por filtros pelo usuário
-Tela de definição e cálculo de metas(registros recorrentes com data de início e fim).
+Tela de planejamento para definição e gestão de orçamento, meta e projeção.
 Tela de configuração do app. Temas, exportações, feedback, forum...
 
 ## Wireframe
@@ -59,6 +59,6 @@ Esboços
 
 - 🏠 Home
 - ➕ Register
-- 📊 Visualização
-- 🎯 Metas
-- ⚙️ Configurações
+- 📊 Visualize
+- 🎯 Plan
+- ⚙️ Settings

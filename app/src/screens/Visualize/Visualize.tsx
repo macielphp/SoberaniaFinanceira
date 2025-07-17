@@ -1,10 +1,13 @@
 // app\src\screens\Visualize\Visualize.tsx
-import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import VictoryPie from 'victory-native';
 import { Picker } from '@react-native-picker/picker';
 import Layout from './../../components/Layout/Layout';
 import GlobalStyles from '../../styles/Styles';
 import { useFinance } from '../../contexts/FinanceContext';
+import PeriodFilter from '../../components/Filters/PeriodFilter';
+import PizzaChart from '../../components/Charts/PizzaChart';
 
 function Visualize() {
   const {
@@ -41,27 +44,13 @@ function Visualize() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Filtro de Período */}
-        <View style={GlobalStyles.cardContainer}>
-          <View style={GlobalStyles.cardHeader}>
-            <Text style={GlobalStyles.subTitle}>Período</Text>
-          </View>
-          <View style={styles.hrLine}></View>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={selectedPeriod}
-              onValueChange={(itemValue) => setSelectedPeriod(itemValue)}
-              style={styles.picker}
-            >
-              {monthOptions.map((option) => (
-                <Picker.Item 
-                  key={option.value} 
-                  label={option.label} 
-                  value={option.value} 
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
+        
+        <PeriodFilter
+          onPeriodChange={setSelectedPeriod}
+          selectedPeriod={selectedPeriod}
+          availablePeriods={monthOptions.map(opt => ({ label: opt.label, value: opt.value }))}
+        />
+       
 
         {/* Board de balanço */}
         <View style={GlobalStyles.cardContainer}>
@@ -160,6 +149,24 @@ function Visualize() {
                 );
               })}
             </View>
+          </View>
+        )}
+
+        {/* Gráfico de Pizza Interativo para Categorias */}
+        {categoryStats.length > 0 && (
+          <View style={GlobalStyles.cardContainer}>
+            <View style={GlobalStyles.cardHeader}>
+              <Text style={GlobalStyles.subTitle}>Categorias (Gráfico)</Text>
+            </View>
+            <View style={styles.hrLine}></View>
+            <PizzaChart
+              data={categoryStats.map((stat, idx) => ({
+                x: stat.category,
+                y: stat.total,
+                label: stat.category,
+                percentage: (stat.total / (financialSummary.totalReceitas + financialSummary.totalDespesas)) || 0
+              }))}
+            />
           </View>
         )}
       </ScrollView>

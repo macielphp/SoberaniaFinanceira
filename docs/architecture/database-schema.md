@@ -7,6 +7,9 @@ O sistema de finanças pessoais utiliza SQLite com três tabelas principais:
 - **operations**: Registra todas as movimentações financeiras
 - **categories**: Armazena as categorias de transações
 - **accounts**: Gerencia as contas bancárias e formas de pagamento
+- **budget**: Registra e gerencia o orçamento do usuário.
+- **goals**: Registra e gerencia as metas do usuário.
+-- **projection**: Registrar e gerencia as projeções.
 
 ---
 
@@ -266,3 +269,154 @@ CREATE INDEX IF NOT EXISTS idx_account_name ON accounts (name);
 - Índices otimizados para consultas frequentes
 - Ordenação padrão por data (DESC) e criação (DESC)
 - Consultas específicas por período, categoria e conta
+
+## Tabela: `budget`
+
+
+### 🔸 Campos da Tabela Budget
+
+
+### 📋 Regras de Negócio - Budget
+
+- Cada orçamento pode ser mensal, trimestral, anual, etc.
+- O orçamento é dividido por categorias (ver Plan.md para exemplos).
+- O sistema calcula indicadores de performance: superávit, déficit, equilibrado.
+- Percentuais e valores absolutos são calculados conforme detalhado em [Plan.md](../../app/src/screens/Plan/Plan.md#34-sistema-de-indicadores).
+
+> Para exemplos de uso e lógica de negócio, veja [Plan.md - Orçamento](../../app/src/screens/Plan/Plan.md#3-módulo-de-orçamento)
+
+---
+
+## Tabela: `goal`
+
+```sql
+CREATE TABLE IF NOT EXISTS goal (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    description TEXT NOT NULL,
+    target_value REAL NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    monthly_income REAL NOT NULL,
+    fixed_expenses REAL NOT NULL,
+    available_per_month REAL NOT NULL,
+    importance TEXT NOT NULL,
+    priority INTEGER CHECK(priority >= 1 AND priority <= 5),
+    strategy TEXT,
+    monthly_contribution REAL NOT NULL,
+    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'paused', 'cancelled')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+### 🔸 Campos da Tabela Goal
+
+| Campo                   | Tipo   | Obrigatório | Descrição                                      |
+|-------------------------|--------|-------------|------------------------------------------------|
+| `id`                    | TEXT   | ✅          | Identificador único da meta                     |
+| `user_id`               | TEXT   | ✅          | Usuário dono da meta                            |
+| `description`           | TEXT   | ✅          | Descrição da meta                               |
+| `target_value`          | REAL   | ✅          | Valor total a ser atingido                      |
+| `start_date`            | TEXT   | ✅          | Data de início da meta (ISO)                    |
+| `end_date`              | TEXT   | ✅          | Data limite para atingir a meta (ISO)           |
+| `monthly_income`        | REAL   | ✅          | Renda mensal do usuário                         |
+| `fixed_expenses`        | REAL   | ✅          | Gastos mensais fixos                            |
+| `available_per_month`   | REAL   | ✅          | Valor disponível para a meta por mês            |
+| `importance`            | TEXT   | ✅          | Justificativa/importância da meta               |
+| `priority`              | INT    | ✅          | Prioridade (1 a 5)                              |
+| `strategy`              | TEXT   | ❌          | Estratégia para atingir a meta                  |
+| `monthly_contribution`  | REAL   | ✅          | Valor mensal destinado à meta                   |
+| `status`                | TEXT   | ❌          | Status da meta (active, completed, etc.)        |
+| `created_at`            | TEXT   | ✅          | Data/hora de criação                            |
+| `updated_at`            | TEXT   | ✅          | Data/hora de atualização                        |
+
+1. **Descrição da Meta (Específico)**
+   - Tipo: Texto livre
+   - Exemplos: "Economizar para emergência", "Quitar financiamento do carro", "Investir para aposentadoria"
+   - Validação: Obrigatório, máximo 200 caracteres
+
+2. **Valor Monetário (Mensurável)**
+   - Tipo: Numérico (R$)
+   - Validação: Obrigatório, valor > 0
+   - Formato: Moeda brasileira
+
+3. **Renda Mensal Atual (Atingível)**
+   - Tipo: Numérico (R$)
+   - Validação: Obrigatório, valor > 0
+
+4. **Gastos Mensais Fixos (Atingível)**
+   - Tipo: Numérico (R$)
+   - Validação: Obrigatório, valor ≥ 0
+
+5. **Valor Disponível para Meta por Mês (Atingível)**
+   - Tipo: Numérico (R$)
+   - Cálculo automático: (Renda - Gastos Fixos) ou valor manual
+   - Validação: Deve ser realista baseado na renda disponível
+
+6. **Importância da Meta (Relevância)**
+   - Tipo: Texto livre
+   - Validação: Obrigatório, máximo 500 caracteres
+
+7. **Prioridade (Relevância)**
+   - Tipo: Escala de 1-5
+   - 1: Baixa prioridade
+   - 5: Prioridade máxima
+
+8. **Datas (Temporal)**
+   - Data de início: Preenchimento automático (data atual) ou manual
+   - Data limite: Campo obrigatório
+
+9. **Estratégia de Execução**
+    - Tipo: Texto livre
+    - Exemplos: "Cortar gastos supérfluos", "Renda extra aos finais de semana"
+
+10. **Valor Mensal Destinado**
+    - Tipo: Numérico (R$)
+    - Validação: Deve ser ≤ valor disponível mensal
+
+##### 📋 Regras de Negócio - Goal
+
+- O sistema valida se a meta é atingível no prazo com o valor mensal destinado.
+- Sugere ajustes se a meta não for viável.
+- Gera mantra motivacional com base nos dados da meta.
+- Campos e lógica detalhados em [Plan.md - Metas](../../app/src/screens/Plan/Plan.md#2-módulo-de-metas).
+
+---
+
+## Tabela: `projection`
+```sql
+CREATE TABLE IF NOT EXISTS projection (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT CHECK(type IN ('goal', 'financing', 'investment')) NOT NULL,
+    description TEXT,
+    parameters JSON NOT NULL,
+    results JSON,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+### 🔸 Campos da Tabela Projection
+
+| Campo        | Tipo   | Obrigatório | Descrição                                         |
+|--------------|--------|-------------|---------------------------------------------------|
+| `id`         | TEXT   | ✅          | Identificador único da projeção                    |
+| `user_id`    | TEXT   | ✅          | Usuário dono da projeção                           |
+| `name`       | TEXT   | ✅          | Nome da projeção                                   |
+| `type`       | TEXT   | ✅          | Tipo: goal, financing, investment                  |
+| `description`| TEXT   | ❌          | Descrição da projeção                              |
+| `parameters` | JSON   | ✅          | Parâmetros usados para calcular a projeção         |
+| `results`    | JSON   | ❌          | Resultados calculados                              |
+| `created_at` | TEXT   | ✅          | Data/hora de criação                               |
+| `updated_at` | TEXT   | ✅          | Data/hora de atualização                           |
+
+#### 📋 Regras de Negócio - Projection
+
+- Tipos de projeção: metas, financiamentos, investimentos.
+- Parâmetros e resultados são armazenados em JSON para flexibilidade.
+- Exemplos e lógica detalhados em [Plan.md - Projeções](../../app/src/screens/Plan/Plan.md#4-módulo-de-projeções).
+
+---
