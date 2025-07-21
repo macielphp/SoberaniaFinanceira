@@ -1,5 +1,5 @@
 // app\App.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import Register from './src/screens/Register/Register';
 import Settings from './src/screens/Settings/Settings';
 import Goals from './src/screens/Plan/Plan';
 import { FinanceProvider } from './src/contexts/FinanceContext';
+import { resetDatabase, setupDatabase } from './src/database';
 
 const Tab = createBottomTabNavigator();
 
@@ -62,6 +63,15 @@ function MyTabs() {
 }
 
 export default function App() {
+  // useEffect(() => {
+  //   // RESET TEMPORÁRIO DO BANCO DE DADOS
+  //   (async () => {
+  //     console.warn('⚠️ Rodando resetDatabase() - Remova este trecho após o reset!');
+  //     await resetDatabase();
+  //     await setupDatabase();
+  //   })();
+  // }, []);
+
   return (
     <SafeAreaProvider>
       <FinanceProvider>

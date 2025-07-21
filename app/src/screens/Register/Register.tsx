@@ -177,12 +177,23 @@ export const Register: React.FC = () => {
     setShowAccountForm(true);
   };
 
-  const handleAccountSubmit = async (name: string): Promise<boolean> => {
+  const handleAccountSubmit = async (name: string, type: 'propria' | 'externa', saldo?: number): Promise<boolean> => {
     try {
       if (editingAccount) {
-        await editAccount(editingAccount.id, name);
+        await editAccount({
+          ...editingAccount,
+          name,
+          type,
+          saldo: type === 'propria' ? saldo ?? 0 : undefined,
+        });
       } else {
-        await createAccount(name);
+        await createAccount({
+          name,
+          type,
+          saldo: type === 'propria' ? saldo ?? 0 : undefined,
+          isDefault: false,
+          createdAt: new Date().toISOString(),
+        });
       }
       return true;
     } catch (error) {
@@ -556,7 +567,7 @@ export const Register: React.FC = () => {
       });
     }
     console.log(`  Resultado final: ${filteredOps.length} operações`);
-  
+
     return (
     <View style={styles.manageContainer}>
       <View style={styles.header}>
@@ -684,7 +695,7 @@ export const Register: React.FC = () => {
         )}
       </ScrollView>
     </View>
-    );
+  );
   }
 
   const renderRegisterForm = () => (

@@ -6,6 +6,8 @@ import { isAccountUsedInOperations } from './operations';
 export interface Account {
     id: string;
     name: string;
+    type: 'propria' | 'externa'; // novo campo
+    saldo?: number; // só para própria
     isDefault: boolean;
     createdAt: string;
 }
@@ -19,6 +21,8 @@ export const createAccountsTable = async () => {
         `CREATE TABLE IF NOT EXISTS accounts (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
+            type TEXT NOT NULL CHECK(type IN ('propria', 'externa')) DEFAULT 'propria',
+            saldo REAL,
             isDefault INTEGER NOT NULL DEFAULT 0,
             createdAt TEXT NOT NULL DEFAULT (datetime('now'))
         )`
@@ -26,6 +30,7 @@ export const createAccountsTable = async () => {
 
     // Índice para contas
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_account_name ON accounts (name);');
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_account_type ON accounts (type);');
 };
 
 // Função para inserir contas padrão
@@ -64,8 +69,8 @@ export const insertAccount = async (account: Omit<Account, 'id'>) => {
     try {
         const id = `acc-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
         return await db.runAsync(
-            `INSERT INTO accounts (id, name, isDefault, createdAt) VALUES (?, ?, ?, ?)`,
-            [id, account.name.trim(), account.isDefault ? 1 : 0, account.createdAt]
+            `INSERT INTO accounts (id, name, type, saldo, isDefault, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
+            [id, account.name.trim(), account.type, account.type === 'propria' ? account.saldo ?? 0 : null, account.isDefault ? 1 : 0, account.createdAt]
         );
     } catch (err) {
         console.error('Erro ao inserir conta:', err);
@@ -79,8 +84,8 @@ export const insertAccount = async (account: Omit<Account, 'id'>) => {
 export const updateAccount = async (account: Account) => {
     try {
         return await db.runAsync(
-            `UPDATE accounts SET name = ?, isDefault = ? WHERE id = ?`,
-            [account.name.trim(), account.isDefault ? 1 : 0, account.id]
+            `UPDATE accounts SET name = ?, type = ?, saldo = ?, isDefault = ? WHERE id = ?`,
+            [account.name.trim(), account.type, account.type === 'propria' ? account.saldo ?? 0 : null, account.isDefault ? 1 : 0, account.id]
         );
     } catch (err) {
         console.error('Erro ao atualizar conta:', err);
@@ -132,6 +137,8 @@ export const getAllAccounts = async (): Promise<Account[]> => {
         console.log(`✅ ${result.length} contas encontradas`);
         return result.map(item => ({
             ...item,
+            type: item.type as 'propria' | 'externa',
+            saldo: item.saldo !== null && item.saldo !== undefined ? Number(item.saldo) : undefined,
             isDefault: Boolean(item.isDefault),
         }));
     } catch (err) {

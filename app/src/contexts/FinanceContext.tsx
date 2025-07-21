@@ -102,8 +102,8 @@ interface FinanceContextType {
   getCategoryNamesByType: (type: 'income' | 'expense') => string[];
   
   // Contas
-  createAccount: (name: string) => Promise<boolean>;
-  editAccount: (id: string, name: string) => Promise<boolean>;
+  createAccount: (account: Omit<Account, 'id'>) => Promise<boolean>;
+  editAccount: (account: Account) => Promise<boolean>;
   removeAccount: (id: string) => Promise<boolean>;
   getAccountNames: () => string[];
   
@@ -663,27 +663,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [categories, loadAllData]);
 
   // CONTAS
-  const createAccount = useCallback(async (name: string): Promise<boolean> => {
+  const createAccount = useCallback(async (account: Omit<Account, 'id'>): Promise<boolean> => {
     try {
-      if (!name.trim()) {
+      if (!account.name.trim()) {
         throw new Error('Nome da conta é obrigatório');
       }
-
       const exists = accounts.some(acc => 
-        acc.name.toLowerCase().trim() === name.toLowerCase().trim()
+        acc.name.toLowerCase().trim() === account.name.toLowerCase().trim()
       );
-      
       if (exists) {
         throw new Error('Conta já existe');
       }
-
-      const newAccount = {
-        name: name.trim(),
-        isDefault: false,
-        createdAt: new Date().toISOString()
-      };
-
-      await insertAccount(newAccount);
+      await insertAccount({ ...account, name: account.name.trim() });
       await loadAllData();
       return true;
     } catch (err) {
@@ -692,36 +683,25 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [accounts, loadAllData]);
 
-  const editAccount = useCallback(async (id: string, name: string): Promise<boolean> => {
+  const editAccount = useCallback(async (account: Account): Promise<boolean> => {
     try {
-      if (!name.trim()) {
+      if (!account.name.trim()) {
         throw new Error('Nome da conta é obrigatório');
       }
-
-      const account = accounts.find(acc => acc.id === id);
-      if (!account) {
+      const acc = accounts.find(acc => acc.id === account.id);
+      if (!acc) {
         throw new Error('Conta não encontrada');
       }
-
-      if (account.isDefault) {
+      if (acc.isDefault) {
         throw new Error('Não é possível editar contas padrão do sistema');
       }
-
       const exists = accounts.some(acc => 
-        acc.id !== id && 
-        acc.name.toLowerCase().trim() === name.toLowerCase().trim()
+        acc.id !== account.id && acc.name.toLowerCase().trim() === account.name.toLowerCase().trim()
       );
-      
       if (exists) {
         throw new Error('Já existe uma conta com esse nome');
       }
-
-      const updatedAccount = {
-        ...account,
-        name: name.trim()
-      };
-
-      await updateAccount(updatedAccount);
+      await updateAccount({ ...account, name: account.name.trim() });
       await loadAllData();
       return true;
     } catch (err) {
