@@ -18,18 +18,45 @@ const [selectedYear, setSelectedYear] = useState<string>('');
   // Extrair mês e ano do selectedPeriod, se vier preenchido
   useEffect(() => {
     if (selectedPeriod && selectedPeriod !== 'all') {
-      const [year, month] = selectedPeriod.split('-');
-      setSelectedMonth(month);
+      const [year, monthStr] = selectedPeriod.split('-');
+      
+      console.log(`🔄 PeriodFilter: selectedPeriod="${selectedPeriod}" -> monthStr="${monthStr}"`);
+      
+      setSelectedMonth(monthStr);
       setSelectedYear(year);
+    } else {
+      // Se for 'all', limpar os campos
+      setSelectedMonth('');
+      setSelectedYear('');
     }
   }, [selectedPeriod]);
 
-  // Sempre que mês ou ano mudar, montar o valor e chamar onPeriodChange
-  useEffect(() => {
-    if (selectedMonth && selectedYear) {
-      onPeriodChange(`${selectedYear}-${selectedMonth}`);
+  // Função para montar o período e chamar onPeriodChange
+  const handlePeriodChange = (month: string, year: string) => {
+    console.log(`🔄 PeriodFilter: handlePeriodChange chamado com month=${month}, year=${year}`);
+    
+    if (month && year) {
+      // Usar diretamente o mês 1-12 sem conversão
+      const periodValue = `${year}-${month}`;
+      console.log(`🔄 PeriodFilter: month="${month}" -> periodValue="${periodValue}"`);
+      onPeriodChange(periodValue);
+    } else {
+      console.log(`🔄 PeriodFilter: Chamando onPeriodChange com 'all'`);
+      onPeriodChange('all');
     }
-  }, [selectedMonth, selectedYear]);
+  };
+
+  // Handler para mudança de mês
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+    handlePeriodChange(month, selectedYear);
+  };
+
+  // Handler para mudança de ano
+  const handleYearChange = (year: string) => {
+    setSelectedYear(year);
+    handlePeriodChange(selectedMonth, year);
+  };
 
     return (
         <View style={styles.filterContainer}>
@@ -40,9 +67,10 @@ const [selectedYear, setSelectedYear] = useState<string>('');
               <View style={styles.pickerContainer}>
                 <Picker
                   selectedValue={selectedMonth}
-                  onValueChange={(itemValue) => setSelectedMonth(itemValue)}
+                  onValueChange={handleMonthChange}
                   style={styles.inlinePicker}
                 >
+                  <Picker.Item label="Selecione um mês" value="" />
                   <Picker.Item label="Janeiro" value="01" />
                   <Picker.Item label="Fevereiro" value="02" />
                   <Picker.Item label="Março" value="03" />
@@ -64,9 +92,10 @@ const [selectedYear, setSelectedYear] = useState<string>('');
               <View style={styles.pickerContainer}>
                 <Picker
                   selectedValue={selectedYear}
-                  onValueChange={(itemValue) => setSelectedYear(itemValue)}
+                  onValueChange={handleYearChange}
                   style={styles.inlinePicker}
                 >
+                  <Picker.Item label="Selecione um ano" value="" />
                   {(() => {
                     const currentYear = new Date().getFullYear();
                     const years = [];
@@ -87,7 +116,7 @@ const [selectedYear, setSelectedYear] = useState<string>('');
 
 const styles = StyleSheet.create({
     filterContainer: {
-        margin: spacing.md,
+        // margin: spacing.md,
         padding: spacing.md,
         backgroundColor: colors.background.default,
         borderRadius: 12,

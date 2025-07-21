@@ -43,13 +43,26 @@ const GlobalStyles = StyleSheet.    create({
     ...shadowStyles.elevation2,
     backgroundColor: colors.background.paper,
     borderRadius: 12,
-    padding: spacing.lg,
+    padding: spacing.sm,
     margin: spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  cardBody: {
+    flexDirection: 'row', 
+    justifyContent: 'center',
+    padding: spacing.sm,
+  },
+  cardFooter: {
+    
+  },
+  hrLine: {
+    height: 2,
+    borderColor: 'rgb(232, 232, 232)',
+    borderWidth: 1,
   },
   // Utilitários
   marginBottom: {

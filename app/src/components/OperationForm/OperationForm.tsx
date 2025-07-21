@@ -29,6 +29,7 @@ import { buttonStyles, formStyles } from '../../styles/components'
 import AppModal from '../AppModal/AppModal';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as FileSystem from 'expo-file-system';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface OperationFormProps {
   onSuccess?: () => void;
@@ -61,6 +62,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   const [sourceAccount, setSourceAccount] = useState(editOperation?.sourceAccount || '');
   const [destinationAccount, setDestinationAccount] = useState(editOperation?.destinationAccount || '');
   const [date, setDate] = useState(editOperation?.date || new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [value, setValue] = useState(editOperation?.value?.toString() || '');
   const [category, setCategory] = useState<string>(
     editOperation?.category || (getCategoryNames()[0] || 'Alimento-supermercado')
@@ -405,6 +407,22 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     }
   };
 
+  // Função para abrir o DatePicker
+  const handleOpenDatePicker = () => {
+    setShowDatePicker(true);
+  };
+
+  // Função para tratar a seleção da data
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      // Formatar para YYYY-MM-DD
+      const year = selectedDate.getFullYear();
+      const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = selectedDate.getDate().toString().padStart(2, '0');
+      setDate(`${year}-${month}-${day}`);
+    }
+  };
 
   // Auto-set estado based on natureza
   React.useEffect(() => {
@@ -566,16 +584,20 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           />
         </View>
 
-        {/* Data */}
+        {/* Campo de Data */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Data</Text>
-          <TextInput
-            style={formStyles.input}
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            returnKeyType="next"
-          />
+          <TouchableOpacity onPress={handleOpenDatePicker} style={formStyles.input}>
+            <Text>{date}</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={date ? new Date(date) : new Date()}
+              mode="date"
+              display="default"
+              onChange={handleDateChange}
+            />
+          )}
         </View>
 
         {/* Details */}

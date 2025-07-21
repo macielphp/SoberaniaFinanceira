@@ -43,15 +43,15 @@ const FilterDate: React.FC<FilterDateProps> = ({
 
                 {showStartPicker && (
                     <DateTimePicker
-                    value={startDate || new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, selectedDate) => {
-                        setShowStartPicker(false);
-                        if (selectedDate) {
-                        setStartDate(selectedDate);
-                        }
-                    }}
+                        value={startDate || new Date()}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={(event, selectedDate) => {
+                            setShowStartPicker(false);
+                            if (selectedDate) {
+                            setStartDate(selectedDate);
+                            }
+                        }}
                     />
                 )}
 

@@ -27,6 +27,15 @@ import AppModal from '../../components/AppModal/AppModal';
 
 type ViewMode = 'menu' | 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
 
+// Adicione esta função utilitária antes do componente Register
+function formatDateLocal(date: Date | null): string | undefined {
+  if (!date) return undefined;
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export const Register: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewMode>('menu');
   const [showAccountForm, setShowAccountForm] = useState(false);
@@ -82,9 +91,11 @@ export const Register: React.FC = () => {
     state: selectedState,
     category: selectedCategory,
     account: selectedAccount,
-    startDate: selectedStartDate?.toISOString().split('T')[0],
-    endDate: selectedEndDate?.toISOString().split('T')[0],
+    startDate: formatDateLocal(selectedStartDate),
+    endDate: formatDateLocal(selectedEndDate),
   });
+
+  console.log(`📝 Register: Mostrando ${filteredOps.length} de ${operations.length} operações`);
 
   const clearAllFilters = () => {
     setSelectedNature(undefined)
@@ -529,7 +540,24 @@ export const Register: React.FC = () => {
     </View>
   );
 
-  const renderManageOperations = () => (
+  const renderManageOperations = () => {
+    // DEBUG LOGS para filtragem
+    console.log('\n🔍 DEBUG renderManageOperations:');
+    console.log(`  selectedStartDate: ${selectedStartDate ? selectedStartDate.toISOString().split('T')[0] : 'null'}`);
+    console.log(`  selectedEndDate: ${selectedEndDate ? selectedEndDate.toISOString().split('T')[0] : 'null'}`);
+    console.log(`  filteredOps.length: ${filteredOps.length}`);
+    if (selectedStartDate && selectedEndDate) {
+      const start = selectedStartDate.toISOString().split('T')[0];
+      const end = selectedEndDate.toISOString().split('T')[0];
+      filteredOps.forEach(op => {
+        console.log(`    Operação: ${op.date} (${op.category})`);
+        console.log(`      op.date >= start: ${op.date} >= ${start} = ${op.date >= start}`);
+        console.log(`      op.date <= end: ${op.date} <= ${end} = ${op.date <= end}`);
+      });
+    }
+    console.log(`  Resultado final: ${filteredOps.length} operações`);
+  
+    return (
     <View style={styles.manageContainer}>
       <View style={styles.header}>
         <TouchableOpacity 
@@ -600,21 +628,21 @@ export const Register: React.FC = () => {
         }
       >
         <Filters
-                nature={selectedNature}
-                setNature={setSelectedNature}
-                state={selectedState}
-                setState={setSelectedState}
-                category={selectedCategory}
-                setCategory={setSelectedCategory}
-                account={selectedAccount}
-                setAccount={setSelectedAccount}
-                categories={categoryNames}
-                accounts={accountNames}
-                startDate={selectedStartDate}
-                endDate={selectedEndDate}
-                setStartDate={setSelectedStartDate}
-                setEndDate={setSelectedEndDate}
-              />
+          nature={selectedNature}
+          setNature={setSelectedNature}
+          state={selectedState}
+          setState={setSelectedState}
+          category={selectedCategory}
+          setCategory={setSelectedCategory}
+          account={selectedAccount}
+          setAccount={setSelectedAccount}
+          categories={categoryNames}
+          accounts={accountNames}
+          startDate={selectedStartDate}
+          endDate={selectedEndDate}
+          setStartDate={setSelectedStartDate}
+          setEndDate={setSelectedEndDate}
+        />
       </AppModal>
 
       {/* Lista de operações */}
@@ -656,7 +684,8 @@ export const Register: React.FC = () => {
         )}
       </ScrollView>
     </View>
-  );
+    );
+  }
 
   const renderRegisterForm = () => (
     <View style={styles.formContainer}>
@@ -704,8 +733,9 @@ export const Register: React.FC = () => {
     </Layout>
   );
 };
+export default Register;
 
-  const styles = StyleSheet.create({
+const styles = StyleSheet.create({
     // Modal Styles
       modal: {
       flex: 1,
@@ -1206,6 +1236,4 @@ export const Register: React.FC = () => {
   deleteButtonText: {
     color: '#F44336',
   },
-});
-
-export default Register;
+})

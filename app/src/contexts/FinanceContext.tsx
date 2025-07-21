@@ -178,21 +178,28 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Financial Summary - Gerar opções de meses baseado nas operações existentes
   const monthOptions = useMemo((): MonthOption[] => {
+    console.log('\n🔍 DEBUG monthOptions:');
+    console.log(`  Total de operações: ${operations.length}`);
+    
     const months = new Set<string>();
     const options: MonthOption[] = [
       { label: 'Todos os períodos', value: 'all', year: 0, month: 0 }
     ];
 
-    operations.forEach(op => {
-      const date = new Date(op.date);
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+    operations.forEach((op, index) => {
+      // Usar parsing manual para evitar problemas de fuso horário
+      const [yearStr, monthStr, dayStr] = op.date.split('-');
+      const year = parseInt(yearStr);
+      const month = parseInt(monthStr); // Já é 1-12
+      const monthKey = `${year}-${monthStr}`; // Usar monthStr diretamente
+      
+      console.log(`  Operação ${index + 1}: ${op.date} -> year=${year}, month=${month}, monthKey="${monthKey}"`);
       months.add(monthKey);
     });
 
     // Converter para array e ordenar
     const sortedMonths = Array.from(months).sort().reverse();
+    console.log(`  Meses únicos encontrados: ${sortedMonths.join(', ')}`);
     
     sortedMonths.forEach(monthKey => {
       const [yearStr, monthStr] = monthKey.split('-');
@@ -204,20 +211,26 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
       ];
       
-      options.push({
-        label: `${monthNames[month]} ${year}`,
+      const option = {
+        label: `${monthNames[month - 1]} ${year}`, // Adjust month index for monthNames
         value: monthKey,
         year,
         month
-      });
+      };
+      
+      options.push(option);
+      console.log(`  Opção gerada: "${option.label}" -> value="${option.value}", year=${option.year}, month=${option.month}`);
     });
 
+    console.log(`  Total de opções: ${options.length}`);
+    console.log('🔍 FIM DEBUG monthOptions\n');
     return options;
   }, [operations]);
 
   // Financial Summary - Calcular período baseado na seleção
   const getDateRange = useCallback((periodValue: string): { startDate?: string; endDate?: string } => {
     if (periodValue === 'all') {
+      console.log('📅 getDateRange: periodValue="all" - retornando objeto vazio');
       return {};
     }
 
@@ -225,33 +238,85 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const year = parseInt(yearStr);
     const month = parseInt(monthStr);
 
-    // Primeiro dia do mês
-    const startDate = new Date(year, month, 1);
-    // Último dia do mês
-    const endDate = new Date(year, month + 1, 0);
+    console.log(`\n🔍 DEBUG getDateRange:`);
+    console.log(`  periodValue: "${periodValue}"`);
+    console.log(`  yearStr: "${yearStr}" -> year: ${year}`);
+    console.log(`  monthStr: "${monthStr}" -> month: ${month}`);
 
-    return {
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0]
+    // Converter de mês 1-12 para índice 0-11 para o construtor Date
+    const monthIndex = month - 1;
+    
+    // Primeiro dia do mês
+    const startDate = new Date(year, monthIndex, 1);
+    // Último dia do mês
+    const endDate = new Date(year, monthIndex + 1, 0);
+
+    console.log(`  monthIndex: ${monthIndex} (para Date constructor)`);
+    console.log(`  startDate (new Date(${year}, ${monthIndex}, 1)): ${startDate.toISOString()}`);
+    console.log(`  endDate (new Date(${year}, ${monthIndex + 1}, 0)): ${endDate.toISOString()}`);
+
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+
+    console.log(`  startDateStr: "${startDateStr}"`);
+    console.log(`  endDateStr: "${endDateStr}"`);
+
+    const result = {
+      startDate: startDateStr,
+      endDate: endDateStr
     };
+
+    console.log(`  RESULTADO: ${startDateStr} até ${endDateStr}`);
+    console.log('🔍 FIM DEBUG getDateRange\n');
+
+    return result;
   }, []);
 
   // Financial Summary - Filtrar operações baseado no período selecionado
   const filteredOperations = useMemo(() => {
-    const { startDate, endDate } = getDateRange(selectedPeriod);
-    
-    if (!startDate || !endDate) {
+    console.log(`\n🔍 DEBUG filteredOperations:`);
+    console.log(`  selectedPeriod: "${selectedPeriod}"`);
+    console.log(`  total operations: ${operations.length}`);
+
+    // Se for 'all', retorna todas as operações
+    if (selectedPeriod === 'all') {
+      console.log(`  selectedPeriod é "all" - retornando todas as ${operations.length} operações`);
       return operations;
     }
 
-    return operations.filter(op => {
+    const { startDate, endDate } = getDateRange(selectedPeriod);
+    
+    if (!startDate || !endDate) {
+      console.log(`  startDate ou endDate vazios - retornando todas as ${operations.length} operações`);
+      return operations;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // Incluir o dia inteiro
+
+    console.log(`  Filtrando operações:`);
+    console.log(`    startDate: "${startDate}" -> ${start.toISOString()}`);
+    console.log(`    endDate: "${endDate}" -> ${end.toISOString()}`);
+
+    const filtered = operations.filter(op => {
       const opDate = new Date(op.date);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Incluir o dia inteiro
+      const isInRange = opDate >= start && opDate <= end;
       
-      return opDate >= start && opDate <= end;
+      console.log(`    Operação: ${op.date} (${op.category})`);
+      console.log(`      opDate: ${opDate.toISOString()}`);
+      console.log(`      start: ${start.toISOString()}`);
+      console.log(`      end: ${end.toISOString()}`);
+      console.log(`      opDate >= start: ${opDate >= start}`);
+      console.log(`      opDate <= end: ${opDate <= end}`);
+      console.log(`      isInRange: ${isInRange}`);
+      
+      return isInRange;
     });
+
+    console.log(`  RESULTADO: ${filtered.length} operações filtradas de ${operations.length} total`);
+    console.log('🔍 FIM DEBUG filteredOperations\n');
+    return filtered;
   }, [operations, selectedPeriod, getDateRange]);
 
   // Financial Summary - Calcular resumo financeiro
@@ -431,12 +496,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
       filtered = filtered.filter(op => {
-        const opDate = new Date(op.date);
-        return opDate >= start && opDate <= end;
-      })
+        return op.date >= startDate && op.date <= endDate;
+      });
     }
     return filtered;
   }, [operations]);

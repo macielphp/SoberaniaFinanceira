@@ -35,7 +35,9 @@ const OperationCard: React.FC<OperationCardProps> = ({
         }).format(value);
     };
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('pt-BR')
+        // Espera formato YYYY-MM-DD
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
     };
     const handleEdit = () => {
         onEdit(operation.id);
