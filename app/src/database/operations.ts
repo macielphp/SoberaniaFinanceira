@@ -37,7 +37,7 @@ export const createOperationsTable = async () => {
             category TEXT NOT NULL,
             details TEXT,
             receipt BLOB, -- campo para armazenar imagem binária
-            project TEXT,
+            goal_id TEXT REFERENCES goal(id),
             createdAt TEXT NOT NULL DEFAULT (datetime('now'))
         )`
     );
@@ -57,7 +57,7 @@ export const insertOperation = async (operation: Operation) => {
         
         const {
             id, nature, state, paymentMethod, sourceAccount, destinationAccount, date, value, category,
-            details, receipt, project
+            details, receipt, goal_id
         } = operation;
 
         console.log('📋 Receipt recebido:', receipt ? (typeof receipt === 'string' ? `string(${receipt.length})` : `Uint8Array(${receipt.length} bytes)`) : 'null/undefined');
@@ -78,14 +78,15 @@ export const insertOperation = async (operation: Operation) => {
         }
 
         console.log('💾 Receipt final para banco:', receiptData ? `Uint8Array(${receiptData.length} bytes)` : 'null');
+        console.log('🔗 goal_id a ser salvo:', goal_id);
 
         const result = await db.runAsync(
             `INSERT INTO operations (
             id, user_id, nature, state, paymentMethod, sourceAccount, destinationAccount, date, value, category,
-            details, receipt, project
+            details, receipt, goal_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
             [id, operation.user_id, nature, state, paymentMethod, sourceAccount, destinationAccount, date, value,
-             category, details ?? null, receiptData, project ?? null]
+             category, details ?? null, receiptData, goal_id ?? null]
         );
         
         console.log('✅ Operação inserida com sucesso!');
@@ -100,7 +101,7 @@ export const updateOperation = async (operation: Operation) => {
     try {
         const {
             id, nature, state, paymentMethod, sourceAccount, destinationAccount, date, value,
-            category, details, receipt, project
+            category, details, receipt, goal_id
         } = operation;
 
         // Converter receipt para Uint8Array se for Blob
@@ -117,11 +118,12 @@ export const updateOperation = async (operation: Operation) => {
             `UPDATE operations SET
                 nature = ?, state = ?, paymentMethod = ?, sourceAccount = ?, 
                 destinationAccount = ?, date = ?, value = ?, category = ?, 
-                details = ?, receipt = ?, project = ?
+                details = ?, receipt = ?, goal_id = ?
             WHERE id = ?;`,
             [nature, state, paymentMethod, sourceAccount, destinationAccount, date, value,
-             category, details ?? null, receiptData, project ?? null, id]
+             category, details ?? null, receiptData, goal_id ?? null, id]
         );
+        console.log('🔗 goal_id atualizado:', goal_id);
     } catch (err) {
         console.error('Erro ao atualizar operação:', err);
         throw new Error('Falha ao atualizar operação no banco de dados.');
@@ -228,4 +230,13 @@ export const isAccountUsedInOperations = async (accountName: string): Promise<bo
         console.error('Erro ao verificar uso da conta:', err);
         return false;
     }
+}; 
+
+// Função utilitária para debug: listar todas as operações com goal_id
+export const listOperationsWithGoalId = async () => {
+    const result = await db.getAllAsync<any>(
+        'SELECT id, nature, value, goal_id FROM operations WHERE goal_id IS NOT NULL ORDER BY date DESC, createdAt DESC;'
+    );
+    console.log('🔎 Operações com goal_id:', result);
+    return result;
 }; 

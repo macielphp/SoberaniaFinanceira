@@ -1,4 +1,62 @@
-# 💰 Sistema de Orçamento - Budget System
+# Sistema de Metas (Goal System)
+
+## Visão Geral
+
+O sistema de metas permite ao usuário definir objetivos financeiros (ex: comprar um carro, pagar faculdade) e acompanhar o progresso vinculando operações financeiras a essas metas.
+
+## Estrutura de Dados
+
+### Tabela `goals`
+- `id`: identificador único
+- `name`: nome da meta
+- `description`: descrição detalhada (opcional)
+- `start_date`: data de início
+- `end_date`: data de término
+- `target_value`: valor objetivo
+- `created_at`, `updated_at`
+
+### Tabela `operations`
+- ... (campos existentes)
+- `goal_id`: referência à meta (pode ser NULL)
+
+## Fluxo de Vinculação
+
+- Ao criar/editar uma operação, o usuário pode selecionar uma meta existente.
+- Operações podem ser filtradas por meta.
+- O progresso da meta é calculado somando os valores das operações vinculadas.
+
+## Alternativas de Modelagem
+
+### 1. Coluna `goal_id` em `operations`
+- Simples, performático, escalável.
+- Permite 1 meta por operação.
+
+### 2. Tabela de ligação N:N
+- Máxima flexibilidade, mas mais complexidade.
+
+### 3. Campo texto livre
+- Simples, mas não escalável nem seguro.
+
+## Regras de Negócio
+
+- Uma operação pode ou não estar vinculada a uma meta.
+- Ao excluir uma meta, as operações associadas devem ter o campo `goal_id` setado para NULL (ou serem excluídas em cascata, conforme regra definida).
+- O progresso da meta é a soma dos valores das operações vinculadas.
+
+## Exemplos de Uso
+
+- Hugo define a meta "Pós-graduação" e vincula despesas de mensalidade a ela.
+- O sistema mostra quanto já foi gasto e quanto falta para atingir o objetivo.
+
+## Considerações de Escalabilidade e Performance
+
+- A abordagem de chave estrangeira é eficiente para bancos relacionais e fácil de consultar.
+- A tabela de ligação só é necessária para cenários avançados.
+- O campo texto livre deve ser evitado para garantir integridade e relatórios confiáveis.
+
+---
+
+Se quiser, posso criar/editar o arquivo `goal-system.md` para você com esse conteúdo!
 
 ## 🎯 Visão Geral
 

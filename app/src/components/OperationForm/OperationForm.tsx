@@ -50,12 +50,14 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     getAccountNames,
     categories,
     accounts,
-    loading: dataLoading
+    loading: dataLoading,
+    goals
   } = useFinance();
   
   // Form state
   const [nature, setNature] = useState<Nature>(editOperation?.nature || 'despesa');
   const [state, setState] = useState<State>(editOperation?.state || 'pagar');
+  
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     editOperation?.paymentMethod || 'Pix'
   );
@@ -65,11 +67,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [value, setValue] = useState(editOperation?.value?.toString() || '');
   const [category, setCategory] = useState<string>(
-    editOperation?.category || (getCategoryNames()[0] || 'Alimento-supermercado')
+    editOperation?.category || ''
   );
   const [details, setDetails] = useState(editOperation?.details || '');
   const [receipt, setReceipt] = useState(editOperation?.receipt || '');
-  const [project, setProject] = useState(editOperation?.project || '');
+  const [goalId, setGoalId] = useState(editOperation?.goal_id || '');
   const [isLoading, setIsLoading] = useState(false);
 
   // Determinar o tipo de receipt baseado na operação em edição
@@ -180,6 +182,17 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   const categoryNamesByType = getCategoryNamesByType(nature === 'receita' ? 'income' : 'expense');
   const accountNames = getAccountNames();
 
+  // Estados dinâmicos baseados na natureza
+  const stateOptionsByNature = nature === 'despesa' 
+    ? [
+        { label: 'A Pagar', value: 'pagar' },
+        { label: 'Pago', value: 'pago' }
+      ]
+    : [
+        { label: 'A Receber', value: 'receber' },
+        { label: 'Recebido', value: 'recebido' }
+      ];
+
   const paymentMethods: PaymentMethod[] = [
     'Cartão de débito',
     'Cartão de crédito',
@@ -188,6 +201,12 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     'Estorno',
     'Transferência bancária'
   ];
+
+  // Filtrar metas compatíveis com a natureza selecionada
+  const compatibleGoals = goals.filter(goal =>
+    (nature === 'despesa' && goal.type === 'compra') ||
+    (nature === 'receita' && goal.type === 'economia')
+  );
 
   const validateForm = (): boolean => {
     if (!sourceAccount.trim()) {
@@ -224,13 +243,6 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     setIsLoading(true);
     
     try {
-      // Log para debug do campo receipt
-      console.log('📋 Debug do campo receipt:');
-      console.log('  - receiptType:', receiptType);
-      console.log('  - receiptText:', receiptText);
-      console.log('  - receiptMedia:', receiptMedia ? `Uint8Array(${receiptMedia.length} bytes)` : 'undefined');
-      console.log('  - receipt (final):', receipt ? (typeof receipt === 'string' ? `string(${receipt.length})` : `Uint8Array(${receipt.length} bytes)`) : 'undefined');
-
       if (editOperation) {
         const operationData = {
           id: editOperation.id,
@@ -244,11 +256,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           category: category as Category,
           details: details.trim() || undefined,
           receipt: receipt || undefined,
-          project: project.trim() || undefined,
+          goal_id: goalId || undefined,
           state, // Include updated state
         };
-
-        console.log('🔄 Atualizando operação com receipt:', operationData.receipt ? 'presente' : 'ausente');
         await updateOperation(operationData);
         Alert.alert('Sucesso', 'Operação atualizada com sucesso!')
       } else {
@@ -263,11 +273,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           category: category as Category,
           details: details.trim() || undefined,
           receipt: receipt || undefined,
-          project: project.trim() || undefined,
+          goal_id: goalId || undefined,
           state,
         }
-        
-        console.log('🔄 Criando operação com receipt:', operationData.receipt ? 'presente' : 'ausente');
         
         if (doubleOperationCategories.includes(category)) {
           await createDoubleOperation(operationData);
@@ -297,13 +305,13 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     setDestinationAccount('');
     setDate(new Date().toISOString().split('T')[0]);
     setValue('');
-    setCategory(categoryNames[0] || 'Alimento-supermercado');
+    setCategory(categoryNamesByType[0] || 'Alimento-supermercado');
     setDetails('');
     setReceiptType('text');
     setReceiptText('');
     setReceiptMedia(undefined);
     setReceipt('');
-    setProject('');
+    setGoalId('');
     setReceiptImageUri(undefined);
   };
 
@@ -425,7 +433,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   };
 
   // Auto-set estado based on natureza
-  React.useEffect(() => {
+  useEffect(() => {
     if (nature === 'despesa') {
       setState('pagar');
     } else {
@@ -433,16 +441,18 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     }
   }, [nature]);
 
-  // Reset category when nature changes
-  React.useEffect(() => {
-    const availableCategories = getCategoryNamesByType(nature === 'receita' ? 'income' : 'expense');
-    if (availableCategories.length > 0 && !availableCategories.includes(category)) {
-      setCategory(availableCategories[0]);
+  // Initialize and adjust category when data is loaded or nature changes
+  useEffect(() => {
+    if (!editOperation && categoryNamesByType.length > 0) {
+      // Se não há categoria selecionada ou se a categoria atual não está na lista do tipo atual
+      if (!category || !categoryNamesByType.includes(category)) {
+        setCategory(categoryNamesByType[0]);
+      }
     }
-  }, [nature, getCategoryNamesByType]);
+  }, [categoryNamesByType, editOperation, category]);
 
   // Controlar o valor do receipt baseado no tipo
-  React.useEffect(() => {
+  useEffect(() => {
     if (receiptType === 'text') {
       setReceipt(receiptText);
     } else if (receiptMedia !== undefined) {
@@ -488,10 +498,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
                 selectedValue={state}
                 onValueChange={setState}
               >
-                <Picker.Item label="A Pagar" value="pagar" />
-                <Picker.Item label="Pago" value="pago" />
-                <Picker.Item label="A Receber" value="receber" />
-                <Picker.Item label="Recebido" value="recebido" />
+                {stateOptionsByNature.map((option) => (
+                  <Picker.Item key={option.value} label={option.label} value={option.value} />
+                ))}
               </Picker>
             </View>
           </View>
@@ -754,17 +763,23 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           </View>
         </Modal>
 
-        {/* Project */}
+        {/* Goal (Meta) */}
+        {nature && compatibleGoals.length > 0 && (
         <View style={styles.fieldContainer}>
-          <Text style={formStyles.label}>Projeto (Opcional)</Text>
-          <TextInput
-            style={formStyles.input}
-            value={project}
-            onChangeText={setProject}
-            placeholder="Nome do projeto"
-            returnKeyType="done"
-          />
+            <Text style={formStyles.label}>Meta</Text>
+            <View style={formStyles.input}>
+              <Picker
+                selectedValue={goalId}
+                onValueChange={setGoalId}
+              >
+                <Picker.Item label="Selecione uma meta (opcional)" value="" />
+                {compatibleGoals.map(goal => (
+                  <Picker.Item key={goal.id} label={goal.description} value={goal.id} />
+                ))}
+              </Picker>
         </View>
+          </View>
+        )}
 
         {/* Double Operation Info */}
         {doubleOperationCategories.includes(category) && (

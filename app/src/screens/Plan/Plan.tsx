@@ -21,6 +21,19 @@ import { colors, spacing, typography } from '../../styles/themes';
 import { useFinance } from '../../contexts/FinanceContext';
 import { BudgetItemInput, getBudgetItemsByBudgetId } from '../../database';
 import PeriodFilter from '../../components/Filters/PeriodFilter'
+import { Goal } from '../../database/goals';
+import { getGoalProgress } from '../../database/goals';
+import { listOperationsWithGoalId } from '../../database/operations';
+import MonthlySummaryPanel from '../../components/MonthlySummary/MonthlySummaryPanel';
+import { canRegisterVariableExpense, canCreateOrEditGoal } from '../../services/ValidationService';
+import { 
+  calculateGoalStrategy, 
+  validateGoalParcels, 
+  canCreateGoal, 
+  calculateGoalEndDate,
+  formatCurrency as formatCurrencyGoal 
+} from '../../services/GoalService';
+import { getMonthlyFinanceSummaryByUserAndMonth } from '../../database/monthly-finance-summary';
 
 type ViewMode = 'budget' | 'goal' | 'projection';
 
@@ -37,6 +50,7 @@ interface BudgetFormData {
 const BudgetItemsList: React.FC<{ budgetId: string }> = ({ budgetId }) => {
   const [budgetItems, setBudgetItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { getCategoryNames, getCategoryNamesByType } = useFinance();
 
   useEffect(() => {
     const loadBudgetItems = async () => {
@@ -73,11 +87,23 @@ const BudgetItemsList: React.FC<{ budgetId: string }> = ({ budgetId }) => {
   const expenseItems = budgetItems.filter(item => item.category_type === 'expense');
   const incomeItems = budgetItems.filter(item => item.category_type === 'income');
 
+  // Obter categorias orçadas
+  const budgetedCategories = budgetItems.map(item => item.category_name);
+
+  // Separar categorias não orçadas por tipo
+  const nonBudgetedExpenseCategories = getCategoryNamesByType('expense').filter(category => 
+    !budgetedCategories.includes(category)
+  );
+  const nonBudgetedIncomeCategories = getCategoryNamesByType('income').filter(category => 
+    !budgetedCategories.includes(category)
+  );
+
   return (
     <View style={styles.budgetItemsContent}>
+      {/* Categorias Orçadas */}      
       {expenseItems.length > 0 && (
         <View style={styles.budgetItemsSection}>
-          <Text style={styles.budgetItemsSectionTitle}>Despesas</Text>
+          <Text style={styles.budgetItemsSubSectionTitle}>Despesas</Text>
           {expenseItems.map((item, index) => (
             <View key={index} style={styles.budgetItem}>
               <Text style={styles.budgetItemName}>{item.category_name}</Text>
@@ -94,7 +120,7 @@ const BudgetItemsList: React.FC<{ budgetId: string }> = ({ budgetId }) => {
       
       {incomeItems.length > 0 && (
         <View style={styles.budgetItemsSection}>
-          <Text style={styles.budgetItemsSectionTitle}>Receitas</Text>
+          <Text style={styles.budgetItemsSubSectionTitle}>Receitas</Text>
           {incomeItems.map((item, index) => (
             <View key={index} style={styles.budgetItem}>
               <Text style={styles.budgetItemName}>{item.category_name}</Text>
@@ -108,6 +134,7 @@ const BudgetItemsList: React.FC<{ budgetId: string }> = ({ budgetId }) => {
           ))}
         </View>
       )}
+
     </View>
   );
 };
@@ -138,7 +165,11 @@ export default function Plan() {
     refreshActiveBudget,
     loadMonthlyBudgetPerformance,
     error,
-    clearError
+    clearError,
+    goals,
+    createGoal,
+    deleteGoal,
+    updateGoal,
   } = useFinance();
 
   const categoryNames = getCategoryNames();
@@ -167,7 +198,250 @@ export default function Plan() {
 
   // Adicionar estado para controlar o modal do mês base
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showGoalForm, setShowGoalForm] = useState(false);
 
+  const [goalForm, setGoalForm] = useState({
+    description: '',
+    type: 'economia' as 'economia' | 'compra',
+    target_value: '',
+    start_date: '',
+    end_date: '',
+    monthly_income: '',
+    fixed_expenses: '',
+    available_per_month: '',
+    importance: '',
+    priority: '3',
+    strategy: '',
+    monthly_contribution: '',
+    num_parcela: '',
+  });
+  const [goalFormError, setGoalFormError] = useState<string | null>(null);
+  const [goalLoading, setGoalLoading] = useState(false);
+  const [canCreateGoalState, setCanCreateGoalState] = useState<{ canCreate: boolean; message: string }>({ canCreate: false, message: '' });
+  const [monthlySummary, setMonthlySummary] = useState<any>(null);
+  const [goalStrategy, setGoalStrategy] = useState<any>(null);
+  const [parcelValidation, setParcelValidation] = useState<any>(null);
+
+  const handleGoalFormChange = (field: string, value: string) => {
+    console.log('🔍 DEBUG handleGoalFormChange:', field, value);
+    setGoalForm({ ...goalForm, [field]: value });
+    
+    // Recalcular estratégia quando target_value ou available_per_month mudar
+    if (field === 'target_value' || field === 'available_per_month') {
+      const targetValue = field === 'target_value' ? Number(value) : Number(goalForm.target_value);
+      const availablePerMonth = field === 'available_per_month' ? Number(value) : Number(goalForm.available_per_month);
+      
+      console.log('  Calculando estratégia:', { targetValue, availablePerMonth });
+      
+      if (targetValue > 0 && availablePerMonth > 0) {
+        const strategy = calculateGoalStrategy(targetValue, availablePerMonth);
+        console.log('  Estratégia calculada:', strategy);
+        setGoalStrategy(strategy);
+      }
+    }
+    
+    // Validar parcelas quando num_parcela ou target_value mudar
+    if (field === 'num_parcela' || field === 'target_value') {
+      const targetValue = field === 'target_value' ? Number(value) : Number(goalForm.target_value);
+      const numParcels = field === 'num_parcela' ? Number(value) : Number(goalForm.num_parcela);
+      const availablePerMonth = Number(goalForm.available_per_month);
+      
+      console.log('  Validando parcelas:', { targetValue, numParcels, availablePerMonth });
+      
+      if (targetValue > 0 && numParcels > 0 && availablePerMonth > 0) {
+        const validation = validateGoalParcels(targetValue, numParcels, availablePerMonth);
+        console.log('  Validação de parcelas:', validation);
+        setParcelValidation(validation);
+      }
+    }
+  };
+
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  // Carregar dados da tabela intermediária quando abrir formulário de metas
+  useEffect(() => {
+    const loadMonthlySummaryForGoal = async () => {
+      if (showGoalForm && !editingGoal) {
+        try {
+          const currentMonth = `${selectedYear}-${selectedMonth}`;
+          console.log('🔍 DEBUG loadMonthlySummaryForGoal:');
+          console.log('  currentMonth:', currentMonth);
+          console.log('  selectedYear:', selectedYear);
+          console.log('  selectedMonth:', selectedMonth);
+          
+          const canCreate = await canCreateGoal('user-1', currentMonth);
+          console.log('  canCreate:', canCreate);
+          setCanCreateGoalState(canCreate);
+          
+          if (canCreate.canCreate) {
+            const summary = await getMonthlyFinanceSummaryByUserAndMonth('user-1', currentMonth + '-01');
+            console.log('  summary encontrado:', summary);
+            if (summary) {
+              setMonthlySummary(summary);
+              // Preencher campos com valores da tabela intermediária
+              const updatedForm = {
+                monthly_income: summary.total_monthly_income.toString(),
+                fixed_expenses: summary.total_monthly_expense.toString(),
+                available_per_month: summary.total_monthly_available.toString(),
+              };
+              console.log('  campos a serem preenchidos:', updatedForm);
+              setGoalForm(prev => ({
+                ...prev,
+                ...updatedForm,
+              }));
+            } else {
+              console.log('  Nenhum summary encontrado para o mês:', currentMonth + '-01');
+            }
+          } else {
+            console.log('  Não pode criar meta:', canCreate.message);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar resumo mensal:', error);
+        }
+      }
+    };
+    
+    loadMonthlySummaryForGoal();
+  }, [showGoalForm, editingGoal, selectedYear, selectedMonth]);
+
+  // Atualizar formulário ao editar meta
+  useEffect(() => {
+    if (editingGoal) {
+      setGoalForm({
+        description: editingGoal.description,
+        type: editingGoal.type,
+        target_value: editingGoal.target_value.toString(),
+        start_date: editingGoal.start_date,
+        end_date: editingGoal.end_date,
+        monthly_income: editingGoal.monthly_income.toString(),
+        fixed_expenses: editingGoal.fixed_expenses.toString(),
+        available_per_month: editingGoal.available_per_month.toString(),
+        importance: editingGoal.importance,
+        priority: editingGoal.priority.toString(),
+        strategy: editingGoal.strategy || '',
+        monthly_contribution: editingGoal.monthly_contribution.toString(),
+        num_parcela: editingGoal.num_parcela.toString(),
+      });
+      setShowGoalForm(true);
+    }
+  }, [editingGoal]);
+
+  const handleGoalFormSubmit = async () => {
+    console.log('🔍 DEBUG handleGoalFormSubmit - Iniciando...');
+    setGoalFormError(null);
+    
+    // Verificar se pode criar meta
+    if (!canCreateGoalState.canCreate) {
+      console.log('  Não pode criar meta:', canCreateGoalState.message);
+      return setGoalFormError(canCreateGoalState.message);
+    }
+    
+    // Validação básica
+    if (!goalForm.description.trim()) return setGoalFormError('Descrição é obrigatória');
+    if (!goalForm.target_value || isNaN(Number(goalForm.target_value)) || Number(goalForm.target_value) <= 0) return setGoalFormError('Valor alvo inválido');
+    if (!goalForm.start_date) return setGoalFormError('Data de início é obrigatória');
+    if (!goalForm.importance.trim()) return setGoalFormError('Importância é obrigatória');
+    if (!goalForm.priority || isNaN(Number(goalForm.priority)) || Number(goalForm.priority) < 1 || Number(goalForm.priority) > 5) return setGoalFormError('Prioridade deve ser de 1 a 5');
+    if (!goalForm.num_parcela || isNaN(Number(goalForm.num_parcela)) || Number(goalForm.num_parcela) <= 0) return setGoalFormError('Número de parcelas deve ser maior que zero');
+    
+    // Validar parcelas
+    const targetValue = Number(goalForm.target_value);
+    const numParcels = Number(goalForm.num_parcela);
+    const availablePerMonth = Number(goalForm.available_per_month);
+    
+    console.log('  Dados para validação:', { targetValue, numParcels, availablePerMonth });
+    
+    const validation = validateGoalParcels(targetValue, numParcels, availablePerMonth);
+    if (!validation.isValid) {
+      console.log('  Validação de parcelas falhou:', validation.message);
+      return setGoalFormError(validation.message);
+    }
+    
+    // Calcular data de fim baseada no número de parcelas
+    const endDate = calculateGoalEndDate(goalForm.start_date, numParcels);
+    console.log('  Data de fim calculada:', endDate);
+    
+    setGoalLoading(true);
+    try {
+      if (editingGoal) {
+        await updateGoal({
+          ...editingGoal,
+          description: goalForm.description.trim(),
+          type: goalForm.type,
+          target_value: Number(goalForm.target_value),
+          start_date: goalForm.start_date,
+          end_date: goalForm.end_date,
+          monthly_income: Number(goalForm.monthly_income),
+          fixed_expenses: Number(goalForm.fixed_expenses),
+          available_per_month: Number(goalForm.available_per_month),
+          importance: goalForm.importance.trim(),
+          priority: Number(goalForm.priority),
+          strategy: goalForm.strategy.trim(),
+          monthly_contribution: Number(goalForm.monthly_contribution),
+        });
+      } else {
+        const goalData = {
+          user_id: 'user-1',
+          description: goalForm.description.trim(),
+          type: goalForm.type,
+          target_value: Number(goalForm.target_value),
+          start_date: goalForm.start_date,
+          end_date: endDate,
+          monthly_income: Number(goalForm.monthly_income),
+          fixed_expenses: Number(goalForm.fixed_expenses),
+          available_per_month: Number(goalForm.available_per_month),
+          importance: goalForm.importance.trim(),
+          priority: Number(goalForm.priority),
+          strategy: goalStrategy?.message || '',
+          monthly_contribution: validation.monthlyContribution,
+          num_parcela: Number(goalForm.num_parcela),
+          status: 'active' as const,
+        };
+        
+        console.log('  Dados da meta a serem salvos:', goalData);
+        const goalId = await createGoal(goalData);
+        console.log('  Meta criada com sucesso, ID:', goalId);
+      }
+      setShowGoalForm(false);
+      setEditingGoal(null);
+      setGoalForm({
+        description: '',
+        type: 'economia',
+        target_value: '',
+        start_date: '',
+        end_date: '',
+        monthly_income: '',
+        fixed_expenses: '',
+        available_per_month: '',
+        importance: '',
+        priority: '3',
+        strategy: '',
+        monthly_contribution: '',
+        num_parcela: '',
+      });
+    } catch (err) {
+      console.error('🔍 ERRO ao salvar meta:', err);
+      console.error('  Stack trace:', err instanceof Error ? err.stack : 'Não disponível');
+      setGoalFormError(`Erro ao salvar meta: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    } finally {
+      setGoalLoading(false);
+    }
+  };
+
+  const [goalProgressMap, setGoalProgressMap] = useState<{ [goalId: string]: number }>({});
+  const [deletingGoal, setDeletingGoal] = useState<Goal | null>(null);
+
+  // Carregar progresso real das metas
+  useEffect(() => {
+    const loadProgress = async () => {
+      const map: { [goalId: string]: number } = {};
+      for (const goal of goals) {
+        map[goal.id] = await getGoalProgress(goal.id, goal.type);
+      }
+      setGoalProgressMap(map);
+    };
+    if (goals.length > 0) loadProgress();
+  }, [goals]);
 
   useEffect(() => {
     // Generate available months for automatic budget (last 6 months)
@@ -464,7 +738,7 @@ export default function Plan() {
             Tipo: {activeBudget.type === 'manual' ? 'Manual' : 'Automático'}
           </Text>
           <Text style={styles.budgetValue}>
-            Valor Planejado: {formatCurrency(activeBudget.total_planned_value)}
+             Orçamento: {formatCurrency(activeBudget.total_planned_value)}
           </Text>
           
           {/* Budget Items */}
@@ -476,6 +750,12 @@ export default function Plan() {
           </View>
         </View>
       )}
+
+      {/* Monthly Summary Panel */}
+      <MonthlySummaryPanel
+        userId="user-1"
+        month={`${selectedYear}-${selectedMonth}`}
+      />
 
       {/* Month/Year Filter */}
       {activeBudget && (
@@ -502,7 +782,7 @@ export default function Plan() {
             <View style={styles.balanceRow}>
               <Text style={styles.balanceLabel}>Receitas Planejadas:</Text>
               <Text style={styles.balanceValue}>{formatCurrency(monthlyBudgetPerformance.total_income_planned)}</Text>
-                    </View>
+            </View>
             <View style={styles.balanceRow}>
               <Text style={styles.balanceLabel}>Receitas Reais:</Text>
               <Text style={styles.balanceValue}>{formatCurrency(monthlyBudgetPerformance.total_income_actual)}</Text>
@@ -590,13 +870,327 @@ export default function Plan() {
   );
 
   const renderGoalView = () => (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Metas</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={async () => {
+            const currentMonth = `${selectedYear}-${selectedMonth}`;
+            const canCreate = await canCreateGoal('user-1', currentMonth);
+            if (canCreate.canCreate) {
+              setShowGoalForm(true);
+            } else {
+              Alert.alert('Ação não permitida', canCreate.message);
+            }
+          }}
+        >
+          <Ionicons name="add" size={24} color={colors.text.inverse} />
+        </TouchableOpacity>
+        {/* Botão temporário para debug das operações com goal_id */}
+        {/* <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.warning[500], marginLeft: 8 }]}
+          onPress={async () => {
+            await listOperationsWithGoalId();
+            Alert.alert('Debug', 'Veja o console para as operações com goal_id.');
+          }}
+        >
+          <Ionicons name="bug-outline" size={24} color={colors.text.inverse} />
+        </TouchableOpacity> */}
+        
+        {/* Botão para debug da tabela intermediária
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.secondary[500], marginLeft: 8 }]}
+          onPress={async () => {
+            try {
+              const { getAllMonthlyFinanceSummaries } = await import('../../database/monthly-finance-summary');
+              const summaries = await getAllMonthlyFinanceSummaries();
+              console.log('🔍 DEBUG - Todos os resumos mensais:', summaries);
+              
+              if (summaries.length === 0) {
+                console.log('🔍 Nenhum resumo encontrado. Tentando criar um de teste...');
+                try {
+                  const { updateMonthlyFinanceSummary } = await import('../../services/FinanceService');
+                  const currentMonth = `${selectedYear}-${selectedMonth}`;
+                  const testSummary = await updateMonthlyFinanceSummary('user-1', currentMonth);
+                  console.log('🔍 Resumo de teste criado:', testSummary);
+                  Alert.alert('Debug', 'Resumo de teste criado. Tente abrir o formulário de metas novamente.');
+                } catch (createError) {
+                  console.error('Erro ao criar resumo de teste:', createError);
+                  Alert.alert('Erro', 'Erro ao criar resumo de teste');
+                }
+              } else {
+                Alert.alert('Debug', `Encontrados ${summaries.length} resumos mensais. Veja o console.`);
+              }
+            } catch (error) {
+              console.error('Erro ao buscar resumos:', error);
+              Alert.alert('Erro', 'Erro ao buscar resumos mensais');
+            }
+          }}
+        >
+          <Ionicons name="analytics-outline" size={24} color={colors.text.inverse} />
+        </TouchableOpacity> */}
+        
+        {/* Botão para atualizar estrutura da tabela goal */}
+        {/* <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.warning[500], marginLeft: 8 }]}
+          onPress={async () => {
+            console.log('🔍 DEBUG - Atualizando estrutura da tabela goal...');
+            try {
+              const { updateGoalsTableStructure } = await import('../../database/goals');
+              await updateGoalsTableStructure();
+              console.log('  Estrutura da tabela goal atualizada com sucesso');
+              Alert.alert('Sucesso', 'Estrutura da tabela goal atualizada!');
+            } catch (error) {
+              console.error('  Erro ao atualizar estrutura:', error);
+              Alert.alert('Erro', `Erro ao atualizar estrutura: ${error}`);
+            }
+          }}
+        >
+          <Ionicons name="construct-outline" size={24} color={colors.text.inverse} />
+        </TouchableOpacity> */}
+      </View>
+
+      {/* Monthly Summary Panel para Metas */}
+      <MonthlySummaryPanel
+        userId="user-1"
+        month={`${selectedYear}-${selectedMonth}`}
+      />
+      {goals.length === 0 ? (
     <View style={styles.emptyContainer}>
       <Ionicons name="flag-outline" size={64} color={colors.gray[400]} />
-      <Text style={styles.emptyTitle}>Metas</Text>
+          <Text style={styles.emptyTitle}>Nenhuma Meta</Text>
       <Text style={styles.emptySubtitle}>
-        Funcionalidade em desenvolvimento
+            Crie sua primeira meta para começar a planejar seus objetivos!
                     </Text>
+        </View>
+      ) : (
+        goals.map((goal) => {
+          const progress = goalProgressMap[goal.id] ?? 0;
+          const percentage = Math.min((progress / goal.target_value) * 100, 100);
+          return (
+            <View key={goal.id} style={styles.categoryCard}>
+              <View style={styles.categoryHeader}>
+                <Text style={styles.categoryName}>{goal.description}</Text>
+                <Text style={styles.categoryStatus}>{goal.status === 'completed' ? 'Concluída' : 'Em andamento'}</Text>
+                <TouchableOpacity onPress={() => setEditingGoal(goal)} style={{ marginLeft: 8 }}>
+                  <Ionicons name="create-outline" size={20} color={colors.primary[500]} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setDeletingGoal(goal)} style={{ marginLeft: 8 }}>
+                  <Ionicons name="trash-outline" size={20} color={colors.error[500]} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.categoryDetail}>Tipo: {goal.type === 'economia' ? 'Economia' : 'Compra'}</Text>
+              <Text style={styles.categoryDetail}>Valor alvo: {formatCurrency(goal.target_value)}</Text>
+              <Text style={styles.categoryDetail}>Parcelas: {goal.num_parcela}x de {formatCurrency(goal.monthly_contribution)}</Text>
+              <Text style={styles.categoryDetail}>Data limite: {new Date(goal.end_date).toLocaleDateString('pt-BR')}</Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${percentage}%`,
+                        backgroundColor: percentage >= 100 ? colors.success[500] : colors.primary[500]
+                      }
+                    ]}
+                  />
+                </View>
+                <Text style={styles.progressText}>
+                  {formatCurrency(progress)} / {formatCurrency(goal.target_value)} ({percentage.toFixed(1)}%)
+                </Text>
+              </View>
                   </View>
+          );
+        })
+      )}
+      {/* Modal para criar meta */}
+      <Modal
+        visible={showGoalForm}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { setShowGoalForm(false); setEditingGoal(null); }}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowGoalForm(false)}>
+              <Text style={styles.cancelButton}>Cancelar</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Nova Meta</Text>
+            <TouchableOpacity onPress={handleGoalFormSubmit} disabled={goalLoading}>
+              <Text style={styles.saveButton}>{goalLoading ? 'Salvando...' : 'Salvar'}</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent}>
+            {goalFormError && <Text style={{ color: 'red', marginBottom: 10 }}>{goalFormError}</Text>}
+            
+            {/* Verificação de permissão */}
+            {!canCreateGoalState.canCreate && (
+              <View style={styles.warningContainer}>
+                <Ionicons name="warning" size={24} color={colors.warning[500]} />
+                <Text style={styles.warningText}>{canCreateGoalState.message}</Text>
+              </View>
+            )}
+            
+            <Text style={styles.label}>Descrição</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: Comprar geladeira, Reserva de emergência..."
+              value={goalForm.description}
+              onChangeText={text => handleGoalFormChange('description', text)}
+              maxLength={200}
+            />
+            <Text style={styles.label}>Tipo da Meta</Text>
+            <View style={styles.typeOptions}>
+              <TouchableOpacity
+                style={[styles.typeOption, goalForm.type === 'economia' && styles.typeOptionSelected]}
+                onPress={() => handleGoalFormChange('type', 'economia')}
+              >
+                <Text style={[styles.typeOptionText, goalForm.type === 'economia' && styles.typeOptionTextSelected]}>Economia</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.typeOption, goalForm.type === 'compra' && styles.typeOptionSelected]}
+                onPress={() => handleGoalFormChange('type', 'compra')}
+              >
+                <Text style={[styles.typeOptionText, goalForm.type === 'compra' && styles.typeOptionTextSelected]}>Compra</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.label}>Valor Alvo (R$)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: 2000.00"
+              keyboardType="numeric"
+              value={goalForm.target_value}
+              onChangeText={text => handleGoalFormChange('target_value', text)}
+            />
+            
+            {/* Estratégia sugerida */}
+            {goalStrategy && (
+              <View style={styles.strategyContainer}>
+                <Text style={styles.strategyText}>
+                  <Text style={{ fontWeight: 'bold' }}>Estratégia sugerida:</Text> {goalStrategy.message}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.label}>Data de Início</Text>
+            <TouchableOpacity
+              style={[styles.input, styles.datePickerButton]}
+              onPress={() => setShowStartDatePicker(true)}
+            >
+              <Text style={styles.datePickerText}>{goalForm.start_date || 'Selecione a data'}</Text>
+              <Ionicons name="calendar" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+            {showStartDatePicker && (
+              <DateTimePicker
+                value={goalForm.start_date ? new Date(goalForm.start_date) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setShowStartDatePicker(false);
+                  if (selectedDate) {
+                    handleGoalFormChange('start_date', selectedDate.toISOString().split('T')[0]);
+                  }
+                }}
+              />
+            )}
+            <Text style={styles.label}>Número de Parcelas</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: 3"
+              keyboardType="numeric"
+              value={goalForm.num_parcela}
+              onChangeText={text => handleGoalFormChange('num_parcela', text)}
+            />
+            
+            {/* Validação de parcelas */}
+            {parcelValidation && (
+              <View style={parcelValidation.isValid ? styles.parcelValidationContainer : styles.parcelErrorContainer}>
+                <Text style={parcelValidation.isValid ? styles.parcelValidationText : styles.parcelErrorText}>
+                  {parcelValidation.message}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.label}>Renda Mensal (R$)</Text>
+            <TextInput
+              style={styles.readonlyInput}
+              placeholder="Ex: 4000.00"
+              keyboardType="numeric"
+              value={goalForm.monthly_income}
+              editable={false}
+            />
+            <Text style={styles.label}>Gastos Fixos Mensais (R$)</Text>
+            <TextInput
+              style={styles.readonlyInput}
+              placeholder="Ex: 1500.00"
+              keyboardType="numeric"
+              value={goalForm.fixed_expenses}
+              editable={false}
+            />
+            <Text style={styles.label}>Valor Disponível por Mês (R$)</Text>
+            <TextInput
+              style={styles.readonlyInput}
+              placeholder="Ex: 500.00"
+              keyboardType="numeric"
+              value={goalForm.available_per_month}
+              editable={false}
+            />
+            <Text style={styles.label}>Importância</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Por que essa meta é importante para você?"
+              value={goalForm.importance}
+              onChangeText={text => handleGoalFormChange('importance', text)}
+              maxLength={500}
+            />
+            <Text style={styles.label}>Prioridade (1 a 5)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: 3"
+              keyboardType="numeric"
+              value={goalForm.priority}
+              onChangeText={text => handleGoalFormChange('priority', text)}
+              maxLength={1}
+            />
+            <Text style={styles.label}>Contribuição Mensal (R$)</Text>
+            <TextInput
+              style={styles.readonlyInput}
+              placeholder="Calculado automaticamente"
+              keyboardType="numeric"
+              value={parcelValidation?.monthlyContribution ? parcelValidation.monthlyContribution.toFixed(2) : ''}
+              editable={false}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+      {/* Modal de confirmação de exclusão */}
+      <Modal
+        visible={!!deletingGoal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeletingGoal(null)}
+      >
+        <View style={[styles.modalContainer, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }]}> 
+          <View style={[styles.currentBudgetCard, { width: '90%' }]}> 
+            <Text style={styles.headerTitle}>Excluir Meta</Text>
+            <Text style={{ marginVertical: 16 }}>Tem certeza que deseja excluir a meta "{deletingGoal?.description}"?</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16 }}>
+              <TouchableOpacity onPress={() => setDeletingGoal(null)}>
+                <Text style={styles.cancelButton}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={async () => {
+                if (deletingGoal) {
+                  await deleteGoal(deletingGoal.id);
+                  setDeletingGoal(null);
+                }
+              }}>
+                <Text style={[styles.saveButton, { color: colors.error[500] }]}>Excluir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* Modal de edição de meta (pode ser implementado depois) */}
+    </ScrollView>
   );
 
   const renderProjectionView = () => (
@@ -1358,6 +1952,13 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: spacing.xs,
   },
+  budgetItemsSubSectionTitle: {
+    fontSize: typography.body2.fontSize,
+    fontWeight: '500',
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
+  },
   budgetItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1427,5 +2028,67 @@ const styles = StyleSheet.create({
     height: 50,
     margin: 0,
     padding: 0,
+  },
+  label: {
+    fontSize: typography.body1.fontSize,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning[50],
+    padding: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.warning[500],
+  },
+  warningText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.warning[600],
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  strategyContainer: {
+    backgroundColor: colors.gray[50],
+    padding: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+  },
+  strategyText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  parcelValidationContainer: {
+    backgroundColor: colors.success[50],
+    padding: spacing.sm,
+    borderRadius: 6,
+    marginTop: spacing.xs,
+  },
+  parcelValidationText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.success[600],
+  },
+  parcelErrorContainer: {
+    backgroundColor: colors.error[50],
+    padding: spacing.sm,
+    borderRadius: 6,
+    marginTop: spacing.xs,
+  },
+  parcelErrorText: {
+    fontSize: typography.body2.fontSize,
+    color: colors.error[600],
+  },
+  readonlyInput: {
+    backgroundColor: colors.gray[100],
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: 6,
+    padding: spacing.sm,
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
   },
 });

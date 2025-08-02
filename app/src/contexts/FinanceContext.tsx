@@ -30,7 +30,15 @@ import {
   Budget,
   BudgetPerformance,
   BudgetItemInput,
-  MonthlyBudgetBalance
+  MonthlyBudgetBalance,
+  createGoalsTable,
+  insertGoal,
+  updateGoal as updateGoalDB,
+  deleteGoal as deleteGoalDB,
+  getAllGoals as getAllGoalsDB,
+  getGoalById as getGoalByIdDB,
+  Goal,
+  getGoalProgress,
 } from '../database';
 
 // Interfaces para Financial Summary
@@ -127,6 +135,11 @@ interface FinanceContextType {
   // Utilitários
   refreshAllData: () => Promise<void>;
   clearError: () => void;
+  goals: Goal[];
+  createGoal: (goal: Omit<Goal, 'id' | 'created_at' | 'updated_at'>) => Promise<string>;
+  updateGoal: (goal: Goal) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
+  getGoalById: (id: string, user_id: string) => Promise<Goal | null>;
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null);
@@ -147,6 +160,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [budgetLoading, setBudgetLoading] = useState(false);
   const [selectedBudgetMonth, setSelectedBudgetMonth] = useState<string>('');
   const [monthlyBudgetPerformance, setMonthlyBudgetPerformance] = useState<MonthlyBudgetBalance | null>(null);
+  
+  const [goals, setGoals] = useState<Goal[]>([]);
   
   const financeService = new FinanceService();
 
@@ -420,10 +435,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setError(null);
       
       console.log('📊 Carregando operações, categorias e contas...');
-      const [operationsData, categoriesData, accountsData] = await Promise.all([
+      const [operationsData, categoriesData, accountsData, goalsData] = await Promise.all([
         getAllOperations(),
         getAllCategories(),
-        getAllAccounts()
+        getAllAccounts(),
+        getAllGoalsDB('user-1')
       ]);
       
       console.log(`✅ Dados carregados: ${operationsData.length} operações, ${categoriesData.length} categorias, ${accountsData.length} contas`);
@@ -431,6 +447,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setOperations(operationsData);
       setCategories(categoriesData);
       setAccounts(accountsData);
+      setGoals(goalsData);
       
       // Load budgets (sem dependência circular)
       try {
@@ -834,6 +851,58 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setError(null);
   }, []);
 
+  // Funções de metas (goals)
+  const createGoal = useCallback(async (goal: Omit<Goal, 'id' | 'created_at' | 'updated_at'>) => {
+    console.log('🔍 DEBUG createGoal (context):', goal);
+    try {
+      const id = await insertGoal(goal);
+      console.log('  Meta inserida com sucesso, ID:', id);
+      await loadAllData();
+      console.log('  Dados recarregados');
+      return id;
+    } catch (error) {
+      console.error('  Erro em createGoal (context):', error);
+      throw error;
+    }
+  }, [loadAllData]);
+
+  const updateGoal = useCallback(async (goal: Goal) => {
+    await updateGoalDB(goal);
+    await loadAllData();
+  }, [loadAllData]);
+
+  const deleteGoal = useCallback(async (id: string) => {
+    await deleteGoalDB(id, 'user-1');
+    await loadAllGoals();
+  }, []);
+
+  const getGoalById = useCallback(async (id: string, user_id: string) => {
+    return await getGoalByIdDB(id, user_id);
+  }, []);
+
+  const loadAllGoals = useCallback(async () => {
+    // TODO: trocar user_id fixo por dinâmico
+    const allGoals = await getAllGoalsDB('user-1');
+    setGoals(allGoals);
+  }, []);
+
+  // Atualiza o progresso/status de todas as metas
+  const updateAllGoalsProgress = useCallback(async () => {
+    const allGoals = await getAllGoalsDB('user-1');
+    for (const goal of allGoals) {
+      const progress = await getGoalProgress(goal.id, goal.type);
+      let newStatus: Goal['status'] = 'active';
+      if (progress >= goal.target_value) {
+        newStatus = 'completed';
+      }
+      if (goal.status !== newStatus) {
+        await updateGoalDB({ ...goal, status: newStatus });
+      }
+      console.log(`🟢 updateAllGoalsProgress: goal_id=${goal.id}, progresso=${progress}, status=${newStatus}`);
+    }
+    await loadAllGoals();
+  }, [loadAllGoals]);
+
   // Inicialização
   useEffect(() => {
     const initializeApp = async () => {
@@ -912,7 +981,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     // Utilitários
     refreshAllData,
-    clearError
+    clearError,
+    goals,
+    createGoal,
+    updateGoal,
+    deleteGoal,
+    getGoalById,
   };
 
   return (

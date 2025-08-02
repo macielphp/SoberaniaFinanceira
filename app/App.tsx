@@ -12,7 +12,7 @@ import Register from './src/screens/Register/Register';
 import Settings from './src/screens/Settings/Settings';
 import Goals from './src/screens/Plan/Plan';
 import { FinanceProvider } from './src/contexts/FinanceContext';
-import { resetDatabase, setupDatabase } from './src/database';
+import { db } from './src/database/db';
 
 const Tab = createBottomTabNavigator();
 
@@ -63,10 +63,28 @@ function MyTabs() {
 }
 
 export default function App() {
+  useEffect(() => {
+    (async () => {
+      try {
+        console.log('[Cleanup] Iniciando limpeza de duplicatas em budget_items...');
+        // Remove duplicatas mantendo o registro mais antigo (menor created_at ou id)
+        await db.execAsync(`
+          DELETE FROM budget_items
+          WHERE id NOT IN (
+            SELECT MIN(id) FROM budget_items
+            GROUP BY budget_id, category_name, category_type
+          );
+        `);
+        console.log('[Cleanup] Limpeza de duplicatas em budget_items concluída!');
+      } catch (err) {
+        console.error('[Cleanup] Erro ao limpar duplicatas em budget_items:', err);
+      }
+    })();
+  }, []);
+
   // useEffect(() => {
-  //   // RESET TEMPORÁRIO DO BANCO DE DADOS
   //   (async () => {
-  //     console.warn('⚠️ Rodando resetDatabase() - Remova este trecho após o reset!');
+  //     console.warn('⚠️ Resetando banco e migrando estrutura. Remova este trecho após a migração!');
   //     await resetDatabase();
   //     await setupDatabase();
   //   })();

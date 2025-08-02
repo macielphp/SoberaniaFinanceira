@@ -76,6 +76,21 @@ import {
   BudgetItemInput
 } from './budget-items';
 
+// Adicionar importação e exportação para goals
+import {
+  createGoalsTable,
+  insertGoal,
+  updateGoal,
+  deleteGoal,
+  getAllGoals,
+  getGoalById,
+  Goal,
+  getGoalProgress,
+  updateGoalsTableStructure
+} from './goals';
+
+import { createMonthlyFinanceSummaryTable } from './monthly-finance-summary';
+
 // Exportações das operações
 export {
   createOperationsTable,
@@ -151,24 +166,17 @@ export {
   BudgetItemInput
 };
 
-// Função para resetar completamente o banco de dados
-export const resetDatabase = async () => {
-  try {
-    console.log('🔥 Iniciando reset completo do banco de dados...');
-    
-    // Drop de todas as tabelas existentes
-    console.log('🗑️ Removendo tabelas existentes...');
-    await db.execAsync('DROP TABLE IF EXISTS operations');
-    await db.execAsync('DROP TABLE IF EXISTS categories');
-    await db.execAsync('DROP TABLE IF EXISTS accounts');
-    await db.execAsync('DROP TABLE IF EXISTS budget');
-    await db.execAsync('DROP TABLE IF EXISTS budget_items');
-    
-    console.log('✅ Tabelas removidas com sucesso');
-  } catch (error) {
-    console.error('❌ Erro durante reset do banco:', error);
-    throw error;
-  }
+// Adicionar exportações para goals
+export {
+  createGoalsTable,
+  insertGoal,
+  updateGoal,
+  deleteGoal,
+  getAllGoals,
+  getGoalById,
+  Goal,
+  getGoalProgress,
+  updateGoalsTableStructure
 };
 
 // Função principal para configurar o banco de dados
@@ -209,6 +217,25 @@ export const setupDatabase = async () => {
     if (!existingTables.includes('budget_items')) {
       await createBudgetItemsTable();
       console.log('✅ Tabela budget_items criada');
+    }
+
+    if (!existingTables.includes('goal')) {
+      await createGoalsTable();
+      console.log('✅ Tabela goal criada');
+    } else {
+      // Se a tabela já existe, verificar se precisa de atualização
+      try {
+        const { updateGoalsTableStructure } = await import('./goals');
+        await updateGoalsTableStructure();
+        console.log('✅ Estrutura da tabela goal verificada/atualizada');
+      } catch (error) {
+        console.log('⚠️ Erro ao verificar estrutura da tabela goal:', error);
+      }
+    }
+
+    if (!existingTables.includes('monthly_finance_summary')) {
+      await createMonthlyFinanceSummaryTable();
+      console.log('✅ Tabela monthly_finance_summary criada');
     }
     
     console.log('✅ Todas as tabelas verificadas/criadas');

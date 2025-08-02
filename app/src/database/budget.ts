@@ -487,6 +487,9 @@ export const createManualBudget = async (
         const budget_id = createdBudget.id;
         console.log('🆔 ID do orçamento recuperado:', budget_id);
 
+        // Remover itens antigos antes de inserir novos
+        await deleteBudgetItemsByBudgetId(budget_id);
+
         // Inserir itens
         console.log('📋 Salvando itens do orçamento...');
         await insertMultipleBudgetItems(budget_id, budget_items);
@@ -562,16 +565,18 @@ export const createAutomaticBudget = async (
         };
 
         const result = await insertBudget(budgetData);
-        const budget_id = `budget-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
+        // Buscar o orçamento recém-criado para obter o ID correto
+        const createdBudget = await getActiveBudget(user_id);
+        if (!createdBudget) {
+            throw new Error('Erro ao recuperar orçamento criado');
+        }
+        const budget_id = createdBudget.id;
+        // Remover itens antigos antes de inserir novos
+        await deleteBudgetItemsByBudgetId(budget_id);
         // Inserir itens
         await insertMultipleBudgetItems(budget_id, budget_items);
-
         return {
-            id: budget_id,
-            ...budgetData,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            ...createdBudget,
         };
     } catch (err) {
         console.error('Erro ao criar orçamento automático:', err);
@@ -700,3 +705,5 @@ export const calculateBudgetPerformance = async (budget_id: string, user_id: str
         throw new Error('Falha ao calcular performance do budget.');
     }
 }; 
+
+export { getBudgetItemsByBudgetId }; 

@@ -45,6 +45,7 @@ export const createBudgetItemsTable = async () => {
 
 // CRUD para budget_items
 export const insertBudgetItem = async (budget_id: string, item: BudgetItemInput) => {
+    console.log('[BudgetItem] Inserindo item:', { budget_id, ...item });
     try {
         const id = `item-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
         
@@ -62,7 +63,14 @@ export const insertBudgetItem = async (budget_id: string, item: BudgetItemInput)
 export const insertMultipleBudgetItems = async (budget_id: string, items: BudgetItemInput[]) => {
     try {
         const results = [];
+        const seen = new Set();
         for (const item of items) {
+            const key = item.category_name + '-' + item.category_type;
+            if (seen.has(key)) {
+                console.warn('[BudgetItem] Ignorando duplicidade ao inserir múltiplos itens:', key, 'budget_id:', budget_id);
+                continue;
+            }
+            seen.add(key);
             const result = await insertBudgetItem(budget_id, item);
             results.push(result);
         }
@@ -149,21 +157,21 @@ export const getBudgetItemById = async (id: string): Promise<BudgetItem | null> 
 };
 
 export const getBudgetItemsByBudgetId = async (budget_id: string): Promise<BudgetItem[]> => {
-    try {
-        const result = await db.getAllAsync<any>(
-            'SELECT * FROM budget_items WHERE budget_id = ? ORDER BY category_type DESC, category_name ASC',
-            [budget_id]
-        );
-        
-        return result.map(item => ({
-            ...item,
-            planned_value: Number(item.planned_value),
-            actual_value: item.actual_value ? Number(item.actual_value) : undefined,
-        }));
-    } catch (err) {
-        console.error('Erro ao buscar itens de budget:', err);
-        throw new Error('Falha ao buscar itens de budget do banco de dados.');
+    const result = await db.getAllAsync(
+        `SELECT * FROM budget_items WHERE budget_id = '${budget_id}' ORDER BY created_at ASC;`
+    );
+    const items = result as BudgetItem[];
+    // Remover duplicatas: só retorna o primeiro de cada par (category_name, category_type)
+    const uniqueMap = new Map();
+    for (const item of items) {
+        const key = item.category_name + '-' + item.category_type;
+        if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, item);
+        } else {
+            console.warn('[BudgetItem] Ignorando duplicata ao retornar itens:', key, 'budget_id:', budget_id);
+        }
     }
+    return Array.from(uniqueMap.values());
 };
 
 export const getBudgetItemsByCategoryType = async (budget_id: string, category_type: 'expense' | 'income'): Promise<BudgetItem[]> => {
