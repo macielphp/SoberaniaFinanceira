@@ -458,7 +458,7 @@ export async function updateMonthlyFinanceSummary(
   const total_monthly_available = calculateTotalMonthlyAvailable(
     total_monthly_income,
     total_monthly_expense,
-    variable_expense_max_value,
+    existingSummary?.variable_expense_max_value ?? variable_expense_max_value,
     sum_monthly_contribution
   );
 
@@ -480,6 +480,7 @@ export async function updateMonthlyFinanceSummary(
       variable_expense_used_value,
       total_monthly_available,
       sum_monthly_contribution,
+      includeVariableIncome: options?.includeVariableIncome ?? false,
       created_at: now,
       updated_at: now,
     };
@@ -495,10 +496,13 @@ export async function updateMonthlyFinanceSummary(
       ...summary,
       total_monthly_income,
       total_monthly_expense,
-      variable_expense_max_value,
+      // Manter o valor salvo do limite, não sobrescrever
+      variable_expense_max_value: summary.variable_expense_max_value,
       variable_expense_used_value,
       total_monthly_available,
       sum_monthly_contribution,
+      // Atualizar o switch se fornecido, senão manter o valor salvo
+      includeVariableIncome: options?.includeVariableIncome ?? summary.includeVariableIncome,
       updated_at: now,
     };
     try {
@@ -581,7 +585,7 @@ export async function calculateTotalMonthlyIncome(user_id: string, month: string
     
     console.log(`  Receitas planejadas: ${plannedIncome}`);
 
-    // 3. Se includeVariableIncome = true, buscar receitas variáveis (operações reais)
+    // 3. Se includeVariableIncome = true, buscar receitas variáveis (operações reais não orçadas)
     let variableIncome = 0;
     if (includeVariableIncome) {
       const { getAllOperations } = await import('../database/operations');
@@ -611,10 +615,12 @@ export async function calculateTotalMonthlyIncome(user_id: string, month: string
       console.log(`  Categorias de receita orçadas: ${budgetedIncomeCategories.join(', ')}`);
       console.log(`  Receitas variáveis (operações não orçadas): ${variableIncome}`);
       console.log(`  Operações variáveis encontradas:`, variableOperations.map(op => ({ category: op.category, value: op.value })));
+    } else {
+      console.log(`  Switch OFF: Incluindo apenas receitas planejadas (orçadas)`);
     }
 
     const totalIncome = plannedIncome + variableIncome;
-    console.log(`  Total de receitas: ${totalIncome}`);
+    console.log(`  Total de receitas: ${totalIncome} (planejadas: ${plannedIncome} + variáveis: ${variableIncome})`);
     return totalIncome;
     
   } catch (error) {
@@ -624,7 +630,7 @@ export async function calculateTotalMonthlyIncome(user_id: string, month: string
 }
 
 /**
- * Calcula o total de despesas do mês (planejadas + excesso)
+ * Calcula o total de despesas do mês (planejadas + excesso em categorias orçadas)
  */
 export async function calculateTotalMonthlyExpense(user_id: string, month: string): Promise<number> {
   console.log(`[calculateTotalMonthlyExpense] user_id=${user_id}, month=${month}`);
@@ -645,7 +651,7 @@ export async function calculateTotalMonthlyExpense(user_id: string, month: strin
     
     console.log(`  Despesas planejadas: ${plannedExpenses}`);
 
-    // 3. Buscar despesas variáveis (operações reais de despesa)
+    // 3. Buscar operações reais do mês
     const { getAllOperations } = await import('../database/operations');
     const allOperations = await getAllOperations();
     
@@ -660,12 +666,33 @@ export async function calculateTotalMonthlyExpense(user_id: string, month: strin
       op.date <= monthEnd
     );
     
-    const actualExpenses = monthOperations.reduce((sum, op) => sum + op.value, 0);
-    console.log(`  Despesas reais (operações): ${actualExpenses}`);
-
-    // 4. Retornar o maior valor entre planejado e real
-    const totalExpenses = Math.max(plannedExpenses, actualExpenses);
-    console.log(`  Total de despesas: ${totalExpenses}`);
+    // 4. Identificar categorias orçadas
+    const budgetedCategories = budgetItems
+      .filter(item => item.category_type === 'expense')
+      .map(item => item.category_name);
+    
+    console.log(`  Categorias orçadas: ${budgetedCategories.join(', ')}`);
+    
+    // 5. Calcular excesso em categorias orçadas
+    let excessInBudgetedCategories = 0;
+    const budgetedOperations = monthOperations.filter(op => budgetedCategories.includes(op.category));
+    
+    for (const budgetItem of budgetItems.filter(item => item.category_type === 'expense')) {
+      const plannedValue = budgetItem.planned_value || 0;
+      const actualValue = budgetedOperations
+        .filter(op => op.category === budgetItem.category_name)
+        .reduce((sum, op) => sum + op.value, 0);
+      
+      if (actualValue > plannedValue) {
+        const excess = actualValue - plannedValue;
+        excessInBudgetedCategories += excess;
+        console.log(`  Excesso em ${budgetItem.category_name}: ${excess} (planejado: ${plannedValue}, real: ${actualValue})`);
+      }
+    }
+    
+    // 6. Total = despesas planejadas + excesso em categorias orçadas
+    const totalExpenses = plannedExpenses + excessInBudgetedCategories;
+    console.log(`  Total de despesas: ${totalExpenses} (planejadas: ${plannedExpenses} + excesso: ${excessInBudgetedCategories})`);
     return totalExpenses;
     
   } catch (error) {

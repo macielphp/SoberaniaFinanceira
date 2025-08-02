@@ -11,6 +11,7 @@ export interface MonthlyFinanceSummary {
   variable_expense_used_value: number;
   total_monthly_available: number;
   sum_monthly_contribution: number;
+  includeVariableIncome: boolean; // Novo campo para o switch
   created_at: string;
   updated_at: string;
 }
@@ -28,17 +29,30 @@ export const createMonthlyFinanceSummaryTable = async () => {
       variable_expense_used_value REAL NOT NULL,
       total_monthly_available REAL NOT NULL,
       sum_monthly_contribution REAL NOT NULL,
+      includeVariableIncome INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `);
+  
+  // Migração: adicionar coluna includeVariableIncome se não existir
+  try {
+    await db.execAsync(`
+      ALTER TABLE monthly_finance_summary 
+      ADD COLUMN includeVariableIncome INTEGER DEFAULT 0;
+    `);
+    console.log('✅ Migração: coluna includeVariableIncome adicionada');
+  } catch (error) {
+    // Coluna já existe, ignorar erro
+    console.log('ℹ️ Coluna includeVariableIncome já existe');
+  }
 };
 
 // Função para inserir um resumo mensal
 export const insertMonthlyFinanceSummary = async (summary: MonthlyFinanceSummary) => {
   await db.execAsync(
     `INSERT INTO monthly_finance_summary (
-      id, user_id, start_month, end_month, total_monthly_income, total_monthly_expense, variable_expense_max_value, variable_expense_used_value, total_monthly_available, sum_monthly_contribution, created_at, updated_at
+      id, user_id, start_month, end_month, total_monthly_income, total_monthly_expense, variable_expense_max_value, variable_expense_used_value, total_monthly_available, sum_monthly_contribution, includeVariableIncome, created_at, updated_at
     ) VALUES (
       '${summary.id}',
       '${summary.user_id}',
@@ -50,6 +64,7 @@ export const insertMonthlyFinanceSummary = async (summary: MonthlyFinanceSummary
       ${summary.variable_expense_used_value},
       ${summary.total_monthly_available},
       ${summary.sum_monthly_contribution},
+      ${summary.includeVariableIncome ? 1 : 0},
       '${summary.created_at}',
       '${summary.updated_at}'
     );`
@@ -66,6 +81,7 @@ export const updateMonthlyFinanceSummary = async (summary: MonthlyFinanceSummary
       variable_expense_used_value = ${summary.variable_expense_used_value},
       total_monthly_available = ${summary.total_monthly_available},
       sum_monthly_contribution = ${summary.sum_monthly_contribution},
+      includeVariableIncome = ${summary.includeVariableIncome ? 1 : 0},
       updated_at = '${summary.updated_at}'
     WHERE id = '${summary.id}';`
   );
@@ -81,13 +97,28 @@ export const updateVariableExpenseLimit = async (user_id: string, start_month: s
   );
 };
 
+// Função para atualizar apenas o switch de receitas variáveis
+export const updateIncludeVariableIncome = async (user_id: string, start_month: string, includeVariableIncome: boolean): Promise<void> => {
+  await db.execAsync(
+    `UPDATE monthly_finance_summary SET
+      includeVariableIncome = ${includeVariableIncome ? 1 : 0},
+      updated_at = '${new Date().toISOString()}'
+    WHERE user_id = '${user_id}' AND start_month = '${start_month}';`
+  );
+};
+
 // Função para buscar resumo mensal por usuário e mês
 export const getMonthlyFinanceSummaryByUserAndMonth = async (user_id: string, start_month: string): Promise<MonthlyFinanceSummary | null> => {
   const result = await db.getAllAsync(
     `SELECT * FROM monthly_finance_summary WHERE user_id = '${user_id}' AND start_month = '${start_month}' LIMIT 1;`
   );
   if (result.length > 0) {
-    return result[0] as MonthlyFinanceSummary;
+    const rawData = result[0] as any;
+    // Converter INTEGER para boolean
+    return {
+      ...rawData,
+      includeVariableIncome: Boolean(rawData.includeVariableIncome)
+    } as MonthlyFinanceSummary;
   }
   return null;
 };

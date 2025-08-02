@@ -81,6 +81,10 @@ interface FinanceContextType {
   financialSummary: FinancialSummaryData;
   filteredOperations: Operation[];
   
+  // Monthly Summary - Estados Globais
+  includeVariableIncome: boolean;
+  setIncludeVariableIncome: (value: boolean) => Promise<void>;
+  
   // Budget - Estados
   activeBudget: Budget | null;
   budgetLoading: boolean;
@@ -155,6 +159,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Financial Summary - Estados
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   
+  // Monthly Summary - Estados Globais
+  const [includeVariableIncome, setIncludeVariableIncomeState] = useState<boolean>(false);
+  
   // Budget - Estados
   const [activeBudget, setActiveBudget] = useState<Budget | null>(null);
   const [budgetLoading, setBudgetLoading] = useState(false);
@@ -163,6 +170,32 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const [goals, setGoals] = useState<Goal[]>([]);
   
+  // Monthly Summary - Funções
+  const setIncludeVariableIncome = useCallback(async (value: boolean) => {
+    try {
+      console.log(`[FinanceContext] Atualizando includeVariableIncome para: ${value}`);
+      
+      // 1. Atualizar estado local
+      setIncludeVariableIncomeState(value);
+      
+      // 2. Atualizar no banco para o mês atual (se houver resumo)
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const { updateIncludeVariableIncome } = await import('../database/monthly-finance-summary');
+      
+      try {
+        await updateIncludeVariableIncome('user-1', currentMonth + '-01', value);
+        console.log(`[FinanceContext] Switch salvo no banco para mês ${currentMonth}`);
+      } catch (dbError) {
+        console.warn(`[FinanceContext] Não foi possível salvar no banco:`, dbError);
+        // Não falhar se não houver resumo mensal ainda
+      }
+      
+    } catch (error) {
+      console.error('[FinanceContext] Erro ao atualizar includeVariableIncome:', error);
+      setError('Erro ao atualizar configuração de receitas variáveis');
+    }
+  }, []);
+
   const financeService = new FinanceService();
 
   // BUDGET FUNCTIONS
@@ -458,6 +491,27 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } catch (budgetErr) {
         console.error('❌ Erro ao carregar orçamento:', budgetErr);
         // Não falhar o carregamento principal por causa do orçamento
+      }
+      
+      // Carregar estado do switch de receitas variáveis
+      try {
+        console.log('🔄 Carregando estado do switch de receitas variáveis...');
+        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const { getMonthlyFinanceSummaryByUserAndMonth } = await import('../database/monthly-finance-summary');
+        const monthlySummary = await getMonthlyFinanceSummaryByUserAndMonth('user-1', currentMonth + '-01');
+        
+        if (monthlySummary && monthlySummary.includeVariableIncome !== undefined) {
+          // Ler o valor salvo no banco
+          setIncludeVariableIncomeState(monthlySummary.includeVariableIncome);
+          console.log(`✅ Estado do switch carregado do banco: ${monthlySummary.includeVariableIncome}`);
+        } else {
+          // Usar padrão se não houver valor salvo
+          setIncludeVariableIncomeState(false);
+          console.log('ℹ️ Nenhum valor salvo encontrado, usando padrão: false');
+        }
+      } catch (switchErr) {
+        console.warn('⚠️ Erro ao carregar estado do switch:', switchErr);
+        // Não falhar o carregamento principal
       }
       
       console.log('🎉 Carregamento de dados concluído!');
@@ -934,6 +988,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     monthOptions,
     financialSummary,
     filteredOperations,
+    
+    // Monthly Summary - Estados Globais
+    includeVariableIncome,
+    setIncludeVariableIncome,
     
     // Budget - Estados
     activeBudget,

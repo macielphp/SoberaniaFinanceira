@@ -11,10 +11,9 @@ interface MonthlySummaryPanelProps {
 }
 
 export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPanelProps) {
-  const { operations, refreshAllData } = useFinance();
+  const { operations, refreshAllData, includeVariableIncome, setIncludeVariableIncome } = useFinance();
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [includeVariableIncome, setIncludeVariableIncome] = useState(false);
   const [showDebug, setShowDebug] = useState(true); // Temporário para debug
   const [variableExpenseLimit, setVariableExpenseLimit] = useState('300');
   const [isEditingLimit, setIsEditingLimit] = useState(false);
@@ -31,31 +30,38 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
     );
   }, [operations, userId, month]);
 
-  // Recalcular resumo quando operações mudarem
+  // Recalcular resumo quando operações mudarem ou switch global mudar
   useEffect(() => {
     loadSummary();
-  }, [userId, month, monthOperations]); // Adicionar monthOperations como dependência
+  }, [userId, month, monthOperations, includeVariableIncome]); // Adicionar includeVariableIncome como dependência
 
   const loadSummary = async () => {
     try {
       setLoading(true);
+      console.log(`[loadSummary] Iniciando carregamento para userId=${userId}, month=${month}, includeVariableIncome=${includeVariableIncome}`);
+      
       // Primeiro buscar o resumo atual
       const data = await getMonthlyFinanceSummaryByUserAndMonth(userId, month + '-01');
+      console.log(`[loadSummary] Dados encontrados:`, data);
       
-      // Se existe resumo, atualizar com o valor atual do switch
+      // Se existe resumo, atualizar apenas se necessário (sem sobrescrever o limite)
       if (data) {
+        console.log(`[loadSummary] Atualizando resumo existente com includeVariableIncome=${includeVariableIncome}`);
+        // Atualizar apenas o switch de receitas variáveis, mantendo o limite salvo
         await updateMonthlyFinanceSummary(userId, month, { 
-          includeVariableIncome,
-          variable_expense_max_value: parseFloat(variableExpenseLimit) || 300
+          includeVariableIncome
+          // Não passar variable_expense_max_value para manter o valor salvo
         });
       }
       
       // Buscar o resumo atualizado
       const updatedData = await getMonthlyFinanceSummaryByUserAndMonth(userId, month + '-01');
+      console.log(`[loadSummary] Dados atualizados:`, updatedData);
       setSummary(updatedData);
       
       // Atualizar o input com o valor salvo
       if (updatedData) {
+        console.log(`[loadSummary] Definindo limite no input: ${updatedData.variable_expense_max_value}`);
         setVariableExpenseLimit(updatedData.variable_expense_max_value.toString());
       }
       
@@ -83,14 +89,15 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
 
   const handleVariableIncomeToggle = async (value: boolean) => {
     try {
-      setIncludeVariableIncome(value);
-      // Atualizar o resumo mensal com o novo valor do switch
-      await updateMonthlyFinanceSummary(userId, month, { 
-        includeVariableIncome: value,
-        variable_expense_max_value: parseFloat(variableExpenseLimit) || 300
-      });
-      // Recarregar os dados
+      console.log(`[MonthlySummaryPanel] Alternando switch para: ${value}`);
+      
+      // 1. Atualizar estado global (isso já salva no banco)
+      await setIncludeVariableIncome(value);
+      
+      // 2. Forçar recálculo imediato do resumo
       await loadSummary();
+      
+      console.log(`[MonthlySummaryPanel] Switch atualizado e resumo recalculado`);
     } catch (error) {
       console.error('Erro ao atualizar resumo mensal:', error);
     }
@@ -99,9 +106,11 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
   const handleVariableExpenseLimitChange = async () => {
     try {
       const limit = parseFloat(variableExpenseLimit) || 300;
+      console.log(`[handleVariableExpenseLimitChange] Tentando atualizar limite para: ${limit}`);
       
       // Usar a nova função que atualiza apenas o limite
-      await updateVariableExpenseLimit(userId, month, limit);
+      const updatedSummary = await updateVariableExpenseLimit(userId, month, limit);
+      console.log(`[handleVariableExpenseLimitChange] Resumo atualizado:`, updatedSummary);
       
       // Recarregar os dados
       await loadSummary();
