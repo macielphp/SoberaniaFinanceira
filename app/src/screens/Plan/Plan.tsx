@@ -1476,12 +1476,12 @@ export default function Plan() {
         </TouchableOpacity>
       </View>
 
-        {/* Content */}
+      {/* Content */}
       {currentView === 'budget' && renderBudgetView()}
-        {currentView === 'goal' && renderGoalView()}
-        {currentView === 'projection' && renderProjectionView()}
+      {currentView === 'goal' && renderGoalView()}
+      {currentView === 'projection' && renderProjectionView()}
       
-        {/* Budget Form Modal */}
+      {/* Budget Form Modal */}
       {renderBudgetForm()}
       </View>
     </Layout>

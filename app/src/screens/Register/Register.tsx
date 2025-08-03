@@ -25,7 +25,7 @@ import { Filters } from '../../components/Filters/Filters'
 import { Nature, State } from '../../services/FinanceService'
 import AppModal from '../../components/AppModal/AppModal';
 
-type ViewMode = 'menu' | 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
+type ViewMode = 'register' | 'manage' | 'settings';
 
 // Adicione esta função utilitária antes do componente Register
 function formatDateLocal(date: Date | null): string | undefined {
@@ -37,7 +37,7 @@ function formatDateLocal(date: Date | null): string | undefined {
 }
 
 export const Register: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewMode>('menu');
+  const [currentView, setCurrentView] = useState<ViewMode>('register');
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | undefined>();
@@ -117,7 +117,7 @@ export const Register: React.FC = () => {
         'Operação atualizada com sucesso!',
         [
           { text: 'Registrar Outra', onPress: () => setCurrentView('register') },
-          { text: 'Voltar ao Menu', onPress: () => setCurrentView('menu') }
+          { text: 'Voltar ao Menu', onPress: () => setCurrentView('manage') }
         ]
       );
     } else {
@@ -127,7 +127,7 @@ export const Register: React.FC = () => {
         'Operação registrada com sucesso!',
         [
           {text: 'Registrar Outra', onPress: () => setCurrentView('register')},
-          {text: 'Voltar ao Menu', onPress: () => setCurrentView('menu')}
+          {text: 'Voltar ao Menu', onPress: () => setCurrentView('manage')}
         ]
       )
     }
@@ -279,51 +279,174 @@ export const Register: React.FC = () => {
     );
   };
 
-  const renderMenu = () => (
-    <View style={styles.menuContainer}>
-      <Text style={GlobalStyles.title}>Central de Operações</Text>
-      <Text style={[GlobalStyles.description, styles.description]}>Escolha uma opção:</Text>
-      <View>
-        <MenuButton
-          title="Registrar Operação"
-          description="Adicionar nova receita ou despesa"
-          iconName="add-circle"
-          iconColor="#4CAF50"
+  const renderRegisterView = () => (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Registrar Operação</Text>
+        <TouchableOpacity
+          style={styles.addButton}
           onPress={() => setCurrentView('register')}
-        />
-        <MenuButton
-          title="Gerenciar Operações"
-          description="Visualizar e editar operações existentes"
-          iconName="list"
-          iconColor="#2196F3"
-          onPress={() => setCurrentView('manage')}
-        />
+        >
+          <Ionicons name="add" size={24} color={colors.text.inverse} />
+        </TouchableOpacity>
+      </View>
 
-        <MenuButton
-          title="Configurações"
-          description="Gerenciar categorias, contas e configurações"
-          iconName="settings"
-          iconColor="#FF9800"
-          onPress={() => setCurrentView('settings')}
+      <View style={styles.formContainer}>
+        <OperationForm 
+          onSuccess={handleSuccess} 
+          editOperation={editingOperation} 
         />
       </View>
-    </View>
+    </ScrollView>
   );
 
-  const renderSettings = () => (
-    <View style={styles.settingsContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => setCurrentView('menu')}
+  const renderManageView = () => {
+    // DEBUG LOGS para filtragem
+    console.log('\n🔍 DEBUG renderManageView:');
+    console.log(`  selectedStartDate: ${selectedStartDate ? selectedStartDate.toISOString().split('T')[0] : 'null'}`);
+    console.log(`  selectedEndDate: ${selectedEndDate ? selectedEndDate.toISOString().split('T')[0] : 'null'}`);
+    console.log(`  filteredOps.length: ${filteredOps.length}`);
+    if (selectedStartDate && selectedEndDate) {
+      const start = selectedStartDate.toISOString().split('T')[0];
+      const end = selectedEndDate.toISOString().split('T')[0];
+      filteredOps.forEach(op => {
+        console.log(`    Operação: ${op.date} (${op.category})`);
+        console.log(`      op.date >= start: ${op.date} >= ${start} = ${op.date >= start}`);
+        console.log(`      op.date <= end: ${op.date} <= ${end} = ${op.date <= end}`);
+      });
+    }
+    console.log(`  Resultado final: ${filteredOps.length} operações`);
+
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Gerenciar Operações</Text>
+        </View>
+
+        {/* Botões de filtro e limpar */}
+        <View style={styles.filterControls}>
+          <TouchableOpacity
+            style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
+            onPress={() => setShowFilters(true)}
+          >
+            <Ionicons 
+              name="filter" 
+              size={16} 
+              color={hasActiveFilters ? "#fff" : "#333"} 
+            />
+            <Text style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}>
+              Filtros {hasActiveFilters && `(${Object.values({
+                selectedNature,
+                selectedState,
+                selectedCategory,
+                selectedAccount,
+                selectedStartDate,
+                selectedEndDate
+              }).filter(Boolean).length})`}
+            </Text>
+          </TouchableOpacity>
+
+          {hasActiveFilters && (
+            <TouchableOpacity       
+              style={styles.clearFiltersButton}
+              onPress={clearAllFilters}
+            >
+              <Ionicons name="close-circle" size={16} color="#f44336" />
+              <Text style={styles.clearFiltersText}>Limpar</Text>
+            </TouchableOpacity>
+          )}
+        </View> 
+
+        {/* Modal de filtros */}
+        <AppModal
+          visible={showFilters}
+          onRequestClose={() => setShowFilters(false)}
+          title="Filtros"
+          scrollContent
+          footer={
+            <>
+              <TouchableOpacity
+                  style={styles.clearFiltersButtonModal}
+                  onPress={clearAllFilters}
+                >
+                  <Text style={styles.clearFiltersTextModal}>Limpar Filtros</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.applyFiltersButton}
+                  onPress={() => setShowFilters(false)}
+                >
+                  <Text style={styles.applyFiltersText}>Aplicar</Text>
+                </TouchableOpacity>
+            </>
+          }
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-          <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
+          <Filters
+            nature={selectedNature}
+            setNature={setSelectedNature}
+            state={selectedState}
+            setState={setSelectedState}
+            category={selectedCategory}
+            setCategory={setSelectedCategory}
+            account={selectedAccount}
+            setAccount={setSelectedAccount}
+            categories={categoryNames}
+            accounts={accountNames}
+            startDate={selectedStartDate}
+            endDate={selectedEndDate}
+            setStartDate={setSelectedStartDate}
+            setEndDate={setSelectedEndDate}
+          />
+        </AppModal>
+
+        {/* Lista de operações */}
+        <View style={styles.operationsList}>
+          {filteredOps.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>
+                {hasActiveFilters
+                  ? "Nenhuma operação encontrada com os filtros aplicados"
+                  : "Nenhuma operação encontrada"
+                }
+              </Text>
+              {!hasActiveFilters && (
+                <TouchableOpacity 
+                  style={styles.addFirstButton}
+                  onPress={() => setCurrentView('register')}
+                >
+                  <Text style={styles.addFirstButtonText}>Registrar Primeira Operação</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <>
+              <View style={styles.resultsHeader}>
+                <Text style={styles.resultsCount}>
+                  {filteredOps.length} operaç{filteredOps.length !== 1 ? 'ões' : 'ão'} encontrada{filteredOps.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+              {filteredOps.map((operation) => (
+                <OperationCard
+                  key={operation.id}
+                  operation={operation}
+                  onEdit={handleEditOperation}
+                  onDelete={handleDeleteOperation}
+                />
+              ))}
+            </>
+          )}
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderSettingsView = () => (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
         <Text style={styles.headerTitle}>Configurações</Text>
       </View>
 
-      <ScrollView style={styles.settingsContent}>
+      <View style={styles.settingsContent}>
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Gerenciamento</Text>
           
@@ -333,7 +456,7 @@ export const Register: React.FC = () => {
             iconName="pricetags"
             iconColor="#9C27B0"
             badge={categories.length.toString()}
-            onPress={() => setCurrentView('categories')}
+            onPress={() => setShowCategoryForm(true)}
           />
           <MenuButton
             title="Contas"
@@ -341,7 +464,7 @@ export const Register: React.FC = () => {
             iconName="card"
             iconColor="#2196F3"
             badge={accounts.length.toString()}
-            onPress={() => setCurrentView('accounts')}
+            onPress={() => setShowAccountForm(true)}
           />
         </View>
 
@@ -364,90 +487,7 @@ export const Register: React.FC = () => {
             onPress={() => Alert.alert('Em breve', 'Funcionalidade em desenvolvimento')}
           />
         </View>
-      </ScrollView>
-    </View>
-  );
-
-  const renderCategories = () => (
-    <View style={styles.managementContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => setCurrentView('settings')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-          <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Gerenciar Categorias</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={handleCreateCategory}
-        >
-          <Ionicons name="add" size={24} color="#4CAF50" />
-        </TouchableOpacity>
       </View>
-
-      <ScrollView style={styles.itemsList}>
-        {categories && categories.length > 0 ? (
-          categories.map((category: Category) => (
-            <View key={category.id} style={styles.itemCard}>
-              <View style={styles.itemInfo}>
-                <Ionicons 
-                  name={category.type === 'income' ? "trending-up" : "trending-down"} 
-                  size={20} 
-                  color={category.type === 'income' ? "#4CAF50" : "#F44336"} 
-                />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName}>{category.name}</Text>
-                  <View style={styles.itemMeta}>
-                    <Text style={[
-                      styles.typeBadge, 
-                      { 
-                        backgroundColor: category.type === 'income' ? '#4CAF50' : '#F44336',
-                        color: 'white'
-                      }
-                    ]}>
-                      {category.type === 'income' ? 'Receita' : 'Despesa'}
-                    </Text>
-                  {category.isDefault && (
-                    <Text style={styles.defaultBadge}>Padrão</Text>
-                  )}
-                  </View>
-                </View>
-              </View>
-              <View style={styles.itemActions}>
-                <TouchableOpacity 
-                  style={styles.editButton}
-                  onPress={() => handleEditCategory(category)}
-                  disabled={category.isDefault}
-                >
-                  <Ionicons 
-                    name="pencil" 
-                    size={16} 
-                    color={category.isDefault ? "#ccc" : "#2196F3"} 
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.deleteButton}
-                  onPress={() => handleDeleteCategory(category)}
-                  disabled={category.isDefault}
-                >
-                  <Ionicons 
-                    name="trash" 
-                    size={16} 
-                    color={category.isDefault ? "#ccc" : "#F44336"} 
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="pricetags-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>Nenhuma categoria encontrada</Text>
-          </View>
-        )}
-      </ScrollView>
 
       {/* Modal para CategoryForm */}
       <Modal
@@ -464,74 +504,6 @@ export const Register: React.FC = () => {
           />
         </View>
       </Modal>
-    </View>
-  );
-
-  const renderAccounts = () => (
-    <View style={styles.managementContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => setCurrentView('settings')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-          <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Gerenciar Contas</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={handleCreateAccount}
-        >
-          <Ionicons name="add" size={24} color="#4CAF50" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.itemsList}>
-        {accounts && accounts.length > 0 ? (
-          accounts.map((account: Account) => (
-            <View key={account.id} style={styles.itemCard}>
-              <View style={styles.itemInfo}>
-                <Ionicons name="card" size={20} color="#2196F3" />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName}>{account.name}</Text>
-                  {account.isDefault && (
-                    <Text style={styles.defaultBadge}>Padrão</Text>
-                  )}
-                </View>
-              </View>
-              <View style={styles.itemActions}>
-                <TouchableOpacity 
-                  style={styles.editButton}
-                  onPress={() => handleEditAccount(account)}
-                  disabled={account.isDefault}
-                >
-                  <Ionicons 
-                    name="pencil" 
-                    size={16} 
-                    color={account.isDefault ? "#ccc" : "#2196F3"} 
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.deleteButton}
-                  onPress={() => handleDeleteAccount(account)}
-                  disabled={account.isDefault}
-                >
-                  <Ionicons 
-                    name="trash" 
-                    size={16} 
-                    color={account.isDefault ? "#ccc" : "#F44336"} 
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="card-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>Nenhuma conta encontrada</Text>
-          </View>
-        )}
-      </ScrollView>
 
       {/* Modal para AccountForm */}
       <Modal
@@ -548,178 +520,7 @@ export const Register: React.FC = () => {
           />
         </View>
       </Modal>
-    </View>
-  );
-
-  const renderManageOperations = () => {
-    // DEBUG LOGS para filtragem
-    console.log('\n🔍 DEBUG renderManageOperations:');
-    console.log(`  selectedStartDate: ${selectedStartDate ? selectedStartDate.toISOString().split('T')[0] : 'null'}`);
-    console.log(`  selectedEndDate: ${selectedEndDate ? selectedEndDate.toISOString().split('T')[0] : 'null'}`);
-    console.log(`  filteredOps.length: ${filteredOps.length}`);
-    if (selectedStartDate && selectedEndDate) {
-      const start = selectedStartDate.toISOString().split('T')[0];
-      const end = selectedEndDate.toISOString().split('T')[0];
-      filteredOps.forEach(op => {
-        console.log(`    Operação: ${op.date} (${op.category})`);
-        console.log(`      op.date >= start: ${op.date} >= ${start} = ${op.date >= start}`);
-        console.log(`      op.date <= end: ${op.date} <= ${end} = ${op.date <= end}`);
-      });
-    }
-    console.log(`  Resultado final: ${filteredOps.length} operações`);
-
-    return (
-    <View style={styles.manageContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => setCurrentView('menu')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-          <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Gerenciar Operações</Text>
-      </View>
-
-      {/* Botões de filtro e limpar */}
-      <View style={styles.filterControls}>
-        <TouchableOpacity
-          style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
-          onPress={() => setShowFilters(true)}
-        >
-          <Ionicons 
-            name="filter" 
-            size={16} 
-            color={hasActiveFilters ? "#fff" : "#333"} 
-          />
-          <Text style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}>
-            Filtros {hasActiveFilters && `(${Object.values({
-              selectedNature,
-              selectedState,
-              selectedCategory,
-              selectedAccount,
-              selectedStartDate,
-              selectedEndDate
-            }).filter(Boolean).length})`}
-          </Text>
-        </TouchableOpacity>
-
-        {hasActiveFilters && (
-          <TouchableOpacity       
-            style={styles.clearFiltersButton}
-            onPress={clearAllFilters}
-          >
-            <Ionicons name="close-circle" size={16} color="#f44336" />
-            <Text style={styles.clearFiltersText}>Limpar</Text>
-          </TouchableOpacity>
-        )}
-      </View> 
-
-      {/* Modal de filtros */}
-      <AppModal
-        visible={showFilters}
-        onRequestClose={() => setShowFilters(false)}
-        title="Filtros"
-        scrollContent
-        footer={
-          <>
-            <TouchableOpacity
-                style={styles.clearFiltersButtonModal}
-                onPress={clearAllFilters}
-              >
-                <Text style={styles.clearFiltersTextModal}>Limpar Filtros</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.applyFiltersButton}
-                onPress={() => setShowFilters(false)}
-              >
-                <Text style={styles.applyFiltersText}>Aplicar</Text>
-              </TouchableOpacity>
-          </>
-        }
-      >
-        <Filters
-          nature={selectedNature}
-          setNature={setSelectedNature}
-          state={selectedState}
-          setState={setSelectedState}
-          category={selectedCategory}
-          setCategory={setSelectedCategory}
-          account={selectedAccount}
-          setAccount={setSelectedAccount}
-          categories={categoryNames}
-          accounts={accountNames}
-          startDate={selectedStartDate}
-          endDate={selectedEndDate}
-          setStartDate={setSelectedStartDate}
-          setEndDate={setSelectedEndDate}
-        />
-      </AppModal>
-
-      {/* Lista de operações */}
-      <ScrollView style={styles.operationsList}>
-        {filteredOps.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>
-              {hasActiveFilters
-                ? "Nenhuma operação encontrada com os filtros aplicados"
-                : "Nenhuma operação encontrada"
-              }
-            </Text>
-            {!hasActiveFilters && (
-              <TouchableOpacity 
-                style={styles.addFirstButton}
-                onPress={() => setCurrentView('register')}
-              >
-                <Text style={styles.addFirstButtonText}>Registrar Primeira Operação</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          <>
-            <View style={styles.resultsHeader}>
-              <Text style={styles.resultsCount}>
-                {filteredOps.length} operaç{filteredOps.length !== 1 ? 'ões' : 'ão'} encontrada{filteredOps.length !== 1 ? 's' : ''}
-              </Text>
-            </View>
-            {filteredOps.map((operation) => (
-              <OperationCard
-                key={operation.id}
-                operation={operation}
-                onEdit={handleEditOperation}
-                onDelete={handleDeleteOperation}
-              />
-            ))}
-          </>
-        )}
-      </ScrollView>
-    </View>
-  );
-  }
-
-  const renderRegisterForm = () => (
-    <View style={styles.formContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => {
-            setEditingOperation(undefined);
-            setCurrentView('menu');
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-          <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {editingOperation ? 'Atualizar Operação' : 'Nova Operação'}
-        </Text>
-      </View>
-      <OperationForm 
-        onSuccess={handleSuccess} 
-        editOperation={editingOperation} 
-      />
-    </View>
+    </ScrollView>
   );
 
   // Clear error when changing views
@@ -735,187 +536,183 @@ export const Register: React.FC = () => {
 
   return (
     <Layout>
-      {currentView === 'menu' && renderMenu()}
-      {currentView === 'register' && renderRegisterForm()}
-      {currentView === 'manage' && renderManageOperations()}
-      {currentView === 'settings' && renderSettings()}
-      {currentView === 'categories' && renderCategories()}
-      {currentView === 'accounts' && renderAccounts()}
+      <View style={styles.container}>
+        {/* Tab Navigator */}
+        <View style={styles.tabNavigator}>
+          <TouchableOpacity
+            style={[styles.tab, currentView === 'register' && styles.tabActive]}
+            onPress={() => setCurrentView('register')}
+          >
+            <Text style={[styles.tabText, currentView === 'register' && styles.tabTextActive]}>
+              Registrar
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, currentView === 'manage' && styles.tabActive]}
+            onPress={() => setCurrentView('manage')}
+          >
+            <Text style={[styles.tabText, currentView === 'manage' && styles.tabTextActive]}>
+              Gerenciar
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, currentView === 'settings' && styles.tabActive]}
+            onPress={() => setCurrentView('settings')}
+          >
+            <Text style={[styles.tabText, currentView === 'settings' && styles.tabTextActive]}>
+              Configurações
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content */}
+        {currentView === 'register' && renderRegisterView()}
+        {currentView === 'manage' && renderManageView()}
+        {currentView === 'settings' && renderSettingsView()}
+      </View>
     </Layout>
   );
 };
 export default Register;
 
 const styles = StyleSheet.create({
-    // Modal Styles
-      modal: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'flex-end',
-      margin: 0,
-    },
-    modalContent: {
-      backgroundColor: '#fff',
-      padding: 16,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      maxHeight: '80%',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 20,
-      borderBottomWidth: 1,
-      borderBottomColor: '#eee',
-    },
-    modalTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      marginBottom: 12,
-    },
-    modalCloseButton: {
-      padding: 5
-    },
-    modalFooter: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      padding: 20,
-      borderTopWidth: 1,
-      borderTopColor: '#eee',
-      gap: 10,
-    },
-    clearFiltersButtonModal: {
-      flex: 1,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: '#f44336',
-      alignItems: 'center',
-    },
-    clearFiltersTextModal: {
-      color: '#f44336',
-      fontWeight: '600',
-      fontSize: 16,
-    },
-    applyFiltersButton:{
-      flex: 1,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-      backgroundColor: '#2196F3',
-      alignItems: 'center',
-    },
-    applyFiltersText: {
-      color: '#fff',
-      fontWeight: '600',
-      fontSize: 16,
-    },
-    closeButton: {
-      backgroundColor: '#f44336',
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      marginTop: 12,
-    },
-    closeButtonText: {
-      color: 'white',
-      fontWeight: '600',
-    },
-
-  // Menu Styles (existentes)
-  menuContainer: {
+  container: {
     flex: 1,
-    padding: 20,
-    paddingTop: 30,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background.default,
   },
-  menuButton: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonContent: {
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  headerTitle: {
+    fontSize: typography.h2.fontSize,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  addButton: {
+    backgroundColor: colors.primary[500],
+    borderRadius: 8,
+    padding: spacing.sm,
+  },
+  tabNavigator: {
+    flexDirection: 'row',
+    backgroundColor: colors.background.default,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
-  buttonTextContainer: {
-    flex: 1,
-    marginLeft: 16,
+  tabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary[500],
   },
-  buttonTitle: {
+  tabText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+  },
+  tabTextActive: {
+    color: colors.primary[500],
+    fontWeight: '600',
+  },
+  formContainer: {
+    flex: 1,
+  },
+  settingsContent: {
+    flex: 1,
+    padding: 16,
+  },
+  settingsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
-  buttonDescription: {
-    fontSize: 14,
-    color: '#666',
+  // Modal Styles
+  modal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+    margin: 0,
   },
-
-  description: {
-    alignSelf: 'center',
+  modalContent: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '80%',
   },
-  // Stats Styles (existentes)
-  statsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  statsText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  
-  // Header Styles (existentes)
-  header: {
+  modalHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    
-    backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  backText: {
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 4,
-  },
-  headerTitle: {
-    fontSize: 20,
+  modalTitle: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#333',
-    flex: 1,
+    marginBottom: 12,
   },
-  addButton: {
-    padding: 8,
+  modalCloseButton: {
+    padding: 5
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    gap: 10,
+  },
+  clearFiltersButtonModal: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f44336',
+    alignItems: 'center',
+  },
+  clearFiltersTextModal: {
+    color: '#f44336',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  applyFiltersButton:{
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#2196F3',
+    alignItems: 'center',
+  },
+  applyFiltersText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  closeButton: {
+    backgroundColor: '#f44336',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
 
   // Estilos dos controles de filtro
@@ -964,152 +761,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Form Container (existente)
-  formContainer: {
-    flex: 1,
-  },
-  
-  // Settings Styles (novos)
-  settingsContainer: {
-    flex: 1,
-  },
-  settingsContent: {
-    flex: 1,
-    padding: 16,
-  },
-  settingsSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  settingsItem: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  settingsItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  settingsItemText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  settingsItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  settingsItemDescription: {
-    fontSize: 14,
-    color: '#666',
-  },
-  settingsItemBadge: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginRight: 8,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2196F3',
-  },
-  
-  // Management Styles (novos)
-  managementContainer: {
-    flex: 1,
-  },
-  itemsList: {
-    flex: 1,
-    padding: 16,
-  },
-  itemCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  itemInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  itemDetails: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 12,
-  },
-  defaultBadge: {
-    fontSize: 12,
-    color: '#666',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 2,
-    alignSelf: 'flex-start',
-  },
-  itemActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  editButton: {
-    padding: 8,
-    marginRight: 4,
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-  },
-  itemMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 8,
-  },
-  typeBadge: {
-    fontSize: 12,
-    fontWeight: '600',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-
-  
   // Empty State (existente)
   emptyState: {
     flex: 1,
@@ -1151,11 +802,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  
   // Manage Operations Styles (existentes)
-  manageContainer: {
-    flex: 1,
-  },
   operationsList: {
     flex: 1,
     padding: 16,
@@ -1246,5 +893,10 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: '#F44336',
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
   },
 })
