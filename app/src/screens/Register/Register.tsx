@@ -16,16 +16,17 @@ import { Operation } from '../../services/FinanceService';
 import { OperationForm } from '../../components/OperationForm/OperationForm';
 import { AccountForm } from '../../components/AccountForm/AccountForm';
 import { CategoryForm } from '../../components/CategoryForm/CategoryForm';
-import { MenuButton } from '../../components/MenuButton/MenuButton'
+import { MenuButton } from '../../components/MenuButton/MenuButton';
 import Layout from '../../components/Layout/Layout';
 import OperationCard from '../../components/OperationCard/OperationCard'
 import GlobalStyles from '../../styles/Styles';
-import { colors, spacing, typography } from '../../styles/themes'
-import { Filters } from '../../components/Filters/Filters'
-import { Nature, State } from '../../services/FinanceService'
+import { colors, spacing, typography } from '../../styles/themes';
+import { Filters } from '../../components/Filters/Filters';
+import { Nature, State } from '../../services/FinanceService';
 import AppModal from '../../components/AppModal/AppModal';
+import BackButton from '../../components/BackButton/BackButton';
 
-type ViewMode = 'register' | 'manage' | 'settings';
+type ViewMode = 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
 
 // Adicione esta função utilitária antes do componente Register
 function formatDateLocal(date: Date | null): string | undefined {
@@ -456,7 +457,7 @@ export const Register: React.FC = () => {
             iconName="pricetags"
             iconColor="#9C27B0"
             badge={categories.length.toString()}
-            onPress={() => setShowCategoryForm(true)}
+            onPress={() => setCurrentView('categories')}
           />
           <MenuButton
             title="Contas"
@@ -464,7 +465,7 @@ export const Register: React.FC = () => {
             iconName="card"
             iconColor="#2196F3"
             badge={accounts.length.toString()}
-            onPress={() => setShowAccountForm(true)}
+            onPress={() => setCurrentView('accounts')}
           />
         </View>
 
@@ -488,6 +489,83 @@ export const Register: React.FC = () => {
           />
         </View>
       </View>
+    </ScrollView>
+  );
+
+  const renderCategoriesView = () => (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <BackButton onPress={() => setCurrentView('settings')} />
+        <Text style={styles.headerTitle}>Gerenciar Categorias</Text>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={handleCreateCategory}
+        >
+          <Ionicons name="add" size={24} color={colors.text.inverse} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.itemsList}>
+        {categories && categories.length > 0 ? (
+          categories.map((category: Category) => (
+            <View key={category.id} style={styles.itemCard}>
+              <View style={styles.itemInfo}>
+                <Ionicons 
+                  name={category.type === 'income' ? "trending-up" : "trending-down"} 
+                  size={20} 
+                  color={category.type === 'income' ? "#4CAF50" : "#F44336"} 
+                />
+                <View style={styles.itemDetails}>
+                  <Text style={styles.itemName}>{category.name}</Text>
+                  <View style={styles.itemMeta}>
+                    <Text style={[
+                      styles.typeBadge, 
+                      { 
+                        backgroundColor: category.type === 'income' ? '#4CAF50' : '#F44336',
+                        color: 'white'
+                      }
+                    ]}>
+                      {category.type === 'income' ? 'Receita' : 'Despesa'}
+                    </Text>
+                    {category.isDefault && (
+                      <Text style={styles.defaultBadge}>Padrão</Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+              <View style={styles.itemActions}>
+                <TouchableOpacity 
+                  style={styles.editButton}
+                  onPress={() => handleEditCategory(category)}
+                  disabled={category.isDefault}
+                >
+                  <Ionicons 
+                    name="pencil" 
+                    size={16} 
+                    color={category.isDefault ? "#ccc" : "#2196F3"} 
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteCategory(category)}
+                  disabled={category.isDefault}
+                >
+                  <Ionicons 
+                    name="trash" 
+                    size={16} 
+                    color={category.isDefault ? "#ccc" : "#F44336"} 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="pricetags-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyText}>Nenhuma categoria encontrada</Text>
+          </View>
+        )}
+      </View>
 
       {/* Modal para CategoryForm */}
       <Modal
@@ -504,6 +582,68 @@ export const Register: React.FC = () => {
           />
         </View>
       </Modal>
+    </ScrollView>
+  );
+
+  const renderAccountsView = () => (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <BackButton onPress={() => setCurrentView('settings')} />
+        <Text style={styles.headerTitle}>Gerenciar Contas</Text>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={handleCreateAccount}
+        >
+          <Ionicons name="add" size={24} color={colors.text.inverse} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.itemsList}>
+        {accounts && accounts.length > 0 ? (
+          accounts.map((account: Account) => (
+            <View key={account.id} style={styles.itemCard}>
+              <View style={styles.itemInfo}>
+                <Ionicons name="card" size={20} color="#2196F3" />
+                <View style={styles.itemDetails}>
+                  <Text style={styles.itemName}>{account.name}</Text>
+                  {account.isDefault && (
+                    <Text style={styles.defaultBadge}>Padrão</Text>
+                  )}
+                </View>
+              </View>
+              <View style={styles.itemActions}>
+                <TouchableOpacity 
+                  style={styles.editButton}
+                  onPress={() => handleEditAccount(account)}
+                  disabled={account.isDefault}
+                >
+                  <Ionicons 
+                    name="pencil" 
+                    size={16} 
+                    color={account.isDefault ? "#ccc" : "#2196F3"} 
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteAccount(account)}
+                  disabled={account.isDefault}
+                >
+                  <Ionicons 
+                    name="trash" 
+                    size={16} 
+                    color={account.isDefault ? "#ccc" : "#F44336"} 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="card-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyText}>Nenhuma conta encontrada</Text>
+          </View>
+        )}
+      </View>
 
       {/* Modal para AccountForm */}
       <Modal
@@ -569,6 +709,8 @@ export const Register: React.FC = () => {
         {currentView === 'register' && renderRegisterView()}
         {currentView === 'manage' && renderManageView()}
         {currentView === 'settings' && renderSettingsView()}
+        {currentView === 'categories' && renderCategoriesView()}
+        {currentView === 'accounts' && renderAccountsView()}
       </View>
     </Layout>
   );
@@ -899,4 +1041,77 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
   },
-})
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  backText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+  },
+  itemsList: {
+    padding: 10,
+  },
+  itemCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  itemInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  itemDetails: {
+    marginLeft: 10,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  itemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  defaultBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '600',
+    backgroundColor: '#FFC107',
+    color: '#333',
+    marginLeft: 8,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editButton: {
+    padding: 8,
+  },
+     deleteButton: {
+     padding: 8,
+     marginLeft: 10,
+   },
+ })
