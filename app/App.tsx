@@ -5,12 +5,14 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Home from './src/screens/Home/Home';
 import Visualize from './src/screens/Visualize/Visualize';
 import Register from './src/screens/Register/Register';
 import Settings from './src/screens/Settings/Settings';
 import Goals from './src/screens/Plan/Plan';
+import Accounts from './src/screens/Accounts/Accounts';
 import { FinanceProvider } from './src/contexts/FinanceContext';
 import { db } from './src/database/db';
 
@@ -43,6 +45,8 @@ function MyTabs() {
             iconName = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Goals') {
             iconName = focused ? 'map' : 'map-outline';
+          } else if (route.name === 'Accounts') {
+            iconName = focused ? 'card' : 'card-outline';
           } else if (route.name === 'Settings') {
             iconName = focused ? 'construct' : 'construct-outline';
           }
@@ -56,6 +60,7 @@ function MyTabs() {
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="Register" component={Register} />
       <Tab.Screen name="Visualize" component={Visualize} />
+      <Tab.Screen name="Accounts" component={Accounts} />
       <Tab.Screen name="Goals" component={Goals} />
       <Tab.Screen name="Settings" component={Settings} />
     </Tab.Navigator>
@@ -91,13 +96,15 @@ export default function App() {
   // }, []);
 
   return (
-    <SafeAreaProvider>
-      <FinanceProvider>
-        <NavigationContainer>
-          <StatusBar style="auto" />
-          <MyTabs />
-        </NavigationContainer>
-      </FinanceProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <FinanceProvider>
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <MyTabs />
+          </NavigationContainer>
+        </FinanceProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

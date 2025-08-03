@@ -179,6 +179,57 @@ export {
   updateGoalsTableStructure
 };
 
+// Função para limpar todos os dados da database
+export const clearAllData = async () => {
+  try {
+    console.log('🗑️ Iniciando limpeza de todos os dados...');
+    
+    // Limpar todas as tabelas na ordem correta (respeitando foreign keys)
+    await db.runAsync('DELETE FROM operations');
+    console.log('✅ Operações apagadas');
+    
+    await db.runAsync('DELETE FROM budget_items');
+    console.log('✅ Itens de orçamento apagados');
+    
+    await db.runAsync('DELETE FROM budget');
+    console.log('✅ Orçamentos apagados');
+    
+    await db.runAsync('DELETE FROM monthly_finance_summary');
+    console.log('✅ Resumos mensais apagados');
+    
+    await db.runAsync('DELETE FROM goal');
+    console.log('✅ Metas apagadas');
+    
+    await db.runAsync('DELETE FROM categories');
+    console.log('✅ Categorias apagadas');
+    
+    await db.runAsync('DELETE FROM accounts');
+    console.log('✅ Contas apagadas');
+    
+    // Tentar resetar os contadores de ID (opcional, pode não existir)
+    try {
+      await db.runAsync('DELETE FROM sqlite_sequence');
+      console.log('✅ Contadores de ID resetados');
+    } catch (sequenceError) {
+      console.log('ℹ️ Tabela sqlite_sequence não existe, pulando reset de contadores');
+    }
+    
+    console.log('🎉 Todos os dados foram apagados com sucesso!');
+    
+    // Recriar dados padrão após a limpeza
+    console.log('📝 Recriando dados padrão...');
+    await insertDefaultCategories();
+    console.log('✅ Categorias padrão recriadas');
+    await insertDefaultAccounts();
+    console.log('✅ Contas padrão recriadas');
+    
+    console.log('🎉 Limpeza concluída e dados padrão restaurados!');
+  } catch (error) {
+    console.error('❌ Erro ao limpar dados:', error);
+    throw error;
+  }
+};
+
 // Função principal para configurar o banco de dados
 export const setupDatabase = async () => {
   try {

@@ -759,11 +759,25 @@ export async function calculateSumMonthlyContribution(user_id: string, month: st
     const monthStart = month + '-01';
     const monthEnd = month + '-' + String(new Date(Number(month.split('-')[0]), Number(month.split('-')[1]), 0).getDate()).padStart(2, '0');
     
-    const activeGoals = allGoals.filter(goal => 
-      goal.status === 'active' &&
-      goal.start_date <= monthEnd &&
-      goal.end_date >= monthStart
-    );
+    console.log(`  Período do mês: ${monthStart} a ${monthEnd}`);
+    console.log(`  Total de metas encontradas: ${allGoals.length}`);
+    console.log(`  Metas encontradas:`, allGoals.map(goal => ({
+      id: goal.id,
+      description: goal.description,
+      status: goal.status,
+      start_date: goal.start_date,
+      end_date: goal.end_date,
+      monthly_contribution: goal.monthly_contribution
+    })));
+    
+    const activeGoals = allGoals.filter(goal => {
+      const isActive = goal.status === 'active';
+      const isInPeriod = goal.start_date <= monthEnd && goal.end_date >= monthStart;
+      
+      console.log(`  Meta ${goal.description}: status=${goal.status}, start=${goal.start_date}, end=${goal.end_date}, ativa=${isActive}, noPeríodo=${isInPeriod}`);
+      
+      return isActive && isInPeriod;
+    });
     
     // 3. Somar as contribuições mensais
     const totalContribution = activeGoals.reduce((sum, goal) => sum + goal.monthly_contribution, 0);

@@ -22,6 +22,8 @@ import {
   State,
   Operation 
 } from '../../services/FinanceService';
+import { OperationFormValidationService, OperationFormState } from '../../services/OperationFormValidationService';
+import { AccountService } from '../../services/AccountService';
 import GlobalStyles from '../../styles/Styles';
 import { colors, spacing, typography} from '../../styles/themes';
 import { componentSpacing } from '../../styles/themes/spacing'; 
@@ -50,6 +52,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     getAccountNames,
     categories,
     accounts,
+    operations,
     loading: dataLoading,
     goals
   } = useFinance();
@@ -74,6 +77,10 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   const [goalId, setGoalId] = useState(editOperation?.goal_id || '');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Estado do formulário sequencial
+  const [formState, setFormState] = useState<OperationFormState | null>(null);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
   // Determinar o tipo de receipt baseado na operação em edição
   const getInitialReceiptType = (): 'text' | 'media' => {
     if (editOperation?.receipt instanceof Uint8Array) {
@@ -94,6 +101,29 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   );
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
+
+  // Atualizar estado do formulário quando valores mudam
+  useEffect(() => {
+    const currentValues = {
+      natureza: nature,
+      estado: state,
+      categoria: category,
+      formaPagamento: paymentMethod,
+      contaOrigem: accounts.find(acc => acc.name === sourceAccount),
+      contaDestino: accounts.find(acc => acc.name === destinationAccount),
+      valor: value ? parseFloat(value) : undefined,
+      data: date ? new Date(date) : undefined
+    };
+
+    const newFormState = OperationFormValidationService.gerarEstadoFormulario(
+      currentValues,
+      categories,
+      accounts,
+      operations
+    );
+
+    setFormState(newFormState);
+  }, [nature, state, category, paymentMethod, sourceAccount, destinationAccount, value, date, categories, accounts, operations]);
 
   // Função para converter Uint8Array para URI temporária
   const convertUint8ArrayToUri = async (uint8Array: Uint8Array): Promise<string> => {
@@ -209,28 +239,63 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   );
 
   const validateForm = (): boolean => {
-    if (!sourceAccount.trim()) {
-      Alert.alert('Erro', 'Conta de origem é obrigatória');
+    if (!formState) return false;
+
+    // Validar se o formulário está completo
+    if (!OperationFormValidationService.validarFormularioCompleto({
+      natureza: nature,
+      estado: state,
+      categoria: category,
+      formaPagamento: paymentMethod,
+      contaOrigem: accounts.find(acc => acc.name === sourceAccount),
+      contaDestino: accounts.find(acc => acc.name === destinationAccount),
+      valor: value ? parseFloat(value) : undefined,
+      data: date ? new Date(date) : undefined
+    })) {
+      Alert.alert('Erro', 'Por favor, complete todos os campos obrigatórios na sequência correta.');
       return false;
     }
 
-    if (!destinationAccount.trim() && category !== 'Movimentação interna') {
-      Alert.alert('Erro', 'Conta de destino é obrigatória');
+    // Validar valor
+    if (parseFloat(value) <= 0) {
+      Alert.alert('Erro', 'O valor deve ser maior que zero.');
       return false;
     }
 
-    if (!value.trim() || parseFloat(value) <= 0) {
-      Alert.alert('Erro', 'Valor deve ser maior que zero');
+    // Validar contas diferentes
+    if (sourceAccount === destinationAccount) {
+      Alert.alert('Erro', 'A conta origem e destino não podem ser iguais.');
       return false;
     }
+
+    // Validar erros específicos
+    const newErrors: { [key: string]: string } = {};
     
-    if (!date.trim()) {
-      Alert.alert('Erro', 'Data é obrigatória');
-      return false;
+    if (value && formState.valor.validation) {
+      const valorNum = parseFloat(value);
+      if (!formState.valor.validation(valorNum)) {
+        // Usar AccountService para obter mensagem detalhada
+        const sourceAccountObj = accounts.find(acc => acc.name === sourceAccount);
+        if (sourceAccountObj) {
+          const validation = AccountService.validateOperationBalance(sourceAccountObj, valorNum, operations);
+          newErrors.valor = validation.errorMessage || 'Saldo insuficiente na conta origem';
+        } else {
+          newErrors.valor = 'Saldo insuficiente na conta origem';
+        }
+      }
     }
 
-    if (!category.trim()) {
-      Alert.alert('Erro', 'Categoria é obrigatória');
+    if (date && formState.data.validation) {
+      const dataObj = new Date(date);
+      if (!formState.data.validation(dataObj)) {
+        newErrors.data = 'Data inválida para o estado selecionado';
+      }
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      Alert.alert('Erro', 'Por favor, corrija os erros no formulário.');
       return false;
     }
 
@@ -478,126 +543,165 @@ export const OperationForm: React.FC<OperationFormProps> = ({
         {/* Natureza */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Natureza</Text>
-          <View style={formStyles.input}>
+          <View style={[formStyles.input, formState?.natureza.disabled && styles.disabledField]}>
             <Picker
               selectedValue={nature}
               onValueChange={setNature}
+              enabled={!formState?.natureza.disabled}
             >
               <Picker.Item label="Despesa" value="despesa" />
               <Picker.Item label="Receita" value="receita" />
             </Picker>
           </View>
+          {formState?.natureza.message && (
+            <Text style={styles.fieldMessage}>{formState.natureza.message}</Text>
+          )}
         </View>
 
         {/* Estado - only for non-double operations */}
         {!doubleOperationCategories.includes(category) && (
           <View style={styles.fieldContainer}>
             <Text style={formStyles.label}>Estado</Text>
-            <View style={formStyles.input}>
+            <View style={[formStyles.input, formState?.estado.disabled && styles.disabledField]}>
               <Picker
                 selectedValue={state}
                 onValueChange={setState}
+                enabled={!formState?.estado.disabled}
               >
-                {stateOptionsByNature.map((option) => (
-                  <Picker.Item key={option.value} label={option.label} value={option.value} />
+                {formState?.estado.options.map((option) => (
+                  <Picker.Item 
+                    key={option} 
+                    label={OperationFormValidationService.getEstadoLabel(option)} 
+                    value={option} 
+                  />
                 ))}
               </Picker>
             </View>
+            {formState?.estado.message && (
+              <Text style={styles.fieldMessage}>{formState.estado.message}</Text>
+            )}
           </View>
         )}
 
         {/* Category - Dynamic from database */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Categoria</Text>
-          <View style={formStyles.input}>
+          <View style={[formStyles.input, formState?.categoria.disabled && styles.disabledField]}>
             <Picker
               selectedValue={category}
               onValueChange={setCategory}
+              enabled={!formState?.categoria.disabled}
             >
-              {categoryNamesByType.length > 0 ? (
-                categoryNamesByType.map((categoryName) => (
-                  <Picker.Item key={categoryName} label={categoryName} value={categoryName} />
+              {formState?.categoria.options && formState.categoria.options.length > 0 ? (
+                formState.categoria.options.map((cat: any) => (
+                  <Picker.Item key={cat.name} label={cat.name} value={cat.name} />
                 ))
               ) : (
                 <Picker.Item label="Nenhuma categoria disponível" value="" />
               )}
             </Picker>
           </View>
+          {formState?.categoria.message && (
+            <Text style={styles.fieldMessage}>{formState.categoria.message}</Text>
+          )}
         </View>
 
         {/* Payment Method */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Forma de Pagamento</Text>
-          <View style={formStyles.input}>
+          <View style={[formStyles.input, formState?.formaPagamento.disabled && styles.disabledField]}>
             <Picker
               selectedValue={paymentMethod}
               onValueChange={setPaymentMethod}
+              enabled={!formState?.formaPagamento.disabled}
             >
-              {paymentMethods.map((method) => (
+              {formState?.formaPagamento.options.map((method) => (
                 <Picker.Item key={method} label={method} value={method} />
               ))}
             </Picker>
           </View>
+          {formState?.formaPagamento.message && (
+            <Text style={styles.fieldMessage}>{formState.formaPagamento.message}</Text>
+          )}
         </View>
 
         {/* Source Account - Dynamic from database */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Conta de Origem</Text>
-          <View style={formStyles.input}>
+          <View style={[formStyles.input, formState?.contaOrigem.disabled && styles.disabledField]}>
             <Picker
               selectedValue={sourceAccount}
               onValueChange={setSourceAccount}
+              enabled={!formState?.contaOrigem.disabled}
             >
               <Picker.Item label="Selecione uma conta" value="" />
-              {accountNames.length > 0 ? (
-                accountNames.map((accountName) => (
-                  <Picker.Item key={accountName} label={accountName} value={accountName} />
+              {formState?.contaOrigem.options && formState.contaOrigem.options.length > 0 ? (
+                formState.contaOrigem.options.map((account: any) => (
+                  <Picker.Item key={account.name} label={account.name} value={account.name} />
                 ))
               ) : (
                 <Picker.Item label="Nenhuma conta disponível" value="" />
               )}
             </Picker>
           </View>
+          {formState?.contaOrigem.message && (
+            <Text style={styles.fieldMessage}>{formState.contaOrigem.message}</Text>
+          )}
         </View>
 
         {/* Destination Account - Dynamic from database */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Conta de Destino</Text>
-          <View style={formStyles.input}>
+          <View style={[formStyles.input, formState?.contaDestino.disabled && styles.disabledField]}>
             <Picker
               selectedValue={destinationAccount}
               onValueChange={setDestinationAccount}
+              enabled={!formState?.contaDestino.disabled}
             >
               <Picker.Item label="Selecione uma conta" value="" />
-              {accountNames.length > 0 ? (
-                accountNames.map((accountName) => (
-                  <Picker.Item key={accountName} label={accountName} value={accountName} />
+              {formState?.contaDestino.options && formState.contaDestino.options.length > 0 ? (
+                formState.contaDestino.options.map((account: any) => (
+                  <Picker.Item key={account.name} label={account.name} value={account.name} />
                 ))
               ) : (
                 <Picker.Item label="Nenhuma conta disponível" value="" />
               )}
             </Picker>
           </View>
+          {formState?.contaDestino.message && (
+            <Text style={styles.fieldMessage}>{formState.contaDestino.message}</Text>
+          )}
         </View>
 
         {/* Value */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Valor (R$)</Text>
           <TextInput
-            style={formStyles.input}
+            style={[formStyles.input, formState?.valor.disabled && styles.disabledField]}
             value={value}
             onChangeText={setValue}
             placeholder="0,00"
             keyboardType="numeric"
             returnKeyType="next"
+            editable={!formState?.valor.disabled}
           />
+          {formState?.valor.message && (
+            <Text style={styles.fieldMessage}>{formState.valor.message}</Text>
+          )}
+          {errors.valor && (
+            <Text style={styles.errorMessage}>{errors.valor}</Text>
+          )}
         </View>
 
         {/* Campo de Data */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Data</Text>
-          <TouchableOpacity onPress={handleOpenDatePicker} style={formStyles.input}>
-            <Text>{date}</Text>
+          <TouchableOpacity 
+            onPress={handleOpenDatePicker} 
+            style={[formStyles.input, formState?.data.disabled && styles.disabledField]}
+            disabled={formState?.data.disabled}
+          >
+            <Text style={formState?.data.disabled ? { color: colors.gray[400] } : {}}>{date}</Text>
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
@@ -607,20 +711,30 @@ export const OperationForm: React.FC<OperationFormProps> = ({
               onChange={handleDateChange}
             />
           )}
+          {formState?.data.message && (
+            <Text style={styles.fieldMessage}>{formState.data.message}</Text>
+          )}
+          {errors.data && (
+            <Text style={styles.errorMessage}>{errors.data}</Text>
+          )}
         </View>
 
         {/* Details */}
         <View style={styles.fieldContainer}>
           <Text style={formStyles.label}>Detalhes (Opcional)</Text>
           <TextInput
-            style={[ formStyles.input ,formStyles.textArea]}
+            style={[formStyles.input, formStyles.textArea, formState?.detalhes.disabled && styles.disabledField]}
             value={details}
             onChangeText={setDetails}
             placeholder="Descrição adicional..."
             multiline
             numberOfLines={3}
             returnKeyType="next"
+            editable={!formState?.detalhes.disabled}
           />
+          {formState?.detalhes.message && (
+            <Text style={styles.fieldMessage}>{formState.detalhes.message}</Text>
+          )}
         </View>
 
         {/* Receipt */}
@@ -628,13 +742,14 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           <Text style={formStyles.label}>Recibo (Opcional)</Text>
           
           {/* Botões de seleção de tipo */}
-          <View style={styles.receiptTypeContainer}>
+          <View style={[styles.receiptTypeContainer, formState?.recibo.disabled && styles.disabledField]}>
             <TouchableOpacity
               style={[
                 styles.receiptTypeButton,
                 receiptType === 'text' && styles.receiptTypeButtonActive
               ]}
               onPress={() => setReceiptType('text')}
+              disabled={formState?.recibo.disabled}
             >
               <Text style={[
                 styles.receiptTypeButtonText,
@@ -658,6 +773,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
                   setShowReceiptOptions(true);
                 }
               }}
+              disabled={formState?.recibo.disabled}
             >
               <Text style={[
                 styles.receiptTypeButtonText,
@@ -708,6 +824,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
                 </TouchableOpacity>
               )}
             </View>
+          )}
+          {formState?.recibo.message && (
+            <Text style={styles.fieldMessage}>{formState.recibo.message}</Text>
           )}
         </View>
 
@@ -767,10 +886,11 @@ export const OperationForm: React.FC<OperationFormProps> = ({
         {nature && compatibleGoals.length > 0 && (
         <View style={styles.fieldContainer}>
             <Text style={formStyles.label}>Meta</Text>
-            <View style={formStyles.input}>
+            <View style={[formStyles.input, formState?.metas.disabled && styles.disabledField]}>
               <Picker
                 selectedValue={goalId}
                 onValueChange={setGoalId}
+                enabled={!formState?.metas.disabled}
               >
                 <Picker.Item label="Selecione uma meta (opcional)" value="" />
                 {compatibleGoals.map(goal => (
@@ -778,6 +898,9 @@ export const OperationForm: React.FC<OperationFormProps> = ({
                 ))}
               </Picker>
         </View>
+          {formState?.metas.message && (
+            <Text style={styles.fieldMessage}>{formState.metas.message}</Text>
+          )}
           </View>
         )}
 
@@ -990,6 +1113,21 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: 8,
+  },
+  disabledField: {
+    opacity: 0.5,
+    backgroundColor: colors.gray[100],
+  },
+  fieldMessage: {
+    fontSize: typography.caption.fontSize,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
+  },
+  errorMessage: {
+    fontSize: typography.caption.fontSize,
+    color: colors.error[500],
+    marginTop: spacing.xs,
   },
 });
 

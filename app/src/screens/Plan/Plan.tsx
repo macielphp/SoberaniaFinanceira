@@ -307,31 +307,88 @@ export default function Plan() {
   // Atualizar formulário ao editar meta
   useEffect(() => {
     if (editingGoal) {
-      setGoalForm({
-        description: editingGoal.description,
-        type: editingGoal.type,
-        target_value: editingGoal.target_value.toString(),
-        start_date: editingGoal.start_date,
-        end_date: editingGoal.end_date,
-        monthly_income: editingGoal.monthly_income.toString(),
-        fixed_expenses: editingGoal.fixed_expenses.toString(),
-        available_per_month: editingGoal.available_per_month.toString(),
-        importance: editingGoal.importance,
-        priority: editingGoal.priority.toString(),
-        strategy: editingGoal.strategy || '',
-        monthly_contribution: editingGoal.monthly_contribution.toString(),
-        num_parcela: editingGoal.num_parcela.toString(),
-      });
-      setShowGoalForm(true);
+      // Carregar dados atualizados do resumo mensal para edição
+      const loadUpdatedDataForEdit = async () => {
+        try {
+          const currentMonth = editingGoal.start_date.substring(0, 7); // YYYY-MM
+          console.log('🔍 DEBUG loadUpdatedDataForEdit:');
+          console.log('  currentMonth:', currentMonth);
+          console.log('  editingGoal.start_date:', editingGoal.start_date);
+          
+          const summary = await getMonthlyFinanceSummaryByUserAndMonth('user-1', currentMonth + '-01');
+          console.log('  summary atualizado encontrado:', summary);
+          
+          if (summary) {
+            // Usar dados atualizados do resumo mensal em vez dos dados antigos da meta
+            setGoalForm({
+              description: editingGoal.description,
+              type: editingGoal.type,
+              target_value: editingGoal.target_value.toString(),
+              start_date: editingGoal.start_date,
+              end_date: editingGoal.end_date,
+              monthly_income: summary.total_monthly_income.toString(), // Dados atualizados
+              fixed_expenses: summary.total_monthly_expense.toString(), // Dados atualizados
+              available_per_month: summary.total_monthly_available.toString(), // Dados atualizados
+              importance: editingGoal.importance,
+              priority: editingGoal.priority.toString(),
+              strategy: editingGoal.strategy || '',
+              monthly_contribution: editingGoal.monthly_contribution.toString(),
+              num_parcela: editingGoal.num_parcela.toString(),
+            });
+            console.log('  Formulário preenchido com dados atualizados do resumo mensal');
+          } else {
+            // Fallback: usar dados da meta se não encontrar resumo atualizado
+            console.log('  Nenhum resumo atualizado encontrado, usando dados da meta');
+            setGoalForm({
+              description: editingGoal.description,
+              type: editingGoal.type,
+              target_value: editingGoal.target_value.toString(),
+              start_date: editingGoal.start_date,
+              end_date: editingGoal.end_date,
+              monthly_income: editingGoal.monthly_income.toString(),
+              fixed_expenses: editingGoal.fixed_expenses.toString(),
+              available_per_month: editingGoal.available_per_month.toString(),
+              importance: editingGoal.importance,
+              priority: editingGoal.priority.toString(),
+              strategy: editingGoal.strategy || '',
+              monthly_contribution: editingGoal.monthly_contribution.toString(),
+              num_parcela: editingGoal.num_parcela.toString(),
+            });
+          }
+          setShowGoalForm(true);
+        } catch (error) {
+          console.error('Erro ao carregar dados atualizados para edição:', error);
+          // Fallback em caso de erro
+          setGoalForm({
+            description: editingGoal.description,
+            type: editingGoal.type,
+            target_value: editingGoal.target_value.toString(),
+            start_date: editingGoal.start_date,
+            end_date: editingGoal.end_date,
+            monthly_income: editingGoal.monthly_income.toString(),
+            fixed_expenses: editingGoal.fixed_expenses.toString(),
+            available_per_month: editingGoal.available_per_month.toString(),
+            importance: editingGoal.importance,
+            priority: editingGoal.priority.toString(),
+            strategy: editingGoal.strategy || '',
+            monthly_contribution: editingGoal.monthly_contribution.toString(),
+            num_parcela: editingGoal.num_parcela.toString(),
+          });
+          setShowGoalForm(true);
+        }
+      };
+      
+      loadUpdatedDataForEdit();
     }
   }, [editingGoal]);
 
   const handleGoalFormSubmit = async () => {
     console.log('🔍 DEBUG handleGoalFormSubmit - Iniciando...');
+    console.log('  editingGoal:', editingGoal ? 'Sim' : 'Não');
     setGoalFormError(null);
     
-    // Verificar se pode criar meta
-    if (!canCreateGoalState.canCreate) {
+    // Verificar se pode criar meta (apenas para novas metas)
+    if (!editingGoal && !canCreateGoalState.canCreate) {
       console.log('  Não pode criar meta:', canCreateGoalState.message);
       return setGoalFormError(canCreateGoalState.message);
     }
@@ -364,20 +421,30 @@ export default function Plan() {
     setGoalLoading(true);
     try {
       if (editingGoal) {
+        // Recalcular monthly_contribution baseada no novo número de parcelas
+        const newMonthlyContribution = Number(goalForm.target_value) / Number(goalForm.num_parcela);
+        const newEndDate = calculateGoalEndDate(goalForm.start_date, Number(goalForm.num_parcela));
+        
+        console.log('  Atualizando meta com novos valores:');
+        console.log('  - Nova contribuição mensal:', newMonthlyContribution);
+        console.log('  - Nova data de fim:', newEndDate);
+        console.log('  - Novo número de parcelas:', goalForm.num_parcela);
+        
         await updateGoal({
           ...editingGoal,
           description: goalForm.description.trim(),
           type: goalForm.type,
           target_value: Number(goalForm.target_value),
           start_date: goalForm.start_date,
-          end_date: goalForm.end_date,
+          end_date: newEndDate,
           monthly_income: Number(goalForm.monthly_income),
           fixed_expenses: Number(goalForm.fixed_expenses),
           available_per_month: Number(goalForm.available_per_month),
           importance: goalForm.importance.trim(),
           priority: Number(goalForm.priority),
           strategy: goalForm.strategy.trim(),
-          monthly_contribution: Number(goalForm.monthly_contribution),
+          monthly_contribution: newMonthlyContribution,
+          num_parcela: Number(goalForm.num_parcela),
         });
       } else {
         const goalData = {
@@ -1016,16 +1083,18 @@ export default function Plan() {
             <TouchableOpacity onPress={() => setShowGoalForm(false)}>
               <Text style={styles.cancelButton}>Cancelar</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Nova Meta</Text>
+            <Text style={styles.modalTitle}>{editingGoal ? 'Editar Meta' : 'Nova Meta'}</Text>
             <TouchableOpacity onPress={handleGoalFormSubmit} disabled={goalLoading}>
-              <Text style={styles.saveButton}>{goalLoading ? 'Salvando...' : 'Salvar'}</Text>
+              <Text style={styles.saveButton}>
+                {goalLoading ? (editingGoal ? 'Atualizando...' : 'Salvando...') : (editingGoal ? 'Atualizar' : 'Salvar')}
+              </Text>
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalContent}>
             {goalFormError && <Text style={{ color: 'red', marginBottom: 10 }}>{goalFormError}</Text>}
             
-            {/* Verificação de permissão */}
-            {!canCreateGoalState.canCreate && (
+            {/* Verificação de permissão - apenas para novas metas */}
+            {!editingGoal && !canCreateGoalState.canCreate && (
               <View style={styles.warningContainer}>
                 <Ionicons name="warning" size={24} color={colors.warning[500]} />
                 <Text style={styles.warningText}>{canCreateGoalState.message}</Text>

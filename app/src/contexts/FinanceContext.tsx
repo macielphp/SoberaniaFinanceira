@@ -40,6 +40,7 @@ import {
   Goal,
   getGoalProgress,
 } from '../database';
+import { createOrUpdateMonthlyFinanceSummary } from '../database/monthly-finance-summary';
 
 // Interfaces para Financial Summary
 interface MonthOption {
@@ -579,25 +580,59 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const newOperation = financeService.createSimpleOperation(operationData);
       await insertOperation(newOperation);
+      
+      // Criar/atualizar resumo mensal automaticamente
+      const operationMonth = newOperation.date.substring(0, 7); // YYYY-MM
+      console.log(`[createSimpleOperation] Criando resumo para mês: ${operationMonth}`);
+      console.log(`[createSimpleOperation] Operações disponíveis:`, operations.length);
+      console.log(`[createSimpleOperation] Nova operação:`, {
+        nature: newOperation.nature,
+        value: newOperation.value,
+        state: newOperation.state,
+        date: newOperation.date
+      });
+      
+      // Passar apenas as operações do mês correto
+      const monthOperations = [...operations, newOperation].filter(op => {
+        const opMonth = op.date.substring(0, 7);
+        return opMonth === operationMonth;
+      });
+      
+      console.log(`[createSimpleOperation] Operações do mês ${operationMonth}:`, monthOperations.length);
+      await createOrUpdateMonthlyFinanceSummary('user-1', operationMonth, monthOperations, includeVariableIncome);
+      
       await loadAllData(); // Recarrega tudo
       return newOperation;
     } catch (err) {
       setError('Erro ao criar operação');
       throw err;
     }
-  }, [financeService, loadAllData]);
+  }, [financeService, loadAllData, operations, includeVariableIncome]);
 
   const createDoubleOperation = useCallback(async (operationData: Omit<Operation, 'id' | 'state'>): Promise<Operation[]> => {
     try {
       const newOperations = financeService.createDoubleOperation(operationData);
       await Promise.all(newOperations.map(op => insertOperation(op)));
+      
+      // Criar/atualizar resumo mensal automaticamente
+      const operationMonth = newOperations[0].date.substring(0, 7); // YYYY-MM
+      
+      // Passar apenas as operações do mês correto
+      const monthOperations = [...operations, ...newOperations].filter(op => {
+        const opMonth = op.date.substring(0, 7);
+        return opMonth === operationMonth;
+      });
+      
+      console.log(`[createDoubleOperation] Operações do mês ${operationMonth}:`, monthOperations.length);
+      await createOrUpdateMonthlyFinanceSummary('user-1', operationMonth, monthOperations, includeVariableIncome);
+      
       await loadAllData();
       return newOperations;
     } catch (err) {
       setError('Erro ao criar operação dupla');
       throw err;
     }
-  }, [financeService, loadAllData]);
+  }, [financeService, loadAllData, operations, includeVariableIncome]);
 
   const updateOperation = useCallback(async (operationData: Partial<Operation> & { id: string }): Promise<Operation> => {
     try {
@@ -763,8 +798,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!acc) {
         throw new Error('Conta não encontrada');
       }
-      if (acc.isDefault) {
-        throw new Error('Não é possível editar contas padrão do sistema');
+      // Permitir editar contas padrão próprias (como Carteira-física), mas não externas
+      if (acc.isDefault && acc.type === 'externa') {
+        throw new Error('Não é possível editar contas externas padrão do sistema');
       }
       const exists = accounts.some(acc => 
         acc.id !== account.id && acc.name.toLowerCase().trim() === account.name.toLowerCase().trim()
@@ -911,6 +947,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const id = await insertGoal(goal);
       console.log('  Meta inserida com sucesso, ID:', id);
+      
+      // Atualizar resumo mensal após criar meta
+      const goalMonth = goal.start_date.substring(0, 7); // YYYY-MM
+      console.log(`  Atualizando resumo mensal para mês: ${goalMonth}`);
+      await createOrUpdateMonthlyFinanceSummary('user-1', goalMonth, operations, includeVariableIncome);
+      
       await loadAllData();
       console.log('  Dados recarregados');
       return id;
@@ -918,17 +960,33 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('  Erro em createGoal (context):', error);
       throw error;
     }
-  }, [loadAllData]);
+  }, [loadAllData, operations, includeVariableIncome]);
 
   const updateGoal = useCallback(async (goal: Goal) => {
     await updateGoalDB(goal);
+    
+    // Atualizar resumo mensal após editar meta
+    const goalMonth = goal.start_date.substring(0, 7); // YYYY-MM
+    console.log(`  Atualizando resumo mensal para mês: ${goalMonth}`);
+    await createOrUpdateMonthlyFinanceSummary('user-1', goalMonth, operations, includeVariableIncome);
+    
     await loadAllData();
-  }, [loadAllData]);
+  }, [loadAllData, operations, includeVariableIncome]);
 
   const deleteGoal = useCallback(async (id: string) => {
+    // Buscar a meta antes de deletar para obter o mês
+    const goal = await getGoalByIdDB(id, 'user-1');
     await deleteGoalDB(id, 'user-1');
+    
+    // Atualizar resumo mensal após deletar meta
+    if (goal) {
+      const goalMonth = goal.start_date.substring(0, 7); // YYYY-MM
+      console.log(`  Atualizando resumo mensal para mês: ${goalMonth}`);
+      await createOrUpdateMonthlyFinanceSummary('user-1', goalMonth, operations, includeVariableIncome);
+    }
+    
     await loadAllGoals();
-  }, []);
+  }, [operations, includeVariableIncome]);
 
   const getGoalById = useCallback(async (id: string, user_id: string) => {
     return await getGoalByIdDB(id, user_id);

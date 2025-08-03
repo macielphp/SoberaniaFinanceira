@@ -25,6 +25,8 @@ import { Filters } from '../../components/Filters/Filters';
 import { Nature, State } from '../../services/FinanceService';
 import AppModal from '../../components/AppModal/AppModal';
 import BackButton from '../../components/BackButton/BackButton';
+import AccountCard from '../../components/AccountCard/AccountCard';
+import { AccountService } from '../../services/AccountService';
 
 type ViewMode = 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
 
@@ -37,8 +39,15 @@ function formatDateLocal(date: Date | null): string | undefined {
   return `${year}-${month}-${day}`;
 }
 
-export const Register: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewMode>('register');
+interface RegisterProps {
+  navigation?: any;
+  route?: any;
+}
+
+export const Register: React.FC<RegisterProps> = ({ navigation, route }) => {
+  // Verificar se há parâmetros de navegação para definir a view inicial
+  const initialView = route?.params?.screen || 'register';
+  const [currentView, setCurrentView] = useState<ViewMode>(initialView as ViewMode);
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | undefined>();
@@ -585,83 +594,82 @@ export const Register: React.FC = () => {
     </ScrollView>
   );
 
-  const renderAccountsView = () => (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <BackButton onPress={() => setCurrentView('settings')} />
-        <Text style={styles.headerTitle}>Gerenciar Contas</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={handleCreateAccount}
-        >
-          <Ionicons name="add" size={24} color={colors.text.inverse} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.itemsList}>
-        {accounts && accounts.length > 0 ? (
-          accounts.map((account: Account) => (
-            <View key={account.id} style={styles.itemCard}>
-              <View style={styles.itemInfo}>
-                <Ionicons name="card" size={20} color="#2196F3" />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName}>{account.name}</Text>
-                  {account.isDefault && (
-                    <Text style={styles.defaultBadge}>Padrão</Text>
-                  )}
-                </View>
-              </View>
-              <View style={styles.itemActions}>
-                <TouchableOpacity 
-                  style={styles.editButton}
-                  onPress={() => handleEditAccount(account)}
-                  disabled={account.isDefault}
-                >
-                  <Ionicons 
-                    name="pencil" 
-                    size={16} 
-                    color={account.isDefault ? "#ccc" : "#2196F3"} 
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.deleteButton}
-                  onPress={() => handleDeleteAccount(account)}
-                  disabled={account.isDefault}
-                >
-                  <Ionicons 
-                    name="trash" 
-                    size={16} 
-                    color={account.isDefault ? "#ccc" : "#F44336"} 
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="card-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>Nenhuma conta encontrada</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Modal para AccountForm */}
-      <Modal
-        visible={showAccountForm}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalBackground}>
-          <AccountForm
-            account={editingAccount}
-            onSubmit={handleAccountSubmit}
-            onCancel={handleAccountCancel}
-            isEditing={!!editingAccount}
-          />
+  const renderAccountsView = () => {
+    // Calcular saldos das contas
+    const accountsBalance = AccountService.getAccountsBalance(accounts, operations);
+    
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <BackButton onPress={() => setCurrentView('settings')} />
+          <Text style={styles.headerTitle}>Gerenciar Contas</Text>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={handleCreateAccount}
+          >
+            <Ionicons name="add" size={24} color={colors.text.inverse} />
+          </TouchableOpacity>
         </View>
-      </Modal>
-    </ScrollView>
-  );
+
+        <View style={styles.accountsList}>
+          {accounts && accounts.length > 0 ? (
+            accounts.map((account: Account) => {
+              const balance = accountsBalance.find(b => b.accountId === account.id);
+              return (
+                <AccountCard
+                  key={account.id}
+                  account={account}
+                  currentBalance={balance?.currentBalance || 0}
+                  monthlyVariation={balance?.monthlyVariation || 0}
+                  onEdit={handleEditAccount}
+                  onDelete={handleDeleteAccount}
+                  showActions={true}
+                />
+              );
+            })
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="card-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>Nenhuma conta encontrada</Text>
+              <TouchableOpacity 
+                style={styles.addFirstButton}
+                onPress={handleCreateAccount}
+              >
+                <Text style={styles.addFirstButtonText}>Adicionar Primeira Conta</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Modal para AccountForm */}
+        <Modal
+          visible={showAccountForm}
+          transparent={true}
+          animationType="fade"
+        >
+          <View style={styles.modalBackground}>
+            <AccountForm
+              account={editingAccount}
+              onSubmit={handleAccountSubmit}
+              onCancel={handleAccountCancel}
+              isEditing={!!editingAccount}
+            />
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  };
+
+  // Capturar parâmetros de navegação para edição
+  React.useEffect(() => {
+    console.log('Register: route.params recebidos:', route?.params);
+    if (route?.params?.editingAccount) {
+      console.log('Register: Configurando edição de conta:', route.params.editingAccount);
+      setEditingAccount(route.params.editingAccount);
+      setCurrentView('accounts');
+      setShowAccountForm(true);
+    }
+  }, [route?.params?.editingAccount]);
 
   // Clear error when changing views
   React.useEffect(() => {
@@ -1053,6 +1061,9 @@ const styles = StyleSheet.create({
   },
   itemsList: {
     padding: 10,
+  },
+  accountsList: {
+    padding: 16,
   },
   itemCard: {
     flexDirection: 'row',

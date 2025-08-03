@@ -38,16 +38,15 @@ export const insertDefaultAccounts = async () => {
     console.log('📝 Iniciando inserção de contas padrão...');
     
     const defaultAccounts = [
-        'Conta Corrente', 'Poupança', 'Carteira-física', 'Cartão de Crédito',
-        'Conta Digital', 'Investimentos'
+        'Carteira-física'
     ];
     
     let insertedCount = 0;
     for (const accountName of defaultAccounts) {
         try {
             const result = await db.runAsync(
-                `INSERT OR IGNORE INTO accounts (id, name, isDefault, createdAt) 
-                 VALUES (?, ?, 1, ?)`,
+                `INSERT OR IGNORE INTO accounts (id, name, type, saldo, isDefault, createdAt) 
+                 VALUES (?, ?, 'propria', 0, 1, ?)`,
                 [`default-${accountName}`, accountName, new Date().toISOString()]
             );
             if (result.changes > 0) {

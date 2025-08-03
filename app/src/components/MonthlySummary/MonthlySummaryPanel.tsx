@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Switch, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { colors, spacing, typography } from '../../styles/themes';
-import { getMonthlyFinanceSummaryByUserAndMonth } from '../../database/monthly-finance-summary';
-import { updateMonthlyFinanceSummary, updateVariableExpenseLimit } from '../../services/FinanceService';
+import { 
+  getMonthlyFinanceSummaryByUserAndMonth,
+  createOrUpdateMonthlyFinanceSummary 
+} from '../../database/monthly-finance-summary';
+import { updateVariableExpenseLimit } from '../../services/FinanceService';
 import { useFinance } from '../../contexts/FinanceContext';
 
 interface MonthlySummaryPanelProps {
@@ -14,20 +17,44 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
   const { operations, refreshAllData, includeVariableIncome, setIncludeVariableIncome } = useFinance();
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showDebug, setShowDebug] = useState(true); // Temporário para debug
+  const [showDebug, setShowDebug] = useState(true); // Mostrar cálculo detalhado
   const [variableExpenseLimit, setVariableExpenseLimit] = useState('300');
   const [isEditingLimit, setIsEditingLimit] = useState(false);
 
   // Filtrar operações do mês selecionado
   const monthOperations = useMemo(() => {
-    const monthStart = month + '-01';
-    const monthEnd = month + '-' + String(new Date(Number(month.split('-')[0]), Number(month.split('-')[1]), 0).getDate()).padStart(2, '0');
+    console.log(`[MonthlySummaryPanel] Filtrando operações para mês ${month}:`);
+    console.log(`[MonthlySummaryPanel] Total de operações: ${operations.length}`);
     
-    return operations.filter(op => 
-      op.user_id === userId &&
-      op.date >= monthStart &&
-      op.date <= monthEnd
-    );
+    // Simplificar filtragem - usar apenas o mês
+    const filtered = operations.filter(op => {
+      const isCorrectUser = op.user_id === userId;
+      const opMonth = op.date.substring(0, 7); // YYYY-MM
+      const isCorrectMonth = opMonth === month;
+      
+      console.log(`[MonthlySummaryPanel] Filtro operação:`, {
+        user_id: op.user_id,
+        target_user: userId,
+        isCorrectUser,
+        date: op.date,
+        opMonth,
+        targetMonth: month,
+        isCorrectMonth,
+        included: isCorrectUser && isCorrectMonth
+      });
+      
+      return isCorrectUser && isCorrectMonth;
+    });
+    
+    console.log(`[MonthlySummaryPanel] Operações filtradas:`, filtered.map(op => ({
+      nature: op.nature,
+      value: op.value,
+      state: op.state,
+      date: op.date,
+      category: op.category
+    })));
+    
+    return filtered;
   }, [operations, userId, month]);
 
   // Recalcular resumo quando operações mudarem ou switch global mudar
@@ -40,23 +67,9 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
       setLoading(true);
       console.log(`[loadSummary] Iniciando carregamento para userId=${userId}, month=${month}, includeVariableIncome=${includeVariableIncome}`);
       
-      // Primeiro buscar o resumo atual
-      const data = await getMonthlyFinanceSummaryByUserAndMonth(userId, month + '-01');
-      console.log(`[loadSummary] Dados encontrados:`, data);
-      
-      // Se existe resumo, atualizar apenas se necessário (sem sobrescrever o limite)
-      if (data) {
-        console.log(`[loadSummary] Atualizando resumo existente com includeVariableIncome=${includeVariableIncome}`);
-        // Atualizar apenas o switch de receitas variáveis, mantendo o limite salvo
-        await updateMonthlyFinanceSummary(userId, month, { 
-          includeVariableIncome
-          // Não passar variable_expense_max_value para manter o valor salvo
-        });
-      }
-      
-      // Buscar o resumo atualizado
-      const updatedData = await getMonthlyFinanceSummaryByUserAndMonth(userId, month + '-01');
-      console.log(`[loadSummary] Dados atualizados:`, updatedData);
+      // Criar ou atualizar automaticamente o resumo mensal
+      const updatedData = await createOrUpdateMonthlyFinanceSummary(userId, month, monthOperations, includeVariableIncome);
+      console.log(`[loadSummary] Resumo criado/atualizado:`, updatedData);
       setSummary(updatedData);
       
       // Atualizar o input com o valor salvo
@@ -65,9 +78,9 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
         setVariableExpenseLimit(updatedData.variable_expense_max_value.toString());
       }
       
-      // Debug: Log dos valores
+      // Log dos valores para verificação
       if (updatedData) {
-        console.log('=== DEBUG MONTHLY SUMMARY ===');
+        console.log('=== MONTHLY SUMMARY CALCULATION ===');
         console.log('Operações do mês:', monthOperations.length);
         console.log('Receita Total:', updatedData.total_monthly_income);
         console.log('Despesa Total:', updatedData.total_monthly_expense);
@@ -78,7 +91,7 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
         // Calcular manualmente para verificar
         const calculated = updatedData.total_monthly_income - updatedData.total_monthly_expense - updatedData.variable_expense_max_value - updatedData.sum_monthly_contribution;
         console.log('Cálculo Manual:', calculated);
-        console.log('==============================');
+        console.log('=====================================');
       }
     } catch (error) {
       console.error('Erro ao carregar resumo mensal:', error);
@@ -244,10 +257,10 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
         </View>
       </View>
 
-      {/* Seção de Debug - Temporária */}
+      {/* Seção de Cálculo Detalhado */}
       {showDebug && (
         <View style={styles.debugSection}>
-          <Text style={styles.debugTitle}>🔍 Debug - Cálculo Detalhado</Text>
+          <Text style={styles.debugTitle}>🔍 Cálculo Detalhado</Text>
           <Text style={styles.debugText}>
             Operações do mês: {monthOperations.length}
           </Text>
@@ -271,7 +284,7 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
             style={styles.hideDebugButton} 
             onPress={() => setShowDebug(false)}
           >
-            <Text style={styles.hideDebugButtonText}>Ocultar Debug</Text>
+            <Text style={styles.hideDebugButtonText}>Ocultar Detalhes</Text>
           </TouchableOpacity>
         </View>
       )}
