@@ -5,7 +5,7 @@ import {
   getMonthlyFinanceSummaryByUserAndMonth,
   createOrUpdateMonthlyFinanceSummary 
 } from '../../database/monthly-finance-summary';
-import { updateVariableExpenseLimit } from '../../services/FinanceService';
+import { updateVariableExpenseLimit, FinanceService } from '../../services/FinanceService';
 import { useFinance } from '../../contexts/FinanceContext';
 
 interface MonthlySummaryPanelProps {
@@ -88,9 +88,14 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
         console.log('Contribuições para Metas:', updatedData.sum_monthly_contribution);
         console.log('Valor Disponível:', updatedData.total_monthly_available);
         
-        // Calcular manualmente para verificar
-        const calculated = updatedData.total_monthly_income - updatedData.total_monthly_expense - updatedData.variable_expense_max_value - updatedData.sum_monthly_contribution;
-        console.log('Cálculo Manual:', calculated);
+        // Verificar cálculo usando o serviço centralizado
+        const financeService = new FinanceService();
+        const realValues = financeService.getRealIncomeAndExpenses(operations, month + '-01', month + '-31');
+        console.log('=== VERIFICAÇÃO COM SERVIÇO CENTRALIZADO ===');
+        console.log('Receita Real (serviço):', realValues.totalReceitas);
+        console.log('Despesa Real (serviço):', realValues.totalDespesas);
+        console.log('Receita do DB:', updatedData.total_monthly_income);
+        console.log('Despesa do DB:', updatedData.total_monthly_expense);
         console.log('=====================================');
       }
     } catch (error) {

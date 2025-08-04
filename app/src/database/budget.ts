@@ -8,6 +8,7 @@ import {
     calculateBudgetTotals,
     BudgetItemInput 
 } from './budget-items';
+import { FinanceService } from '../services/FinanceService';
 
 // Type definitions
 export interface Budget {
@@ -329,14 +330,30 @@ export const calculateMonthlyBudgetPerformance = async (
         console.log('💰 Receitas planejadas:', totalIncomePlanned);
         console.log('💸 Despesas planejadas:', totalExpensePlanned);
 
-        // Calcular totais reais
-        const totalIncomeActual = operations
-            .filter(op => op.nature === 'receita')
-            .reduce((sum, op) => sum + Number(op.value), 0);
-            
-        const totalExpenseActual = operations
-            .filter(op => op.nature === 'despesa')
-            .reduce((sum, op) => sum + Number(op.value), 0);
+        // Usar o serviço centralizado para calcular receitas e despesas reais
+        console.log('📊 Usando serviço centralizado para calcular totais reais');
+        
+        // Buscar TODAS as operações do usuário para o serviço centralizado
+        const allOperations = await db.getAllAsync<any>(
+            `SELECT o.*, o.category as category_name
+            FROM operations o
+            WHERE o.user_id = ?
+            AND o.state IN ('pago', 'recebido')`,
+            [user_id]
+        );
+        
+        const financeService = new FinanceService();
+        const realValues = financeService.getRealIncomeAndExpenses(allOperations, startDate, endDate);
+        
+        const totalIncomeActual = realValues.totalReceitas;
+        const totalExpenseActual = realValues.totalDespesas;
+        
+        console.log('📊 Resultado do serviço centralizado:', {
+            totalReceitas: realValues.totalReceitas,
+            totalDespesas: realValues.totalDespesas,
+            receitasCount: realValues.receitas.length,
+            despesasCount: realValues.despesas.length
+        });
             
         console.log('💰 Receitas reais:', totalIncomeActual);
         console.log('💸 Despesas reais:', totalExpenseActual);

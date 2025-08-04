@@ -95,9 +95,10 @@ interface FinanceContextType {
   // Operações
   createSimpleOperation: (operationData: Omit<Operation, 'id'>) => Promise<Operation>;
   createDoubleOperation: (operationData: Omit<Operation, 'id' | 'state'>) => Promise<Operation[]>;
-  updateOperation: (operationData: Partial<Operation> & { id: string }) => Promise<Operation>;
-  updateOperationState: (operation: Operation, newState: Operation['state']) => Promise<Operation>;
-  removeOperation: (id: string) => Promise<void>;
+      updateOperation: (operationData: Partial<Operation> & { id: string }) => Promise<Operation>;
+    updateOperationState: (operation: Operation, newState: Operation['state']) => Promise<Operation>;
+    removeOperation: (id: string) => Promise<void>;
+    removeAdiantamentoCompleto: (operationId: string) => Promise<void>;
   filterOperations: (filters: {
     nature?: Operation['nature'];
     state?: Operation['state'];
@@ -668,15 +669,103 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [financeService, loadAllData]);
 
+  // Função para deletar um adiantamento completo (ambas as operações)
+  const removeAdiantamentoCompleto = useCallback(async (operationId: string): Promise<void> => {
+    try {
+      const operation = operations.find(op => op.id === operationId);
+      
+      if (!operation || operation.category !== 'Adiantamento-pessoal') {
+        throw new Error('Operação não é um adiantamento pessoal');
+      }
+
+      // Buscar operação inversa correspondente
+      const operacaoInversa = operations.find(inversa => 
+        inversa.category === 'Adiantamento-pessoal' &&
+        inversa.nature !== operation.nature && // Natureza oposta
+        inversa.date === operation.date && // Mesma data
+        Math.abs(inversa.value) === Math.abs(operation.value) && // Mesmo valor
+        inversa.id !== operation.id // Não é a mesma operação
+      );
+
+      if (!operacaoInversa) {
+        throw new Error('Operação inversa não encontrada');
+      }
+
+      console.log(`[removeAdiantamentoCompleto] Deletando adiantamento completo:`, {
+        operacao1: { id: operation.id, nature: operation.nature, value: operation.value },
+        operacao2: { id: operacaoInversa.id, nature: operacaoInversa.nature, value: operacaoInversa.value }
+      });
+
+      // Deletar ambas as operações
+      await Promise.all([
+        deleteOperation(operation.id),
+        deleteOperation(operacaoInversa.id)
+      ]);
+
+      await loadAllData();
+    } catch (err) {
+      setError('Erro ao remover adiantamento completo');
+      throw err;
+    }
+  }, [operations, loadAllData]);
+
   const removeOperation = useCallback(async (id: string): Promise<void> => {
     try {
-      await deleteOperation(id);
+      // Buscar a operação que será deletada
+      const operationToDelete = operations.find(op => op.id === id);
+      
+      if (!operationToDelete) {
+        throw new Error('Operação não encontrada');
+      }
+
+      // Se é uma operação de adiantamento-pessoal, buscar a operação inversa
+      if (operationToDelete.category === 'Adiantamento-pessoal') {
+        console.log(`[removeOperation] Deletando operação de adiantamento-pessoal:`, {
+          id: operationToDelete.id,
+          nature: operationToDelete.nature,
+          value: operationToDelete.value,
+          date: operationToDelete.date
+        });
+
+        // Buscar operação inversa correspondente
+        const operacaoInversa = operations.find(inversa => 
+          inversa.category === 'Adiantamento-pessoal' &&
+          inversa.nature !== operationToDelete.nature && // Natureza oposta
+          inversa.date === operationToDelete.date && // Mesma data
+          Math.abs(inversa.value) === Math.abs(operationToDelete.value) && // Mesmo valor
+          inversa.id !== operationToDelete.id // Não é a mesma operação
+        );
+
+        if (operacaoInversa) {
+          console.log(`[removeOperation] Operação inversa encontrada:`, {
+            id: operacaoInversa.id,
+            nature: operacaoInversa.nature,
+            value: operacaoInversa.value,
+            date: operacaoInversa.date
+          });
+
+          // Deletar ambas as operações
+          await Promise.all([
+            deleteOperation(operationToDelete.id),
+            deleteOperation(operacaoInversa.id)
+          ]);
+
+          console.log(`[removeOperation] Ambas as operações de adiantamento deletadas com sucesso`);
+        } else {
+          console.log(`[removeOperation] Operação inversa não encontrada, deletando apenas a operação original`);
+          await deleteOperation(id);
+        }
+      } else {
+        // Operação normal, deletar normalmente
+        await deleteOperation(id);
+      }
+
       await loadAllData();
     } catch (err) {
       setError('Erro ao remover operação');
       throw err;
     }
-  }, [loadAllData]);
+  }, [operations, loadAllData]);
 
   // CATEGORIAS
   const createCategory = useCallback(async (name: string, type: 'income' | 'expense'): Promise<boolean> => {
@@ -1063,6 +1152,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateOperation,
     updateOperationState,
     removeOperation,
+    removeAdiantamentoCompleto,
     filterOperations,
     
     // Categorias

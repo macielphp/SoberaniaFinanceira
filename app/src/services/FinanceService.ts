@@ -311,7 +311,28 @@ export class FinanceService {
       filteredOps = this.getOperationsByPeriod(filteredOps, startDate, endDate);
     }
 
-    return filteredOps.reduce((total, op) => total + Math.abs(op.value), 0);
+    // Aplicar lógica especial para adiantamentos pessoais
+    const receitasSemAdiantamentos = filteredOps.filter(op => {
+      if (op.category === 'Adiantamento-pessoal') {
+        // Buscar operação inversa correspondente
+        const operacaoInversa = operations.find(inversa => 
+          inversa.category === 'Adiantamento-pessoal' &&
+          inversa.nature !== op.nature && // Natureza oposta
+          inversa.date === op.date && // Mesma data
+          Math.abs(inversa.value) === Math.abs(op.value) // Mesmo valor
+        );
+        
+        // Se não encontrou operação inversa ou se ela ainda está pendente, incluir
+        if (!operacaoInversa || operacaoInversa.state === 'receber') {
+          return true;
+        } else {
+          return false; // Excluir se já foi recebido
+        }
+      }
+      return true;
+    });
+
+    return receitasSemAdiantamentos.reduce((total, op) => total + Math.abs(op.value), 0);
   }
 
   // Método adicional: Calcular total de despesas em um período
@@ -324,7 +345,28 @@ export class FinanceService {
       filteredOps = this.getOperationsByPeriod(filteredOps, startDate, endDate);
     }
 
-    return filteredOps.reduce((total, op) => total + Math.abs(op.value), 0);
+    // Aplicar lógica especial para adiantamentos pessoais
+    const despesasSemAdiantamentos = filteredOps.filter(op => {
+      if (op.category === 'Adiantamento-pessoal') {
+        // Buscar operação inversa correspondente
+        const operacaoInversa = operations.find(inversa => 
+          inversa.category === 'Adiantamento-pessoal' &&
+          inversa.nature !== op.nature && // Natureza oposta
+          inversa.date === op.date && // Mesma data
+          Math.abs(inversa.value) === Math.abs(op.value) // Mesmo valor
+        );
+        
+        // Se não encontrou operação inversa ou se ela ainda está pendente, incluir
+        if (!operacaoInversa || operacaoInversa.state === 'receber') {
+          return true;
+        } else {
+          return false; // Excluir se já foi recebido
+        }
+      }
+      return true;
+    });
+
+    return despesasSemAdiantamentos.reduce((total, op) => total + Math.abs(op.value), 0);
   }
 
   // Método adicional: Obter resumo financeiro
@@ -354,6 +396,154 @@ export class FinanceService {
       totalOperacoes: operations.length,
       operacoesPendentes: operacoesPendentes.length
     };
+  }
+
+  /**
+   * Calcula receitas e despesas reais excluindo operações de transferência temporária
+   * Esta função centraliza a lógica para todos os componentes
+   */
+  getRealIncomeAndExpenses(operations: Operation[], startDate?: string, endDate?: string): {
+    totalReceitas: number;
+    totalDespesas: number;
+    receitas: Operation[];
+    despesas: Operation[];
+  } {
+    console.log('[FinanceService] getRealIncomeAndExpenses - Iniciando cálculo');
+    console.log('[FinanceService] Total de operações:', operations.length);
+    
+    // Filtrar operações por período se especificado
+    let filteredOps = operations;
+    if (startDate && endDate) {
+      filteredOps = this.getOperationsByPeriod(operations, startDate, endDate);
+      console.log('[FinanceService] Operações filtradas por período:', filteredOps.length);
+    }
+
+    // Separar receitas e despesas
+    const receitas = filteredOps.filter(op => 
+      op.nature === 'receita' && ['recebido'].includes(op.state)
+    );
+    const despesas = filteredOps.filter(op => 
+      op.nature === 'despesa' && ['pago'].includes(op.state)
+    );
+
+    console.log('[FinanceService] Receitas encontradas:', receitas.length);
+    console.log('[FinanceService] Despesas encontradas:', despesas.length);
+
+    // Processar operações de Adiantamento-pessoal
+    const { receitasSemAdiantamentos, despesasSemAdiantamentos } = this.processAdiantamentoOperations(
+      receitas, 
+      despesas, 
+      operations // Usar TODAS as operações para encontrar pares
+    );
+
+    const totalReceitas = receitasSemAdiantamentos.reduce((total, op) => total + Math.abs(op.value), 0);
+    const totalDespesas = despesasSemAdiantamentos.reduce((total, op) => total + Math.abs(op.value), 0);
+
+    console.log('[FinanceService] Resultado final:');
+    console.log('[FinanceService] - Total Receitas:', totalReceitas);
+    console.log('[FinanceService] - Total Despesas:', totalDespesas);
+    console.log('[FinanceService] - Receitas processadas:', receitasSemAdiantamentos.length);
+    console.log('[FinanceService] - Despesas processadas:', despesasSemAdiantamentos.length);
+
+    return {
+      totalReceitas,
+      totalDespesas,
+      receitas: receitasSemAdiantamentos,
+      despesas: despesasSemAdiantamentos
+    };
+  }
+
+  /**
+   * Processa operações de Adiantamento-pessoal para excluir transferências temporárias
+   * Procura pares de operações independente da data
+   */
+  private processAdiantamentoOperations(
+    receitas: Operation[], 
+    despesas: Operation[], 
+    allOperations: Operation[]
+  ): { receitasSemAdiantamentos: Operation[], despesasSemAdiantamentos: Operation[] } {
+    
+    const categoriasExcluidas = ['Adiantamento-pessoal', 'Movimentação interna', 'Reparação'];
+    
+    // Processar receitas
+    const receitasSemAdiantamentos = receitas.filter(op => {
+      if (!categoriasExcluidas.includes(op.category)) {
+        return true; // Manter operações que não são transferências
+      }
+      
+      if (op.category === 'Adiantamento-pessoal') {
+        // Procurar operação inversa em TODAS as operações (não apenas no período)
+        const operacaoInversa = allOperations.find(inversa => 
+          inversa.category === 'Adiantamento-pessoal' && 
+          inversa.nature !== op.nature && 
+          Math.abs(inversa.value) === Math.abs(op.value) &&
+          inversa.id !== op.id // Não comparar com ela mesma
+        );
+        
+        console.log(`[FinanceService] Operação ${op.id} (${op.nature}):`, {
+          date: op.date,
+          value: op.value,
+          state: op.state,
+          inversaEncontrada: operacaoInversa ? {
+            id: operacaoInversa.id,
+            date: operacaoInversa.date,
+            state: operacaoInversa.state
+          } : null
+        });
+        
+        // Se não encontrou inversa OU se a inversa ainda está pendente, incluir como receita real
+        if (!operacaoInversa || operacaoInversa.state === 'receber') {
+          console.log(`[FinanceService] ✅ Incluindo como receita real (inversa não encontrada ou pendente)`);
+          return true;
+        } else {
+          console.log(`[FinanceService] ❌ Excluindo como transferência temporária (inversa já recebida)`);
+          return false;
+        }
+      }
+      
+      return true;
+    });
+
+    // Processar despesas
+    const despesasSemAdiantamentos = despesas.filter(op => {
+      if (!categoriasExcluidas.includes(op.category)) {
+        return true; // Manter operações que não são transferências
+      }
+      
+      if (op.category === 'Adiantamento-pessoal') {
+        // Procurar operação inversa em TODAS as operações (não apenas no período)
+        const operacaoInversa = allOperations.find(inversa => 
+          inversa.category === 'Adiantamento-pessoal' && 
+          inversa.nature !== op.nature && 
+          Math.abs(inversa.value) === Math.abs(op.value) &&
+          inversa.id !== op.id // Não comparar com ela mesma
+        );
+        
+        console.log(`[FinanceService] Operação ${op.id} (${op.nature}):`, {
+          date: op.date,
+          value: op.value,
+          state: op.state,
+          inversaEncontrada: operacaoInversa ? {
+            id: operacaoInversa.id,
+            date: operacaoInversa.date,
+            state: operacaoInversa.state
+          } : null
+        });
+        
+        // Se não encontrou inversa OU se a inversa ainda está pendente, incluir como despesa real
+        if (!operacaoInversa || operacaoInversa.state === 'receber') {
+          console.log(`[FinanceService] ✅ Incluindo como despesa real (inversa não encontrada ou pendente)`);
+          return true;
+        } else {
+          console.log(`[FinanceService] ❌ Excluindo como transferência temporária (inversa já recebida)`);
+          return false;
+        }
+      }
+      
+      return true;
+    });
+
+    return { receitasSemAdiantamentos, despesasSemAdiantamentos };
   }
 
   // Método adicional: Validar operação antes de criar

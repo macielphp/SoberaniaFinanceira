@@ -1,4 +1,5 @@
 import { db } from './db';
+import { FinanceService } from '../services/FinanceService';
 
 export interface MonthlyFinanceSummary {
   id: string;
@@ -166,58 +167,22 @@ export const createOrUpdateMonthlyFinanceSummary = async (
   const start_month = `${month}-01`;
   const end_month = `${month}-31`;
   
-  // Calcular totais das operações
-  console.log(`[createOrUpdateMonthlyFinanceSummary] Filtrando operações para mês: ${month}`);
-  console.log(`[createOrUpdateMonthlyFinanceSummary] Total de operações recebidas:`, operations.length);
+  // Usar o serviço centralizado para calcular receitas e despesas reais
+  console.log(`[createOrUpdateMonthlyFinanceSummary] Usando serviço centralizado para mês: ${month}`);
   
-  // Por enquanto, vamos incluir todas as operações do mês para debug
-  const monthOperations = operations.filter(op => {
-    // Extrair mês diretamente da string de data (formato YYYY-MM-DD)
-    const opMonth = op.date.substring(0, 7); // YYYY-MM
-    const isCorrectMonth = opMonth === month;
-    
-    console.log(`[createOrUpdateMonthlyFinanceSummary] Operação:`, {
-      date: op.date,
-      opMonth,
-      targetMonth: month,
-      isCorrectMonth,
-      state: op.state,
-      included: isCorrectMonth
-    });
-    
-    return isCorrectMonth; // Remover filtro de estado temporariamente
+  const financeService = new FinanceService();
+  const realValues = financeService.getRealIncomeAndExpenses(operations, start_month, end_month);
+  
+  console.log(`[createOrUpdateMonthlyFinanceSummary] Resultado do serviço centralizado:`, {
+    totalReceitas: realValues.totalReceitas,
+    totalDespesas: realValues.totalDespesas,
+    receitasCount: realValues.receitas.length,
+    despesasCount: realValues.despesas.length
   });
   
-  console.log(`[createOrUpdateMonthlyFinanceSummary] Operações do mês ${month}:`, monthOperations.length);
-  console.log(`[createOrUpdateMonthlyFinanceSummary] Operações:`, monthOperations.map(op => ({
-    nature: op.nature,
-    value: op.value,
-    state: op.state,
-    category: op.category
-  })));
-  
-  // Separar operações por natureza
-  const receitas = monthOperations.filter(op => op.nature === 'receita');
-  const despesas = monthOperations.filter(op => op.nature === 'despesa');
-  
-  console.log(`[createOrUpdateMonthlyFinanceSummary] Receitas encontradas:`, receitas.length);
-  console.log(`[createOrUpdateMonthlyFinanceSummary] Despesas encontradas:`, despesas.length);
-  
-  // Calcular receita total baseada no switch de receitas variáveis
-  let total_monthly_income = 0;
-  
-  if (includeVariableIncome) {
-    // Se o switch está ativado, incluir todas as receitas (fixas + variáveis)
-    total_monthly_income = receitas.reduce((sum, op) => sum + Math.abs(op.value), 0);
-    console.log(`[createOrUpdateMonthlyFinanceSummary] Switch ativado - incluindo todas as receitas: ${total_monthly_income}`);
-  } else {
-    // Se o switch está desativado, incluir apenas receitas fixas (que estão no orçamento)
-    // Por enquanto, vamos incluir todas as receitas até implementar a lógica completa
-    total_monthly_income = receitas.reduce((sum, op) => sum + Math.abs(op.value), 0);
-    console.log(`[createOrUpdateMonthlyFinanceSummary] Switch desativado - incluindo todas as receitas: ${total_monthly_income}`);
-  }
-    
-  const total_monthly_expense = despesas.reduce((sum, op) => sum + Math.abs(op.value), 0);
+  // Usar os valores do serviço centralizado
+  const total_monthly_income = realValues.totalReceitas;
+  const total_monthly_expense = realValues.totalDespesas;
     
   console.log(`[createOrUpdateMonthlyFinanceSummary] Receita total: ${total_monthly_income}, Despesa total: ${total_monthly_expense}`);
   

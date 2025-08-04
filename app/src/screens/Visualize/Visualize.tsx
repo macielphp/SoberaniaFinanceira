@@ -8,7 +8,7 @@ import { useFinance } from '../../contexts/FinanceContext';
 import PeriodFilter from '../../components/Filters/PeriodFilter';
 import PizzaChartVictory from '../../components/Charts/PizzaChartVictory';
 import { spacing } from '../../styles/themes/spacing';
-import { Nature } from '../../services/FinanceService';
+import { Nature, FinanceService } from '../../services/FinanceService';
 
 function Visualize() {
   // Estados para filtros
@@ -72,6 +72,31 @@ function Visualize() {
 
   // Calcular estatísticas baseadas nas operações filtradas
   const getFilteredCategoryStats = () => {
+    console.log('[Visualize] getFilteredCategoryStats - Iniciando cálculo');
+    
+    // Usar o serviço centralizado para obter operações reais
+    const financeService = new FinanceService();
+    
+    // Se há filtros de data locais, usar eles; senão, usar período do contexto
+    let startDate: string | undefined;
+    let endDate: string | undefined;
+    
+    if (selectedPeriod === 'all' && selectedStartDate && selectedEndDate) {
+      startDate = selectedStartDate.toISOString().split('T')[0];
+      endDate = selectedEndDate.toISOString().split('T')[0];
+    } else if (selectedPeriod !== 'all') {
+      startDate = `${selectedPeriod}-01`;
+      endDate = `${selectedPeriod}-31`;
+    }
+    
+    // Obter operações reais (sem transferências temporárias)
+    const realValues = financeService.getRealIncomeAndExpenses(operations, startDate, endDate);
+    
+    // Combinar receitas e despesas reais
+    const operacoesReais = [...realValues.receitas, ...realValues.despesas];
+    
+    console.log('[Visualize] Operações reais para estatísticas:', operacoesReais.length);
+    
     const categoryStats = new Map<string, {
       receitas: number;
       despesas: number;
@@ -79,28 +104,26 @@ function Visualize() {
       operacoes: number;
     }>();
 
-    filteredOperations
-      .filter(op => ['recebido', 'pago'].includes(op.state))
-      .forEach(op => {
-        const category = op.category;
-        const current = categoryStats.get(category) || {
-          receitas: 0,
-          despesas: 0,
-          total: 0,
-          operacoes: 0
-        };
+    operacoesReais.forEach(op => {
+      const category = op.category;
+      const current = categoryStats.get(category) || {
+        receitas: 0,
+        despesas: 0,
+        total: 0,
+        operacoes: 0
+      };
 
-        if (op.nature === 'receita') {
-          current.receitas += Math.abs(op.value);
-        } else {
-          current.despesas += Math.abs(op.value);
-        }
-        
-        current.total += Math.abs(op.value);
-        current.operacoes += 1;
-        
-        categoryStats.set(category, current);
-      });
+      if (op.nature === 'receita') {
+        current.receitas += Math.abs(op.value);
+      } else {
+        current.despesas += Math.abs(op.value);
+      }
+      
+      current.total += Math.abs(op.value);
+      current.operacoes += 1;
+      
+      categoryStats.set(category, current);
+    });
 
     // Converter para array e ordenar por total
     return Array.from(categoryStats.entries())
@@ -110,21 +133,38 @@ function Visualize() {
 
   // Calcular resumo financeiro baseado nas operações filtradas
   const getFilteredFinancialSummary = () => {
-    // Receitas realizadas (recebidas)
-    const totalReceitas = filteredOperations
-      .filter(op => op.nature === 'receita' && op.state === 'recebido')
-      .reduce((total, op) => total + Math.abs(op.value), 0);
-
-    // Despesas realizadas (pagas)
-    const totalDespesas = filteredOperations
-      .filter(op => op.nature === 'despesa' && op.state === 'pago')
-      .reduce((total, op) => total + Math.abs(op.value), 0);
-
-    // Saldo líquido
-    const saldoLiquido = totalReceitas - totalDespesas;
-
-    // Operações pendentes
-    const operacoesPendentes = filteredOperations.filter(op => 
+    console.log('[Visualize] getFilteredFinancialSummary - Iniciando cálculo');
+    console.log('[Visualize] Operações filtradas:', filteredOperations.length);
+    
+    // Usar o serviço centralizado para calcular receitas e despesas reais
+    const financeService = new FinanceService();
+    
+    // Se há filtros de data locais, usar eles; senão, usar período do contexto
+    let startDate: string | undefined;
+    let endDate: string | undefined;
+    
+    if (selectedPeriod === 'all' && selectedStartDate && selectedEndDate) {
+      startDate = selectedStartDate.toISOString().split('T')[0];
+      endDate = selectedEndDate.toISOString().split('T')[0];
+    } else if (selectedPeriod !== 'all') {
+      // Usar o período selecionado no contexto
+      const periodParts = selectedPeriod.split('-');
+      startDate = `${selectedPeriod}-01`;
+      endDate = `${selectedPeriod}-31`;
+    }
+    
+    console.log('[Visualize] Período para cálculo:', { startDate, endDate });
+    
+    // Calcular receitas e despesas reais usando o serviço centralizado
+    const realValues = financeService.getRealIncomeAndExpenses(operations, startDate, endDate);
+    
+    // Filtrar apenas as operações do período selecionado para estatísticas
+    const periodOperations = startDate && endDate 
+      ? financeService.getOperationsByPeriod(operations, startDate, endDate)
+      : operations;
+    
+    // Operações pendentes (apenas do período)
+    const operacoesPendentes = periodOperations.filter(op => 
       ['receber', 'pagar', 'transferir'].includes(op.state)
     );
 
@@ -138,13 +178,22 @@ function Visualize() {
       .filter(op => op.nature === 'despesa')
       .reduce((total, op) => total + Math.abs(op.value), 0);
 
+    const saldoLiquido = realValues.totalReceitas - realValues.totalDespesas;
+
+    console.log('[Visualize] Resultado do cálculo:', {
+      totalReceitas: realValues.totalReceitas,
+      totalDespesas: realValues.totalDespesas,
+      saldoLiquido,
+      operacoesPendentes: operacoesPendentes.length
+    });
+
     return {
-      totalReceitas,
-      totalDespesas,
+      totalReceitas: realValues.totalReceitas,
+      totalDespesas: realValues.totalDespesas,
       saldoLiquido,
       receitasPendentes,
       despesasPendentes,
-      totalOperacoes: filteredOperations.length,
+      totalOperacoes: periodOperations.length,
       operacoesPendentes: operacoesPendentes.length
     };
   };

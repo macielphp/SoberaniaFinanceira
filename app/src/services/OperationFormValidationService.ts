@@ -207,6 +207,9 @@ export class OperationFormValidationService {
     contas: Account[] = [],
     operacoes: Operation[] = []
   ): OperationFormState {
+    // Verificar se estamos editando uma operação existente (todos os campos preenchidos)
+    const isEditing = !!(valores.natureza && valores.estado && valores.categoria && valores.formaPagamento && valores.contaOrigem && valores.contaDestino && valores.valor && valores.data);
+    
     return {
       natureza: {
         disabled: false,
@@ -215,7 +218,7 @@ export class OperationFormValidationService {
       },
       
       estado: {
-        disabled: !valores.natureza,
+        disabled: !valores.natureza && !isEditing,
         options: this.getEstadosDisponiveis(valores.natureza),
         message: valores.natureza ? 'Selecione o estado' : 'Selecione a natureza primeiro'
       },

@@ -200,7 +200,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     };
   }, [editOperation]);
 
-  // Categories that support double operations
+  // Categories that support double operations (but still need Estado field for editing)
   const doubleOperationCategories = [
     'Movimentação interna',
     'Adiantamento-pessoal',
@@ -558,8 +558,8 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           )}
         </View>
 
-        {/* Estado - only for non-double operations */}
-        {!doubleOperationCategories.includes(category) && (
+        {/* Estado - sempre visível quando editando, ou para operações não-duplas */}
+        {(editOperation || !doubleOperationCategories.includes(category)) && (
           <View style={styles.fieldContainer}>
             <Text style={formStyles.label}>Estado</Text>
             <View style={[formStyles.input, formState?.estado.disabled && styles.disabledField]}>

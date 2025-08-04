@@ -154,26 +154,90 @@ export const Register: React.FC<RegisterProps> = ({ navigation, route }) => {
     }
   };
 
-  const handleDeleteOperation = (id: string, description: string) => {
-    Alert.alert(
-      'Confirmar Exclusão',
-      `Deseja realmente excluir a operação: ${description}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Excluir', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeOperation(id);
-              Alert.alert('Sucesso', 'Operação excluída com sucesso!');
-            } catch (error) {
-              Alert.alert('Erro', 'Falha ao excluir operação');
+  const handleDeleteOperation = async (id: string, description: string) => {
+    // Encontrar a operação que será deletada
+    const operationToDelete = operations.find(op => op.id === id);
+    
+    if (!operationToDelete) {
+      Alert.alert('Erro', 'Operação não encontrada');
+      return;
+    }
+
+    // Se é uma operação de Adiantamento-pessoal, mostrar alerta especial
+    if (operationToDelete.category === 'Adiantamento-pessoal') {
+      Alert.alert(
+        'Deletar Adiantamento',
+        'Esta operação faz parte de um adiantamento pessoal. Ao deletar, ambas as operações (saída e retorno) serão removidas. Deseja continuar?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Deletar Ambas', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                console.log('[handleDeleteOperation] Deletando operação de Adiantamento-pessoal:', {
+                  id: operationToDelete.id,
+                  nature: operationToDelete.nature,
+                  value: operationToDelete.value,
+                  date: operationToDelete.date
+                });
+
+                // Encontrar a operação inversa (mesmo valor, natureza oposta, mesma categoria)
+                const inverseOperation = operations.find(op => 
+                  op.category === 'Adiantamento-pessoal' &&
+                  op.nature !== operationToDelete.nature &&
+                  Math.abs(op.value) === Math.abs(operationToDelete.value) &&
+                  op.id !== operationToDelete.id
+                );
+
+                if (inverseOperation) {
+                  console.log('[handleDeleteOperation] Operação inversa encontrada:', {
+                    id: inverseOperation.id,
+                    nature: inverseOperation.nature,
+                    value: inverseOperation.value,
+                    date: inverseOperation.date
+                  });
+
+                  // Deletar ambas as operações
+                  await removeOperation(operationToDelete.id);
+                  await removeOperation(inverseOperation.id);
+                  
+                  Alert.alert('Sucesso', 'Ambas as operações do adiantamento foram excluídas com sucesso!');
+                } else {
+                  console.log('[handleDeleteOperation] Nenhuma operação inversa encontrada, deletando apenas a original');
+                  await removeOperation(operationToDelete.id);
+                  Alert.alert('Sucesso', 'Operação excluída com sucesso!');
+                }
+              } catch (error) {
+                console.error('[handleDeleteOperation] Erro ao deletar operação:', error);
+                Alert.alert('Erro', 'Falha ao excluir operação');
+              }
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } else {
+      // Operação normal, mostrar alerta padrão
+      Alert.alert(
+        'Confirmar Exclusão',
+        `Deseja realmente excluir a operação: ${description}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Excluir', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await removeOperation(id);
+                Alert.alert('Sucesso', 'Operação excluída com sucesso!');
+              } catch (error) {
+                Alert.alert('Erro', 'Falha ao excluir operação');
+              }
+            }
+          }
+        ]
+      );
+    }
   };
 
   // Handlers para Account
