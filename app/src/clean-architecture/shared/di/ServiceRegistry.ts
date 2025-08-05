@@ -101,4 +101,4 @@ export class ServiceRegistry {
 }
 
 // Registry global
-export const serviceRegistry = new ServiceRegistry(container); 
+export const serviceRegistry = new ServiceRegistry(new Container()); 

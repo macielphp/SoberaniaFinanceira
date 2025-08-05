@@ -1,0 +1,834 @@
+\CLEAN-ARCHITECTURE
+├───data
+│   ├───data-sources
+│   ├───mappers
+│   ├───models
+│   └───repositories
+├───domain
+│   ├───entities
+│   ├───repositories
+│   ├───services
+│   └───use-cases
+├───presentation
+│   ├───pure-components
+│   ├───ui-adapters
+│   └───view-models
+└───shared
+    ├───di
+    ├───events
+    ├───store
+    └───utils
+
+# Data / data-sources
+Vou analisar o conceito de **Data Sources** no contexto da Clean Architecture, especialmente para o seu projeto de finanças pessoais.
+
+## 1. **What is it?** - Entendendo o Conceito Fundamental
+
+**Data Sources** são abstrações que representam as fontes de dados da aplicação. Na Clean Architecture, elas fazem parte da **Data Layer** e são responsáveis por:
+
+- **Abstrair a origem dos dados** (SQLite, APIs, arquivos, etc.)
+- **Fornecer interface padronizada** para acesso a dados
+- **Isolar a implementação específica** de cada fonte de dados
+- **Permitir troca de fontes** sem afetar o domínio
+
+### Exemplo Prático no Seu Projeto:
+```typescript
+// ❌ ANTES - Acesso direto ao SQLite
+const operations = await db.getAllAsync('SELECT * FROM operations');
+
+// ✅ DEPOIS - Data Source abstrato
+interface IOperationDataSource {
+  getAll(): Promise<Operation[]>;
+  save(operation: Operation): Promise<void>;
+  update(id: string, operation: Partial<Operation>): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+```
+
+## 2. **When to use and when not to use it?** - Aplicações e Casos de Uso
+
+### ✅ **Quando USAR Data Sources:**
+
+**1. Múltiplas Fontes de Dados:**
+```typescript
+// Seu projeto pode ter:
+- SQLite (dados locais)
+- API REST (sincronização)
+- Cache em memória
+- Backup em arquivo
+```
+
+**2. Testes Unitários:**
+```typescript
+// Mock para testes
+class MockOperationDataSource implements IOperationDataSource {
+  async getAll(): Promise<Operation[]> {
+    return [mockOperation1, mockOperation2];
+  }
+}
+```
+
+**3. Migração de Tecnologias:**
+```typescript
+// Trocar SQLite por Realm sem afetar domínio
+class RealmOperationDataSource implements IOperationDataSource {
+  // Implementação específica do Realm
+}
+```
+
+### ❌ **Quando NÃO USAR Data Sources:**
+
+**1. Projetos Muito Simples:**
+- Aplicação com apenas uma fonte de dados
+- Sem necessidade de testes isolados
+- Sem planos de mudança de tecnologia
+
+**2. Over-engineering:**
+- Adicionar complexidade desnecessária
+- Quando a abstração não traz benefícios reais
+
+## 3. **Why use it?** - Razões e Benefícios
+
+### 🎯 **Benefícios Principais:**
+
+**1. Desacoplamento:**
+```typescript
+// Domain não conhece SQLite
+export class CreateOperationUseCase {
+  constructor(private dataSource: IOperationDataSource) {}
+  // Não importa se é SQLite, API, ou arquivo
+}
+```
+
+**2. Testabilidade:**
+```typescript
+// Teste isolado sem banco real
+describe('CreateOperationUseCase', () => {
+  it('should create operation', async () => {
+    const mockDataSource = new MockOperationDataSource();
+    const useCase = new CreateOperationUseCase(mockDataSource);
+    // Teste sem dependências externas
+  });
+});
+```
+
+**3. Flexibilidade:**
+```typescript
+// Trocar implementação facilmente
+const dataSource = isOnline 
+  ? new APIOperationDataSource() 
+  : new SQLiteOperationDataSource();
+```
+
+**4. Manutenibilidade:**
+```typescript
+// Mudanças na fonte não afetam domínio
+class SQLiteOperationDataSource implements IOperationDataSource {
+  async getAll(): Promise<Operation[]> {
+    // Mudanças aqui não quebram o resto
+    return await this.db.getAllAsync('SELECT * FROM operations');
+  }
+}
+```
+
+## 4. **What are the basic concepts?** - Conceitos Fundamentais
+
+### 🔧 **Conceitos Básicos:**
+
+**1. Interface Contract:**
+```typescript
+// Contrato que define o que a fonte deve fazer
+interface IOperationDataSource {
+  getAll(): Promise<Operation[]>;
+  getById(id: string): Promise<Operation | null>;
+  save(operation: Operation): Promise<void>;
+  update(id: string, operation: Partial<Operation>): Promise<void>;
+  delete(id: string): Promise<void>;
+  findByDateRange(start: Date, end: Date): Promise<Operation[]>;
+}
+```
+
+**2. Implementation:**
+```typescript
+// Implementação concreta
+class SQLiteOperationDataSource implements IOperationDataSource {
+  constructor(private db: SQLiteDatabase) {}
+  
+  async getAll(): Promise<Operation[]> {
+    const result = await this.db.getAllAsync('SELECT * FROM operations');
+    return result.map(this.mapToOperation);
+  }
+}
+```
+
+**3. Dependency Injection:**
+```typescript
+// Injeção da implementação correta
+class OperationRepository {
+  constructor(private dataSource: IOperationDataSource) {}
+  
+  async getAllOperations(): Promise<Operation[]> {
+    return await this.dataSource.getAll();
+  }
+}
+```
+
+**4. Error Handling:**
+```typescript
+// Tratamento de erros padronizado
+class SQLiteOperationDataSource implements IOperationDataSource {
+  async getAll(): Promise<Operation[]> {
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM operations');
+      return result.map(this.mapToOperation);
+    } catch (error) {
+      throw new DataSourceError('Failed to fetch operations', error);
+    }
+  }
+}
+```
+
+## 5. **How to use it?** - Aplicação Prática
+## **How to use it?** - Aplicação Prática dos Data Sources
+
+Vou explicar como usar Data Sources de forma prática no seu projeto, sem codificar:
+
+### **�� 1. Configuração Inicial**
+
+#### **Passo 1: Definir as Interfaces**
+Primeiro, você define **o que** cada fonte de dados deve fazer, não **como**:
+
+```typescript
+// Contrato claro e específico
+interface IOperationDataSource {
+  getAll(): Promise<Operation[]>;
+  save(operation: Operation): Promise<void>;
+  findByDateRange(start: Date, end: Date): Promise<Operation[]>;
+}
+```
+
+#### **Passo 2: Registrar no Container DI**
+Configure qual implementação usar:
+
+```typescript
+// Registra a implementação SQLite
+container.registerSingleton<IOperationDataSource>(
+  'IOperationDataSource',
+  () => new SQLiteOperationDataSource()
+);
+```
+
+### **🔧 2. Uso no Domínio**
+
+#### **Nos Casos de Uso:**
+```typescript
+// O domínio não sabe se é SQLite, API, ou arquivo
+class CreateOperationUseCase {
+  constructor(private dataSource: IOperationDataSource) {}
+  
+  async execute(data: CreateOperationRequest): Promise<Result<Operation>> {
+    // Apenas regras de negócio
+    const operation = new Operation(data);
+    await this.dataSource.save(operation);
+    return success(operation);
+  }
+}
+```
+
+#### **Nos Repositórios:**
+```typescript
+// Repositório usa o Data Source
+class OperationRepository {
+  constructor(private dataSource: IOperationDataSource) {}
+  
+  async getAll(): Promise<Operation[]> {
+    return await this.dataSource.getAll();
+  }
+}
+```
+
+### **🧪 3. Uso em Testes**
+
+#### **Teste Unitário:**
+```typescript
+describe('CreateOperationUseCase', () => {
+  it('should create operation', async () => {
+    // Mock simples e rápido
+    const mockDataSource = {
+      save: jest.fn().mockResolvedValue(undefined)
+    };
+    
+    const useCase = new CreateOperationUseCase(mockDataSource);
+    const result = await useCase.execute(testData);
+    
+    expect(result.isSuccess()).toBe(true);
+    expect(mockDataSource.save).toHaveBeenCalled();
+  });
+});
+```
+
+#### **Teste de Integração:**
+```typescript
+describe('OperationRepository Integration', () => {
+  it('should save and retrieve operation', async () => {
+    // Usa implementação real do SQLite
+    const dataSource = new SQLiteOperationDataSource();
+    const repository = new OperationRepository(dataSource);
+    
+    const operation = new Operation(testData);
+    await repository.save(operation);
+    
+    const retrieved = await repository.getById(operation.id);
+    expect(retrieved).toEqual(operation);
+  });
+});
+```
+
+### **🔄 4. Troca de Implementações**
+
+#### **Mudança de SQLite para API:**
+```typescript
+// Antes
+container.registerSingleton<IOperationDataSource>(
+  'IOperationDataSource',
+  () => new SQLiteOperationDataSource()
+);
+
+// Depois - apenas muda a implementação
+container.registerSingleton<IOperationDataSource>(
+  'IOperationDataSource',
+  () => new APIOperationDataSource(apiConfig)
+);
+
+// O resto do código não muda!
+```
+
+#### **Múltiplas Fontes:**
+```typescript
+// Cache + SQLite
+class CachedOperationDataSource implements IOperationDataSource {
+  constructor(
+    private cache: IOperationDataSource,
+    private primary: IOperationDataSource
+  ) {}
+  
+  async getAll(): Promise<Operation[]> {
+    // Tenta cache primeiro, depois SQLite
+    try {
+      return await this.cache.getAll();
+    } catch {
+      const data = await this.primary.getAll();
+      await this.cache.saveAll(data);
+      return data;
+    }
+  }
+}
+```
+
+### **�� 5. Uso em Cenários Reais**
+
+#### **Cenário 1: Aplicação Offline-First**
+```typescript
+// Estratégia baseada na conectividade
+const dataSource = isOnline 
+  ? new APIOperationDataSource() 
+  : new SQLiteOperationDataSource();
+
+// O domínio não precisa saber da diferença
+const useCase = new CreateOperationUseCase(dataSource);
+```
+
+#### **Cenário 2: Migração de Dados**
+```typescript
+// Migração gradual
+class MigrationDataSource implements IOperationDataSource {
+  constructor(
+    private oldSource: IOperationDataSource,
+    private newSource: IOperationDataSource
+  ) {}
+  
+  async save(operation: Operation): Promise<void> {
+    // Salva nos dois lugares durante migração
+    await Promise.all([
+      this.oldSource.save(operation),
+      this.newSource.save(operation)
+    ]);
+  }
+}
+```
+
+#### **Cenário 3: Backup Automático**
+```typescript
+// Backup transparente
+class BackupDataSource implements IOperationDataSource {
+  constructor(
+    private primary: IOperationDataSource,
+    private backup: IOperationDataSource
+  ) {}
+  
+  async save(operation: Operation): Promise<void> {
+    await this.primary.save(operation);
+    // Backup em background
+    this.backup.save(operation).catch(console.error);
+  }
+}
+```
+
+### **🎨 6. Padrões de Uso Comuns**
+
+#### **Repository Pattern:**
+```typescript
+// Repositório abstrai o Data Source
+class OperationRepository {
+  constructor(private dataSource: IOperationDataSource) {}
+  
+  async findByCategory(category: string): Promise<Operation[]> {
+    const all = await this.dataSource.getAll();
+    return all.filter(op => op.category === category);
+  }
+}
+```
+
+#### **Unit of Work:**
+```typescript
+// Transações complexas
+class UnitOfWork {
+  constructor(private dataSource: IOperationDataSource) {}
+  
+  async executeTransaction(operations: Operation[]): Promise<void> {
+    // Lógica de transação
+    for (const op of operations) {
+      await this.dataSource.save(op);
+    }
+  }
+}
+```
+
+### **🔍 7. Benefícios Práticos**
+
+#### **Desenvolvimento:**
+- **Desenvolvimento paralelo**: Equipe pode trabalhar em Data Sources diferentes
+- **Testes rápidos**: Mocks simples para testes unitários
+- **Debugging fácil**: Troca implementação para debug
+
+#### **Manutenção:**
+- **Mudanças isoladas**: Troca SQLite por Realm sem afetar domínio
+- **Performance**: Adiciona cache sem mudar lógica de negócio
+- **Monitoramento**: Adiciona logs sem afetar funcionalidade
+
+#### **Escalabilidade:**
+- **Múltiplas fontes**: Cache + API + SQLite
+- **Migração gradual**: Implementa nova fonte aos poucos
+- **Fallbacks**: Implementa estratégias de retry/fallback
+
+### **📋 8. Checklist de Implementação**
+
+#### **Antes de Implementar:**
+- [ ] Interface bem definida
+- [ ] Casos de uso identificados
+- [ ] Estratégia de erro definida
+- [ ] Plano de testes
+
+#### **Durante Implementação:**
+- [ ] Implementação concreta
+- [ ] Tratamento de erros
+- [ ] Validações
+- [ ] Logs/monitoramento
+
+#### **Após Implementação:**
+- [ ] Testes unitários
+- [ ] Testes de integração
+- [ ] Performance testing
+- [ ] Documentação
+
+### 9. Dicas Práticas
+
+#### **Nomenclatura:**
+- Use prefixo `I` para interfaces: `IOperationDataSource`
+- Use sufixo descritivo: `SQLiteOperationDataSource`
+- Use nomes claros: `MockOperationDataSource`
+
+#### **Organização:**
+- Interfaces no domínio
+- Implementações na data layer
+- Mocks em pasta de testes
+
+#### **Documentação:**
+- Documente contratos das interfaces
+- Exemplos de uso
+- Casos de erro e tratamento
+
+Essa abordagem garante que seu código seja **flexível**, **testável** e **manutenível**, permitindo evolução da aplicação sem quebrar funcionalidades existentes.
+
+# Data / data-mappers
+## **Data / data-mappers** - 5-Step Complete Understanding Framework
+
+### 1. **What is it?** - Entendendo o Conceito Fundamental
+
+**Data Mappers** são componentes responsáveis por **converter dados** entre diferentes representações da mesma informação. Na Clean Architecture, eles fazem parte da **Data Layer** e são responsáveis por:
+
+- **Converter dados do banco** para entidades de domínio
+- **Converter entidades de domínio** para formato do banco
+- **Isolar diferenças de estrutura** entre camadas
+- **Manter integridade dos dados** durante conversões
+
+#### **Problema que resolve:**
+```typescript
+// ❌ SEM MAPPER - Mistura de responsabilidades
+const operation = {
+  id: row.id,
+  nature: row.nature,
+  value: row.value, // number do banco
+  date: row.date,   // string do banco
+  // ... mais campos
+};
+
+// ❌ PROBLEMA: Lógica de conversão espalhada
+const domainOperation = new Operation({
+  id: operation.id,
+  nature: operation.nature,
+  value: new Money(operation.value), // Conversão manual
+  date: new Date(operation.date),    // Conversão manual
+});
+```
+
+### 2. **When to use and when not to use it?** - Aplicações e Casos de Uso
+
+#### ✅ **Quando USAR Data Mappers:**
+
+**1. Estruturas Diferentes:**
+- Banco usa `snake_case`, domínio usa `camelCase`
+- Banco usa `string` para data, domínio usa `Date`
+- Banco usa `number` para valor, domínio usa `Money` object
+
+**2. Múltiplas Fontes de Dados:**
+- SQLite, API REST, arquivos JSON
+- Cada fonte tem estrutura diferente
+- Precisa normalizar para o domínio
+
+**3. Validações e Transformações:**
+- Dados do banco podem estar "sujos"
+- Precisa validar antes de criar entidades
+- Transformações complexas (ex: timezone, formatação)
+
+**4. Evolução de Schema:**
+- Banco mudou estrutura
+- API mudou formato
+- Precisa manter compatibilidade
+
+#### ❌ **Quando NÃO USAR Data Mappers:**
+
+**1. Estruturas Idênticas:**
+- Banco e domínio usam exatamente a mesma estrutura
+- Não há diferenças de tipo ou formato
+- Conversões são triviais
+
+**2. Projetos Muito Simples:**
+- Aplicação com uma única fonte de dados
+- Estruturas sempre sincronizadas
+- Sem necessidade de validações complexas
+
+**3. Over-engineering:**
+- Adicionar complexidade desnecessária
+- Quando a conversão é simples demais
+- Quando não há benefícios reais
+
+### 3. **Why use it?** - Razões e Benefícios
+
+#### 🎯 **Benefícios Principais:**
+
+**1. Separação de Responsabilidades:**
+```typescript
+// ✅ COM MAPPER - Responsabilidades claras
+class OperationMapper {
+  toDomain(data: OperationData): Operation {
+    // Apenas conversão de dados
+    return new Operation({
+      id: data.id,
+      value: new Money(data.value),
+      date: new Date(data.date)
+    });
+  }
+  
+  toData(operation: Operation): OperationData {
+    // Apenas conversão para banco
+    return {
+      id: operation.id,
+      value: operation.value.toNumber(),
+      date: operation.date.toISOString()
+    };
+  }
+}
+```
+
+**2. Manutenibilidade:**
+- Mudanças no banco afetam apenas o mapper
+- Mudanças no domínio afetam apenas o mapper
+- Lógica de conversão centralizada
+
+**3. Testabilidade:**
+```typescript
+// Teste isolado do mapper
+describe('OperationMapper', () => {
+  it('should convert database data to domain', () => {
+    const data = { id: '1', value: 100.50, date: '2024-01-01' };
+    const operation = mapper.toDomain(data);
+    
+    expect(operation.value).toBeInstanceOf(Money);
+    expect(operation.date).toBeInstanceOf(Date);
+  });
+});
+```
+
+**4. Flexibilidade:**
+- Trocar banco de dados sem afetar domínio
+- Adicionar validações sem afetar outras camadas
+- Suportar múltiplos formatos de dados
+
+**5. Integridade dos Dados:**
+- Validação durante conversão
+- Tratamento de dados inválidos
+- Normalização de formatos
+
+### 4. **What are the basic concepts?** - Conceitos Fundamentais
+
+#### 🔧 **Conceitos Básicos:**
+
+**1. Bidirecional Mapping:**
+```typescript
+interface IMapper<TDomain, TData> {
+  toDomain(data: TData): TDomain;
+  toData(domain: TDomain): TData;
+}
+```
+
+**2. Type Safety:**
+- Conversões tipadas
+- Validação de tipos
+- Tratamento de erros
+
+**3. Immutability:**
+- Não modifica dados originais
+- Cria novas instâncias
+- Preserva integridade
+
+**4. Error Handling:**
+```typescript
+class MappingError extends Error {
+  constructor(message: string, originalData: any) {
+    super(`Mapping failed: ${message}`);
+    this.originalData = originalData;
+  }
+}
+```
+
+**5. Validation:**
+- Valida dados antes da conversão
+- Rejeita dados inválidos
+- Fornece mensagens claras
+
+**6. Factory Methods:**
+```typescript
+class OperationMapper {
+  static create(): OperationMapper {
+    return new OperationMapper();
+  }
+  
+  static fromData(data: OperationData): Operation {
+    return new OperationMapper().toDomain(data);
+  }
+}
+```
+
+### 5. **How to use it?** - Aplicação Prática
+
+#### **🔄 Fluxo de Uso:**
+
+**1. Configuração:**
+```typescript
+// Registrar mapper no container
+container.registerSingleton<OperationMapper>(
+  'OperationMapper',
+  () => new OperationMapper()
+);
+```
+
+**2. Uso no Data Source:**
+```typescript
+class SQLiteOperationDataSource {
+  constructor(private mapper: OperationMapper) {}
+  
+  async getAll(): Promise<Operation[]> {
+    const rows = await this.db.getAllAsync('SELECT * FROM operations');
+    return rows.map(row => this.mapper.toDomain(row));
+  }
+  
+  async save(operation: Operation): Promise<void> {
+    const data = this.mapper.toData(operation);
+    await this.db.runAsync('INSERT INTO operations ...', data);
+  }
+}
+```
+
+**3. Uso no Repository:**
+```typescript
+class OperationRepository {
+  constructor(
+    private dataSource: IOperationDataSource,
+    private mapper: OperationMapper
+  ) {}
+  
+  async findById(id: string): Promise<Operation | null> {
+    const data = await this.dataSource.getById(id);
+    return data ? this.mapper.toDomain(data) : null;
+  }
+}
+```
+
+#### **🎨 Padrões de Mapeamento:**
+
+**1. Mapeamento Simples:**
+```typescript
+// Campos com mesmo nome, tipos diferentes
+toDomain(data) {
+  return {
+    id: data.id,
+    value: new Money(data.value),
+    date: new Date(data.date)
+  };
+}
+```
+
+**2. Mapeamento com Transformação:**
+```typescript
+// Campos com nomes diferentes
+toDomain(data) {
+  return {
+    id: data.operation_id,
+    sourceAccount: data.source_account,
+    destinationAccount: data.dest_account
+  };
+}
+```
+
+**3. Mapeamento Condicional:**
+```typescript
+// Lógica condicional baseada em dados
+toDomain(data) {
+  return {
+    id: data.id,
+    value: data.nature === 'receita' 
+      ? new Money(data.value) 
+      : new Money(-data.value)
+  };
+}
+```
+
+**4. Mapeamento com Validação:**
+```typescript
+// Validação durante conversão
+toDomain(data) {
+  if (!data.id || !data.value) {
+    throw new MappingError('Missing required fields', data);
+  }
+  
+  return {
+    id: data.id,
+    value: new Money(data.value)
+  };
+}
+```
+
+#### **🔧 Estratégias Avançadas:**
+
+**1. Mapeamento Automático:**
+```typescript
+// Usando decorators ou reflection
+class AutoMapper {
+  static map<T>(source: any, targetClass: new () => T): T {
+    // Mapeamento automático baseado em propriedades
+  }
+}
+```
+
+**2. Mapeamento com Cache:**
+```typescript
+// Cache de conversões para performance
+class CachedMapper {
+  private cache = new Map();
+  
+  toDomain(data) {
+    const key = JSON.stringify(data);
+    if (this.cache.has(key)) {
+      return this.cache.get(key);
+    }
+    
+    const result = this.performMapping(data);
+    this.cache.set(key, result);
+    return result;
+  }
+}
+```
+
+**3. Mapeamento com Fallback:**
+```typescript
+// Estratégia de fallback para dados inválidos
+toDomain(data) {
+  try {
+    return this.strictMapping(data);
+  } catch (error) {
+    return this.fallbackMapping(data);
+  }
+}
+```
+
+#### **📋 Checklist de Implementação:**
+
+**Antes de Implementar:**
+- [ ] Identificar diferenças entre domínio e dados
+- [ ] Definir regras de validação
+- [ ] Planejar tratamento de erros
+- [ ] Considerar performance
+
+**Durante Implementação:**
+- [ ] Implementar conversão bidirecional
+- [ ] Adicionar validações
+- [ ] Tratar casos edge
+- [ ] Adicionar logs/monitoramento
+
+**Após Implementação:**
+- [ ] Testes unitários
+- [ ] Testes de integração
+- [ ] Performance testing
+- [ ] Documentação
+
+#### **🎯 Dicas Práticas:**
+
+**1. Nomenclatura:**
+- Use sufixo `Mapper`: `OperationMapper`
+- Use prefixo `to` para métodos: `toDomain`, `toData`
+- Use nomes descritivos: `fromDatabase`, `toApi`
+
+**2. Organização:**
+- Um mapper por entidade
+- Mappers na data layer
+- Interfaces no domínio (se necessário)
+
+**3. Performance:**
+- Evite conversões desnecessárias
+- Use cache quando apropriado
+- Considere lazy loading
+
+**4. Manutenção:**
+- Mantenha mappers simples
+- Documente regras de conversão
+- Teste casos edge
+
+Essa abordagem garante que a **conversão de dados** seja **robusta**, **testável** e **manutenível**, permitindo evolução independente das camadas de domínio e dados.
+
+
+
+
+# Data / models
+
+# Data / repositories
