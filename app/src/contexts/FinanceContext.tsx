@@ -1,7 +1,7 @@
 // app\src\contexts\FinanceContext.tsx
 import React, { createContext, useContext, useCallback, useEffect, useState, useMemo } from 'react';
 import { Operation } from '../services/FinanceService';
-import { Category, Account } from '../database';
+import { Category, Account } from '../database/index';
 import { FinanceService } from '../services/FinanceService';
 import { 
   getAllOperations, 
@@ -39,7 +39,7 @@ import {
   getGoalById as getGoalByIdDB,
   Goal,
   getGoalProgress,
-} from '../database';
+} from '../database/index';
 import { createOrUpdateMonthlyFinanceSummary } from '../database/monthly-finance-summary';
 
 // Interfaces para Financial Summary

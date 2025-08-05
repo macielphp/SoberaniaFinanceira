@@ -317,4 +317,4 @@ export const setupDatabase = async () => {
     console.error('❌ Erro ao configurar banco de dados:', error);
     throw error;
   }
-};
+}; 

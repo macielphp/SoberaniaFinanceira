@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Layout from './../../components/Layout/Layout';
 import { colors, spacing, typography } from '../../styles/themes';
-import { clearAllData } from '../../database';
+import { clearAllData } from '../../database/index';
 import { useFinance } from '../../contexts/FinanceContext';
 
 function Settings() {
