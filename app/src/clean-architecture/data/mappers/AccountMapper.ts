@@ -28,6 +28,7 @@ export class AccountMapper {
       type: mapType(dto.type),
       balance: new Money(dto.saldo || 0, 'BRL'),
       isActive: true,
+      isDefault: dto.isDefault,
       createdAt: new Date(dto.createdAt)
     });
   }
@@ -56,7 +57,7 @@ export class AccountMapper {
       name: account.name,
       type: mapType(account.type),
       saldo: account.type !== 'cartao_credito' ? account.balance.value : null,
-      isDefault: false, // Domain doesn't have isDefault, default to false
+      isDefault: account.isDefault,
       createdAt: account.createdAt.toISOString()
     };
   }

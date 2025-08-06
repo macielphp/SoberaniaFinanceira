@@ -31,6 +31,7 @@ describe('AccountMapper', () => {
       expect(account.balance.value).toBe(5000);
       expect(account.isActive).toBe(true);
       expect(account.createdAt).toEqual(new Date('2024-01-01T00:00:00.000Z'));
+      expect(account.isDefault).toBe(true);
     });
 
     it('should handle external account without balance', () => {
@@ -73,6 +74,7 @@ describe('AccountMapper', () => {
         type: 'corrente',
         balance: new Money(5000, 'BRL'),
         isActive: true,
+        isDefault: true,
         createdAt: new Date('2024-01-01T00:00:00.000Z')
       });
 
@@ -82,7 +84,7 @@ describe('AccountMapper', () => {
       expect(accountDTO.name).toBe('Conta Principal');
       expect(accountDTO.type).toBe('propria');
       expect(accountDTO.saldo).toBe(5000);
-      expect(accountDTO.isDefault).toBe(false);
+      expect(accountDTO.isDefault).toBe(true);
       expect(accountDTO.createdAt).toBe('2024-01-01T00:00:00.000Z');
     });
 

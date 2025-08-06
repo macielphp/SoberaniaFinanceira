@@ -1,35 +1,78 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Account } from '../../database/accounts';
+import { Account as CleanAccount, AccountType } from '../../clean-architecture/domain/entities/Account';
 import { AccountService, AccountBalance } from '../../services/AccountService';
 import { colors, spacing, typography } from '../../styles/themes';
 import AccountCard from '../AccountCard/AccountCard';
+import { useAccountViewModelAdapter } from '../../clean-architecture/presentation/ui-adapters/useAccountViewModelAdapter';
 
 interface AccountsDashboardProps {
-  accounts: Account[];
-  operations: any[];
-  onViewAllAccounts?: () => void;
-  onAddAccount?: () => void;
+  operations?: any[];
   maxCards?: number;
   navigation?: any;
 }
 
+// Helper function to check if account is "propria" (own account)
+const isPropriaAccount = (type: AccountType): boolean => {
+  return type === 'corrente' || type === 'poupanca' || type === 'investimento' || type === 'dinheiro';
+};
+
+// Helper function to convert CleanAccount to old Account type for compatibility
+const convertToOldAccount = (cleanAccount: CleanAccount) => {
+  return {
+    id: cleanAccount.id,
+    name: cleanAccount.name,
+    type: isPropriaAccount(cleanAccount.type) ? 'propria' : 'externa',
+    saldo: isPropriaAccount(cleanAccount.type) ? cleanAccount.balance.value : undefined,
+    isDefault: cleanAccount.isDefault,
+    createdAt: cleanAccount.createdAt.toISOString(),
+  };
+};
+
 export const AccountsDashboard: React.FC<AccountsDashboardProps> = ({
-  accounts,
-  operations,
-  onViewAllAccounts,
-  onAddAccount,
+  operations = [],
   maxCards = 3,
   navigation,
 }) => {
-  const accountsBalance = AccountService.getAccountsBalance(accounts, operations);
-  const totalBalance = AccountService.getTotalBalance(accounts, operations);
+  const { accounts, loading, error } = useAccountViewModelAdapter();
+  
+  // Convert accounts for compatibility with AccountService
+  const oldAccounts = accounts.map(convertToOldAccount);
+  const accountsBalance = AccountService.getAccountsBalance(oldAccounts, operations);
+  const totalBalance = AccountService.getTotalBalance(oldAccounts, operations);
   
   // Mostrar apenas contas próprias e limitar ao número máximo
-  const ownAccounts = accounts.filter(account => account.type === 'propria').slice(0, maxCards);
-  const totalOwnAccounts = accounts.filter(account => account.type === 'propria').length;
+  const ownAccounts = accounts.filter(account => isPropriaAccount(account.type)).slice(0, maxCards);
+  const totalOwnAccounts = accounts.filter(account => isPropriaAccount(account.type)).length;
   const hasMoreAccounts = totalOwnAccounts > maxCards;
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Minhas Contas</Text>
+        </View>
+        <View style={styles.loadingState}>
+          <Text style={styles.loadingText}>Carregando...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Minhas Contas</Text>
+        </View>
+        <View style={styles.errorState}>
+          <Ionicons name="alert-circle" size={48} color={colors.error[500]} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (accounts.length === 0) {
     return (
@@ -82,6 +125,7 @@ export const AccountsDashboard: React.FC<AccountsDashboardProps> = ({
         horizontal 
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.cardsContainer}
+        testID="accounts-dashboard-scroll"
       >
         {ownAccounts.map((account) => {
           const balance = accountsBalance.find(b => b.accountId === account.id);
@@ -165,6 +209,24 @@ const styles = StyleSheet.create({
   cardWrapper: {
     width: 280,
     marginRight: spacing.sm,
+  },
+  loadingState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  loadingText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.text.secondary,
+  },
+  errorState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  errorText: {
+    fontSize: typography.body1.fontSize,
+    color: colors.error[500],
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',

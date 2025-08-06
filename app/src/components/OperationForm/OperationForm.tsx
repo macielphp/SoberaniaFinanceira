@@ -14,7 +14,7 @@ import {
   Image,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { useFinance } from '../../contexts/FinanceContext';
+import { useOperationViewModelAdapter } from '../../clean-architecture/presentation/ui-adapters/useOperationViewModelAdapter';
 import { 
   Nature, 
   PaymentMethod, 
@@ -43,7 +43,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
   editOperation 
 }) => {
   const { 
-    createSimpleOperation, 
+    createOperation,
     createDoubleOperation, 
     updateOperationState,
     updateOperation,
@@ -54,8 +54,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
     accounts,
     operations,
     loading: dataLoading,
-    goals
-  } = useFinance();
+  } = useOperationViewModelAdapter();
   
   // Form state
   const [nature, setNature] = useState<Nature>(editOperation?.nature || 'despesa');
@@ -346,7 +345,7 @@ export const OperationForm: React.FC<OperationFormProps> = ({
           await createDoubleOperation(operationData);
           Alert.alert('Sucesso', 'Operação dupla criada com sucesso!');
         } else {
-          await createSimpleOperation(operationData);
+          await createOperation(operationData);
           Alert.alert('Sucesso', 'Operação criada com sucesso!');
         }
       }

@@ -13,6 +13,7 @@ export interface AccountProps {
   type: AccountType;
   balance: Money;
   isActive?: boolean;
+  isDefault?: boolean;
   description?: string;
   color?: string;
   createdAt?: Date;
@@ -24,6 +25,7 @@ export class Account {
   private readonly _type: AccountType;
   private readonly _balance: Money;
   private readonly _isActive: boolean;
+  private readonly _isDefault: boolean;
   private readonly _description?: string;
   private readonly _color?: string;
   private readonly _createdAt: Date;
@@ -34,6 +36,7 @@ export class Account {
     this._type = props.type;
     this._balance = props.balance;
     this._isActive = props.isActive ?? true;
+    this._isDefault = props.isDefault ?? false;
     this._description = props.description;
     this._color = props.color;
     this._createdAt = props.createdAt || new Date();
@@ -48,6 +51,7 @@ export class Account {
   get balance(): Money { return this._balance; }
   get isActive(): boolean { return this._isActive; }
   get description(): string | undefined { return this._description; }
+  get isDefault(): boolean { return this._isDefault; }
   get color(): string | undefined { return this._color; }
   get createdAt(): Date { return this._createdAt; }
 

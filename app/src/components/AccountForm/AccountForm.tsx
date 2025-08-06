@@ -6,11 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
-import { Account } from '../../database';
+import { Account as CleanAccount, AccountType, AccountProps } from '../../clean-architecture/domain/entities/Account';
+import { Money } from '../../clean-architecture/shared/utils/Money';
+import { useAccountViewModelAdapter } from '../../clean-architecture/presentation/ui-adapters/useAccountViewModelAdapter';
 
 // Lista inicial de contas externas genéricas
 const DEFAULT_EXTERNAL_ACCOUNTS = [
@@ -22,22 +23,48 @@ const DEFAULT_EXTERNAL_ACCOUNTS = [
 ];
 
 interface AccountFormProps {
-  account?: Account;
-  onSubmit: (name: string, type: 'propria' | 'externa', saldo?: number) => Promise<boolean>;
+  account?: CleanAccount;
   onCancel: () => void;
   isEditing?: boolean;
 }
 
+// Interface para criação de conta (sem ID obrigatório)
+interface CreateAccountProps {
+  name: string;
+  type: AccountType;
+  balance: Money;
+  isDefault?: boolean;
+}
+
+// Helper function to check if account is "propria" (own account)
+const isPropriaAccount = (type: AccountType): boolean => {
+  return type === 'corrente' || type === 'poupanca' || type === 'investimento' || type === 'dinheiro';
+};
+
+// Helper function to convert CleanAccount to old Account type for compatibility
+const convertToOldAccount = (cleanAccount: CleanAccount) => {
+  return {
+    id: cleanAccount.id,
+    name: cleanAccount.name,
+    type: isPropriaAccount(cleanAccount.type) ? 'propria' : 'externa',
+    saldo: isPropriaAccount(cleanAccount.type) ? cleanAccount.balance.value : undefined,
+    isDefault: cleanAccount.isDefault,
+    createdAt: cleanAccount.createdAt.toISOString(),
+  };
+};
+
 export const AccountForm: React.FC<AccountFormProps> = ({
   account,
-  onSubmit,
   onCancel,
   isEditing = false
 }) => {
-  const [type, setType] = useState<'propria' | 'externa'>(account?.type || 'propria');
+  const { createAccount, updateAccount, loading, error } = useAccountViewModelAdapter();
+  
+  const [type, setType] = useState<'propria' | 'externa'>(
+    account ? (isPropriaAccount(account.type) ? 'propria' : 'externa') : 'propria'
+  );
   const [name, setName] = useState(account?.name || '');
-  const [saldo, setSaldo] = useState(account?.saldo?.toString() || '');
-  const [loading, setLoading] = useState(false);
+  const [saldo, setSaldo] = useState(account?.balance.value.toString() || '');
   const [externalOptions, setExternalOptions] = useState<string[]>(DEFAULT_EXTERNAL_ACCOUNTS);
   const [showEditExternal, setShowEditExternal] = useState(false);
   const [newExternal, setNewExternal] = useState('');
@@ -55,18 +82,43 @@ export const AccountForm: React.FC<AccountFormProps> = ({
       Alert.alert('Erro', 'Saldo deve ser um número válido');
       return;
     }
+
     try {
-      setLoading(true);
-      const success = await onSubmit(name.trim(), type, type === 'propria' ? Number(saldo) : undefined);
-      if (success) {
-        setName('');
-        setSaldo('');
-        onCancel();
+      if (isEditing && account) {
+        // Atualizar conta existente
+        const updatedAccount = new CleanAccount({
+          id: account.id,
+          name: name.trim(),
+          type: type === 'propria' ? 'corrente' : 'cartao_credito', // Default mapping
+          balance: new Money(type === 'propria' ? Number(saldo) : 0),
+          isDefault: account.isDefault,
+        });
+        
+        await updateAccount(updatedAccount);
+      } else {
+        // Criar nova conta
+        const newAccountProps: CreateAccountProps = {
+          name: name.trim(),
+          type: type === 'propria' ? 'corrente' : 'cartao_credito', // Default mapping
+          balance: new Money(type === 'propria' ? Number(saldo) : 0),
+          isDefault: false,
+        };
+        
+        // Adicionar ID temporário para criação
+        const accountWithId: AccountProps = {
+          id: `temp_${Date.now()}`, // ID temporário que será substituído pelo repositório
+          ...newAccountProps,
+        };
+        
+        await createAccount(accountWithId);
       }
+      
+      // Limpar formulário e fechar
+      setName('');
+      setSaldo('');
+      onCancel();
     } catch (error) {
       Alert.alert('Erro', error instanceof Error ? error.message : 'Erro desconhecido');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -76,6 +128,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
       setNewExternal('');
     }
   };
+
   const handleRemoveExternal = (option: string) => {
     setExternalOptions(externalOptions.filter(o => o !== option));
     if (name === option) setName('');
@@ -91,6 +144,13 @@ export const AccountForm: React.FC<AccountFormProps> = ({
           <Ionicons name="close" size={24} color="#666" />
         </TouchableOpacity>
       </View>
+      
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+      
       <View style={styles.form}>
         <Text style={styles.label}>Tipo da Conta</Text>
         <Picker
@@ -101,6 +161,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
           <Picker.Item label="Própria" value="propria" />
           <Picker.Item label="Externa" value="externa" />
         </Picker>
+        
         {type === 'propria' ? (
           <>
             <Text style={styles.label}>Nome da Conta</Text>
@@ -165,6 +226,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
             )}
           </>
         )}
+        
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
@@ -187,9 +249,9 @@ export const AccountForm: React.FC<AccountFormProps> = ({
     </View>
   );
 };
-  
+
 const styles = StyleSheet.create({
-container: {
+  container: {
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
@@ -197,72 +259,82 @@ container: {
     marginVertical: 50,
     shadowColor: '#000',
     shadowOffset: {
-    width: 0,
-    height: 2,
+      width: 0,
+      height: 2,
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-},
-header: {
+  },
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-},
-title: {
+  },
+  title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-},
-closeButton: {
+  },
+  closeButton: {
     padding: 5,
-},
-form: {
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  errorText: {
+    color: '#c62828',
+    fontSize: 14,
+  },
+  form: {
     gap: 15,
-},
-label: {
+  },
+  label: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 5,
-},
-input: {
+  },
+  input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     backgroundColor: '#f9f9f9',
-},
-actions: {
+  },
+  actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
     gap: 10,
-},
-button: {
+  },
+  button: {
     flex: 1,
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
-},
-cancelButton: {
+  },
+  cancelButton: {
     backgroundColor: '#f5f5f5',
     borderWidth: 1,
     borderColor: '#ddd',
-},
-submitButton: {
+  },
+  submitButton: {
     backgroundColor: '#4CAF50',
-},
-cancelButtonText: {
+  },
+  cancelButtonText: {
     color: '#666',
     fontSize: 16,
     fontWeight: '600',
-},
-submitButtonText: {
+  },
+  submitButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-},
+  },
 });

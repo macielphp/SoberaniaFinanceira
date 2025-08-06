@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Account } from '../../database/accounts';
+import { Account, AccountType } from '../../clean-architecture/domain/entities/Account';
 import { colors, spacing, typography } from '../../styles/themes';
 import { AccountService } from '../../services/AccountService';
 
@@ -48,7 +48,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
     return type === 'propria' ? 'business' : 'card';
   };
 
-  const getAccountColor = (accountName: string, type: string) => {
+  const getAccountColor = (accountName: string, type: AccountType) => {
     const name = accountName.toLowerCase();
     
     if (name.includes('nubank')) return '#8A05BE';
@@ -58,7 +58,9 @@ export const AccountCard: React.FC<AccountCardProps> = ({
     if (name.includes('investimento')) return '#FFC107';
     if (name.includes('cartão') || name.includes('cartao')) return '#DC3545';
     
-    return type === 'propria' ? colors.primary[500] : colors.secondary[500];
+    // Map domain types to UI types
+    const isPropria = type === 'corrente' || type === 'poupanca' || type === 'investimento' || type === 'dinheiro';
+    return isPropria ? colors.primary[500] : colors.secondary[500];
   };
 
   const formatCurrency = (value: number) => {
@@ -71,6 +73,11 @@ export const AccountCard: React.FC<AccountCardProps> = ({
   const formatVariation = (variation: number) => {
     const formatted = formatCurrency(Math.abs(variation));
     return variation >= 0 ? `+${formatted}` : `-${formatted}`;
+  };
+
+  // Helper function to check if account is "propria" (own account)
+  const isPropriaAccount = (type: AccountType): boolean => {
+    return type === 'corrente' || type === 'poupanca' || type === 'investimento' || type === 'dinheiro';
   };
 
   const accountColor = getAccountColor(account.name, account.type);
@@ -90,9 +97,9 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           <View style={styles.accountDetails}>
             <Text style={styles.accountName}>{account.name}</Text>
             <View style={styles.accountMeta}>
-                <View style={[styles.typeBadge, { backgroundColor: account.type === 'propria' ? colors.primary[50] : colors.secondary[50] }]}>
-                <Text style={[styles.typeText, { color: account.type === 'propria' ? colors.primary[600] : colors.secondary[600] }]}>
-                  {account.type === 'propria' ? 'Própria' : 'Externa'}
+                <View style={[styles.typeBadge, { backgroundColor: (account.type === 'corrente' || account.type === 'poupanca' || account.type === 'investimento' || account.type === 'dinheiro') ? colors.primary[50] : colors.secondary[50] }]}>
+                <Text style={[styles.typeText, { color: (account.type === 'corrente' || account.type === 'poupanca' || account.type === 'investimento' || account.type === 'dinheiro') ? colors.primary[600] : colors.secondary[600] }]}>
+                  {(account.type === 'corrente' || account.type === 'poupanca' || account.type === 'investimento' || account.type === 'dinheiro') ? 'Própria' : 'Externa'}
                 </Text>
               </View>
               {account.isDefault && (
@@ -108,19 +115,21 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           <View style={styles.actions}>
             {onEdit && (
               <TouchableOpacity 
+                testID="edit-button"
                 style={styles.actionButton}
                 onPress={() => onEdit(account)}
-                disabled={account.isDefault && account.type === 'externa'}
+                disabled={account.isDefault && !isPropriaAccount(account.type)}
               >
                 <Ionicons 
                   name="pencil" 
                   size={16} 
-                  color={(account.isDefault && account.type === 'externa') ? colors.gray[400] : colors.primary[500]} 
+                  color={(account.isDefault && !isPropriaAccount(account.type)) ? colors.gray[400] : colors.primary[500]} 
                 />
               </TouchableOpacity>
             )}
             {onDelete && (
               <TouchableOpacity 
+                testID="delete-button"
                 style={styles.actionButton}
                 onPress={() => onDelete(account)}
                 disabled={account.isDefault}
@@ -136,7 +145,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
         )}
       </View>
 
-      {account.type === 'propria' && (
+      {isPropriaAccount(account.type) && (
         <View style={styles.balanceSection}>
           <Text style={styles.balanceLabel}>Saldo Atual</Text>
           <Text style={[styles.balanceValue, { color: currentBalance >= 0 ? colors.success[600] : colors.error[600] }]}>
@@ -158,7 +167,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
         </View>
       )}
 
-             {account.type === 'externa' && (
+             {!isPropriaAccount(account.type) && (
          <View style={styles.externalInfo}>
            <Text style={styles.externalText}>Conta externa</Text>
            {usageFrequency && (
@@ -170,7 +179,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
        )}
 
        {/* Informações adicionais para contas próprias */}
-       {account.type === 'propria' && (
+       {isPropriaAccount(account.type) && (
          <View style={styles.additionalInfo}>
            {lastTransaction && (
              <Text style={styles.lastTransactionText}>

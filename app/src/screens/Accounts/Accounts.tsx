@@ -10,12 +10,13 @@ import {
   Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Account } from '../../database/accounts';
+import { Account as DatabaseAccount } from '../../database/accounts';
+import { Account as CleanAccount, AccountType } from '../../clean-architecture/domain/entities/Account';
 import { AccountService, AccountBalance } from '../../services/AccountService';
 import { colors, spacing, typography } from '../../styles/themes';
 import AccountCard from '../../components/AccountCard/AccountCard';
 import Layout from '../../components/Layout/Layout';
-import { useFinance } from '../../contexts/FinanceContext';
+import { useAccountViewModelAdapter } from '../../clean-architecture/presentation/ui-adapters/useAccountViewModelAdapter';
 import AppModal from '../../components/AppModal/AppModal';
 
 type SortOption = 'name' | 'balance' | 'type' | 'lastTransaction';
@@ -25,25 +26,44 @@ interface AccountsProps {
   navigation?: any;
 }
 
+// Helper function to check if account is "propria" (own account)
+const isPropriaAccount = (type: AccountType): boolean => {
+  return type === 'corrente' || type === 'poupanca' || type === 'investimento' || type === 'dinheiro';
+};
+
+// Helper function to convert CleanAccount to DatabaseAccount for compatibility
+const convertToDatabaseAccount = (cleanAccount: CleanAccount): DatabaseAccount => {
+  return {
+    id: cleanAccount.id,
+    name: cleanAccount.name,
+    type: isPropriaAccount(cleanAccount.type) ? 'propria' : 'externa',
+    saldo: isPropriaAccount(cleanAccount.type) ? cleanAccount.balance.value : undefined,
+    isDefault: cleanAccount.isDefault,
+    createdAt: cleanAccount.createdAt.toISOString(),
+  };
+};
+
 const Accounts: React.FC<AccountsProps> = ({ navigation }) => {
-  const { accounts, operations, createAccount, editAccount } = useFinance();
+  const { accounts, loading, error, createAccount, updateAccount, deleteAccount, loadAccounts } = useAccountViewModelAdapter();
   
   const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<CleanAccount | null>(null);
   const [showAccountDetails, setShowAccountDetails] = useState(false);
 
-  const accountsBalance = AccountService.getAccountsBalance(accounts, operations);
+  // Convert accounts for compatibility with AccountService
+  const databaseAccounts = accounts.map(convertToDatabaseAccount);
+  const accountsBalance = AccountService.getAccountsBalance(databaseAccounts, []);
   // Calcular saldo total apenas das contas próprias
-  const ownAccounts = accounts.filter(account => account.type === 'propria');
-  const totalBalance = AccountService.getTotalBalance(ownAccounts, operations);
+  const ownAccounts = databaseAccounts.filter(account => account.type === 'propria');
+  const totalBalance = AccountService.getTotalBalance(ownAccounts, []);
 
   // Função para ordenar contas
   const getSortedAccounts = useCallback(() => {
     // Filtrar apenas contas próprias por padrão
-    let sorted = accounts.filter(account => account.type === 'propria');
+    let sorted = accounts.filter(account => isPropriaAccount(account.type));
 
     // Aplicar filtros adicionais
     switch (filterBy) {
@@ -101,7 +121,7 @@ const Accounts: React.FC<AccountsProps> = ({ navigation }) => {
   }, []);
 
   // Swipe actions
-  const handleEditAccount = (account: Account) => {
+  const handleEditAccount = (account: CleanAccount) => {
     // Navegar para edição na tela Register
     console.log('Editar conta:', account.name);
     console.log('Navegando para Register com params:', { editingAccount: account });
@@ -112,7 +132,7 @@ const Accounts: React.FC<AccountsProps> = ({ navigation }) => {
   };
 
   // Long press menu
-  const handleLongPress = (account: Account) => {
+  const handleLongPress = (account: CleanAccount) => {
     Alert.alert(
       account.name,
       'Escolha uma ação:',
@@ -126,8 +146,8 @@ const Accounts: React.FC<AccountsProps> = ({ navigation }) => {
   };
 
   // Quick transfer
-  const handleQuickTransfer = (fromAccount: Account) => {
-    const ownAccounts = accounts.filter(acc => acc.type === 'propria' && acc.id !== fromAccount.id);
+  const handleQuickTransfer = (fromAccount: CleanAccount) => {
+    const ownAccounts = accounts.filter(acc => isPropriaAccount(acc.type) && acc.id !== fromAccount.id);
     
     if (ownAccounts.length === 0) {
       Alert.alert('Aviso', 'Não há outras contas próprias para transferir');
@@ -181,7 +201,7 @@ const Accounts: React.FC<AccountsProps> = ({ navigation }) => {
             {AccountService.formatCurrency(totalBalance)}
           </Text>
           <Text style={styles.totalBalanceSubtitle}>
-            {accounts.filter(a => a.type === 'propria').length} contas próprias
+            {accounts.filter(a => isPropriaAccount(a.type)).length} contas próprias
           </Text>
         </View>
 
@@ -340,7 +360,7 @@ const Accounts: React.FC<AccountsProps> = ({ navigation }) => {
                       <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>Tipo:</Text>
                         <Text style={styles.detailValue}>
-                          {selectedAccount.type === 'propria' ? 'Própria' : 'Externa'}
+                          {isPropriaAccount(selectedAccount.type) ? 'Própria' : 'Externa'}
                         </Text>
                       </View>
                       
@@ -358,11 +378,11 @@ const Accounts: React.FC<AccountsProps> = ({ navigation }) => {
                         </Text>
                       </View>
                       
-                      {selectedAccount.type === 'propria' && (
+                      {isPropriaAccount(selectedAccount.type) && (
                         <View style={styles.detailRow}>
                           <Text style={styles.detailLabel}>Saldo Inicial:</Text>
                           <Text style={styles.detailValue}>
-                            {AccountService.formatCurrency(selectedAccount.saldo || 0)}
+                            {AccountService.formatCurrency(selectedAccount.balance.value || 0)}
                           </Text>
                         </View>
                       )}
