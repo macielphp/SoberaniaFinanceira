@@ -5,6 +5,8 @@ import { IGoalRepository } from '../repositories/IGoalRepository';
 import { Goal, GoalType, GoalImportance } from '../entities/Goal';
 import { Result, success, failure } from '../../shared/utils/Result';
 import { Money } from '../../shared/utils/Money';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Input DTO for creating goals
 export interface CreateGoalRequest {
@@ -29,7 +31,10 @@ export interface CreateGoalResponse {
 }
 
 export class CreateGoalUseCase {
-  constructor(private goalRepository: IGoalRepository) {}
+  constructor(
+    private goalRepository: IGoalRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(request: CreateGoalRequest): Promise<Result<CreateGoalResponse, Error>> {
     try {
@@ -79,6 +84,13 @@ export class CreateGoalUseCase {
 
       // Salvar no repositório
       const savedGoal = await this.goalRepository.save(goal);
+      
+      // Publicar evento se EventBus estiver disponível
+      if (this.eventBus) {
+        const event = DomainEventFactory.createGoalCreated(savedGoal);
+        this.eventBus.publish('GoalCreated', event);
+      }
+      
       return success<CreateGoalResponse, Error>({ goal: savedGoal });
     } catch (error) {
       return failure<CreateGoalResponse, Error>(

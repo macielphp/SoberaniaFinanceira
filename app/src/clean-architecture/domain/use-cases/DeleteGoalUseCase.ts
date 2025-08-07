@@ -3,6 +3,8 @@
 
 import { IGoalRepository } from '../repositories/IGoalRepository';
 import { Result, success, failure } from '../../shared/utils/Result';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Output DTO for the use case result
 export interface DeleteGoalResponse {
@@ -10,7 +12,10 @@ export interface DeleteGoalResponse {
 }
 
 export class DeleteGoalUseCase {
-  constructor(private goalRepository: IGoalRepository) {}
+  constructor(
+    private goalRepository: IGoalRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(goalId: string): Promise<Result<DeleteGoalResponse, Error>> {
     try {
@@ -27,6 +32,12 @@ export class DeleteGoalUseCase {
 
       // Delete goal from repository
       const deleted = await this.goalRepository.delete(goalId);
+      
+      // Publicar evento se EventBus estiver disponível e a meta foi deletada
+      if (this.eventBus && deleted) {
+        const event = DomainEventFactory.createGoalDeleted(goalId);
+        this.eventBus.publish('GoalDeleted', event);
+      }
       
       return success<DeleteGoalResponse, Error>({ deleted: deleted });
     } catch (error) {

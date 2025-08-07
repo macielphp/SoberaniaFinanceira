@@ -4,6 +4,8 @@
 import { IOperationRepository } from '../repositories/IOperationRepository';
 import { Operation } from '../entities/Operation';
 import { Result, success, failure } from '../../shared/utils/Result';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Input DTO for updating operations
 export interface UpdateOperationRequest {
@@ -26,7 +28,10 @@ export interface UpdateOperationResponse {
 }
 
 export class UpdateOperationUseCase {
-  constructor(private operationRepository: IOperationRepository) {}
+  constructor(
+    private operationRepository: IOperationRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(request: UpdateOperationRequest): Promise<Result<UpdateOperationResponse, Error>> {
     try {
@@ -63,6 +68,12 @@ export class UpdateOperationUseCase {
 
       // Save updated operation
       const savedOperation = await this.operationRepository.save(updatedOperation);
+
+      // Publish domain event if event bus is available
+      if (this.eventBus) {
+        const event = DomainEventFactory.createOperationUpdated(savedOperation);
+        this.eventBus.publish('OperationUpdated', event);
+      }
 
       return success<UpdateOperationResponse, Error>({
         operation: savedOperation

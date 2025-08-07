@@ -3,6 +3,8 @@
 
 import { ICategoryRepository } from '../repositories/ICategoryRepository';
 import { Result, success, failure } from '../../shared/utils/Result';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Output DTO for the use case result
 export interface DeleteCategoryResponse {
@@ -10,7 +12,10 @@ export interface DeleteCategoryResponse {
 }
 
 export class DeleteCategoryUseCase {
-  constructor(private categoryRepository: ICategoryRepository) {}
+  constructor(
+    private categoryRepository: ICategoryRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(id: string): Promise<Result<DeleteCategoryResponse, Error>> {
     try {
@@ -28,6 +33,13 @@ export class DeleteCategoryUseCase {
 
       // Try to delete
       const deleted = await this.categoryRepository.delete(id);
+      
+      // Publish domain event if event bus is available and deletion was successful
+      if (this.eventBus && deleted) {
+        const event = DomainEventFactory.createCategoryDeleted(id);
+        this.eventBus.publish('CategoryDeleted', event);
+      }
+      
       return success<DeleteCategoryResponse, Error>({ success: deleted });
     } catch (error) {
       return failure<DeleteCategoryResponse, Error>(

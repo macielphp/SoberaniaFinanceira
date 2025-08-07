@@ -4,6 +4,8 @@
 import { IAccountRepository } from '../repositories/IAccountRepository';
 import { Account } from '../entities/Account';
 import { Result, success, failure } from '../../shared/utils/Result';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Input DTO for creating accounts
 export interface CreateAccountRequest {
@@ -20,7 +22,10 @@ export interface CreateAccountResponse {
 }
 
 export class CreateAccountUseCase {
-  constructor(private accountRepository: IAccountRepository) {}
+  constructor(
+    private accountRepository: IAccountRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(request: CreateAccountRequest): Promise<Result<CreateAccountResponse, Error>> {
     try {
@@ -51,6 +56,12 @@ export class CreateAccountUseCase {
 
       // Save account
       const savedAccount = await this.accountRepository.save(account);
+
+      // Publish domain event if event bus is available
+      if (this.eventBus) {
+        const event = DomainEventFactory.createAccountCreated(savedAccount);
+        this.eventBus.publish('AccountCreated', event);
+      }
 
       return success<CreateAccountResponse, Error>({
         account: savedAccount

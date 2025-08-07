@@ -5,6 +5,8 @@ import { IOperationRepository } from '../repositories/IOperationRepository';
 import { Operation } from '../entities/Operation';
 import { Result, success, failure } from '../../shared/utils/Result';
 import { Money } from '../../shared/utils/Money';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Input DTO for creating an operation
 export interface CreateOperationRequest {
@@ -26,7 +28,10 @@ export interface CreateOperationResponse {
 }
 
 export class CreateOperationUseCase {
-  constructor(private operationRepository: IOperationRepository) {}
+  constructor(
+    private operationRepository: IOperationRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(request: CreateOperationRequest): Promise<Result<CreateOperationResponse, Error>> {
     try {
@@ -56,6 +61,12 @@ export class CreateOperationUseCase {
 
       // Save to repository
       const savedOperation = await this.operationRepository.save(operation);
+
+      // Publish domain event if event bus is available
+      if (this.eventBus) {
+        const event = DomainEventFactory.createOperationCreated(savedOperation);
+        this.eventBus.publish('OperationCreated', event);
+      }
 
       return success<CreateOperationResponse, Error>({
         operation: savedOperation

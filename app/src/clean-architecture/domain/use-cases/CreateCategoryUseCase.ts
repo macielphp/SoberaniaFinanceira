@@ -4,6 +4,8 @@
 import { ICategoryRepository } from '../repositories/ICategoryRepository';
 import { Category } from '../entities/Category';
 import { Result, success, failure } from '../../shared/utils/Result';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Input DTO for creating categories
 export interface CreateCategoryRequest {
@@ -18,7 +20,10 @@ export interface CreateCategoryResponse {
 }
 
 export class CreateCategoryUseCase {
-  constructor(private categoryRepository: ICategoryRepository) {}
+  constructor(
+    private categoryRepository: ICategoryRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(request: CreateCategoryRequest): Promise<Result<CreateCategoryResponse, Error>> {
     try {
@@ -51,6 +56,12 @@ export class CreateCategoryUseCase {
 
       // Save category
       const savedCategory = await this.categoryRepository.save(category);
+
+      // Publish domain event if event bus is available
+      if (this.eventBus) {
+        const event = DomainEventFactory.createCategoryCreated(savedCategory);
+        this.eventBus.publish('CategoryCreated', event);
+      }
 
       return success<CreateCategoryResponse, Error>({
         category: savedCategory

@@ -3,6 +3,8 @@
 
 import { IOperationRepository } from '../repositories/IOperationRepository';
 import { Result, success, failure } from '../../shared/utils/Result';
+import { EventBus } from '../../shared/events/EventBus';
+import { DomainEventFactory } from '../events/DomainEvents';
 
 // Input DTO for deleting operations
 export interface DeleteOperationRequest {
@@ -15,7 +17,10 @@ export interface DeleteOperationResponse {
 }
 
 export class DeleteOperationUseCase {
-  constructor(private operationRepository: IOperationRepository) {}
+  constructor(
+    private operationRepository: IOperationRepository,
+    private eventBus?: EventBus
+  ) {}
 
   async execute(request: DeleteOperationRequest): Promise<Result<DeleteOperationResponse, Error>> {
     try {
@@ -39,6 +44,12 @@ export class DeleteOperationUseCase {
 
       if (!deleted) {
         return failure<DeleteOperationResponse, Error>(new Error('Operation not found'));
+      }
+
+      // Publish domain event if event bus is available
+      if (this.eventBus) {
+        const event = DomainEventFactory.createOperationDeleted(request.id);
+        this.eventBus.publish('OperationDeleted', event);
       }
 
       return success<DeleteOperationResponse, Error>({
