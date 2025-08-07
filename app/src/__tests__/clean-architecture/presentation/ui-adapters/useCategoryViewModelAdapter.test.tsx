@@ -1,18 +1,18 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { useCategoryViewModelAdapter } from '../../../clean-architecture/presentation/ui-adapters/useCategoryViewModelAdapter';
-import { CategoryViewModel } from '../../../clean-architecture/presentation/view-models/CategoryViewModel';
-import { container } from '../../../clean-architecture/shared/di/Container';
+import { useCategoryViewModelAdapter } from '@/clean-architecture/presentation/ui-adapters/useCategoryViewModelAdapter';
+import { CategoryViewModel } from '@/clean-architecture/presentation/view-models/CategoryViewModel';
+import { container } from '@/clean-architecture/shared/di/Container';
 
 // Mock the container
-jest.mock('../../../clean-architecture/shared/di/Container', () => ({
+jest.mock('@/clean-architecture/shared/di/Container', () => ({
   container: {
     resolve: jest.fn(),
   },
 }));
 
 // Mock CategoryViewModel
-jest.mock('../../../clean-architecture/presentation/view-models/CategoryViewModel', () => ({
+jest.mock('@/clean-architecture/presentation/view-models/CategoryViewModel', () => ({
   CategoryViewModel: jest.fn(),
 }));
 
@@ -28,7 +28,7 @@ const TestComponent = ({ onHookResult }: { onHookResult: (result: any) => void }
 };
 
 describe('useCategoryViewModelAdapter', () => {
-  let mockCategoryViewModel: jest.Mocked<CategoryViewModel>;
+  let mockCategoryViewModel: any;
 
   beforeEach(() => {
     mockCategoryViewModel = {
@@ -47,7 +47,7 @@ describe('useCategoryViewModelAdapter', () => {
       setError: jest.fn(),
       clearError: jest.fn(),
       refreshCategories: jest.fn(),
-    } as unknown as jest.Mocked<CategoryViewModel>;
+    };
 
     (container.resolve as jest.Mock).mockReturnValue(mockCategoryViewModel);
     (CategoryViewModel as jest.Mock).mockImplementation(() => mockCategoryViewModel);

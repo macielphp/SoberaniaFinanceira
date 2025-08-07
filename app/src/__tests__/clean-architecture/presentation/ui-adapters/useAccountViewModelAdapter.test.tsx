@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { useAccountViewModelAdapter } from '../../../clean-architecture/presentation/ui-adapters/useAccountViewModelAdapter';
+import { useAccountViewModelAdapter } from '../../../clean-architecture/presentation/ui-adapter/useAccountViewModelAdapter';
+
 import { AccountViewModel } from '../../../clean-architecture/presentation/view-models/AccountViewModel';
 import { container } from '../../../clean-architecture/shared/di/Container';
 
