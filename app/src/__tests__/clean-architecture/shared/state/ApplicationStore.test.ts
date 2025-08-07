@@ -18,9 +18,9 @@ describe('ApplicationStore', () => {
   it('should get initial state', () => {
     const state = applicationStore.getState();
     expect(state).toBeDefined();
-    expect(state.operations).toEqual([]);
-    expect(state.accounts).toEqual([]);
-    expect(state.categories).toEqual([]);
+      expect(state.operations).toEqual([]);
+      expect(state.accounts).toEqual([]);
+      expect(state.categories).toEqual([]);
   });
 
   it('should update state', () => {
@@ -33,7 +33,7 @@ describe('ApplicationStore', () => {
   });
 
   it('should notify listeners on state change', () => {
-    const mockListener = jest.fn();
+      const mockListener = jest.fn();
     applicationStore.subscribe(mockListener);
     
     applicationStore.setState({ operations: [{ id: '1' }] });

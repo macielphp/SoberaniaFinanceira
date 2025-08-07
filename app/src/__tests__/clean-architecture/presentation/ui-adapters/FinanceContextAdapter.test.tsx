@@ -1,10 +1,10 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { useFinanceContextAdapter } from '../../../clean-architecture/presentation/ui-adapters/FinanceContextAdapter';
-import { container } from '../../../clean-architecture/shared/di/Container';
+import { useFinanceContextAdapter } from '@/clean-architecture/presentation/ui-adapters/FinanceContextAdapter';
+import { container } from '@/clean-architecture/shared/di/Container';
 
 // Mock the container
-jest.mock('../../../clean-architecture/shared/di/Container', () => ({
+jest.mock('@/clean-architecture/shared/di/Container', () => ({
   container: {
     resolve: jest.fn(),
   },

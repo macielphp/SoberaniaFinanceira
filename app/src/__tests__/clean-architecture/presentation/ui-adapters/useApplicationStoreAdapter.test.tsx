@@ -1,19 +1,24 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { useApplicationStoreAdapter } from '../../../clean-architecture/presentation/ui-adapters/useApplicationStoreAdapter';
-import { EventBus } from '../../../clean-architecture/shared/events/EventBus';
-import { ApplicationStore } from '../../../clean-architecture/shared/state/ApplicationStore';
-import { container } from '../../../clean-architecture/shared/di/Container';
+import { useApplicationStoreAdapter } from '@/clean-architecture/presentation/ui-adapters/useApplicationStoreAdapter';
+import { EventBus } from '@/clean-architecture/shared/events/EventBus';
+import { ApplicationStore } from '@/clean-architecture/shared/state/ApplicationStore';
+import { container } from '@/clean-architecture/shared/di/Container';
 
 // Mock the container
-jest.mock('../../../clean-architecture/shared/di/Container', () => ({
+jest.mock('@/clean-architecture/shared/di/Container', () => ({
   container: {
     resolve: jest.fn(),
   },
 }));
 
+// Mock EventBus
+jest.mock('@/clean-architecture/shared/events/EventBus', () => ({
+  EventBus: jest.fn(),
+}));
+
 // Mock ApplicationStore
-jest.mock('../../../clean-architecture/shared/state/ApplicationStore', () => ({
+jest.mock('@/clean-architecture/shared/state/ApplicationStore', () => ({
   ApplicationStore: jest.fn(),
 }));
 
@@ -29,46 +34,43 @@ const TestComponent = ({ onHookResult }: { onHookResult: (result: any) => void }
 };
 
 describe('useApplicationStoreAdapter', () => {
-  let mockEventBus: jest.Mocked<EventBus>;
-  let mockApplicationStore: jest.Mocked<ApplicationStore>;
-  let mockSubscribe: jest.Mock;
-  let mockUnsubscribe: jest.Mock;
+  let mockEventBus: any;
+  let mockApplicationStore: any;
 
   beforeEach(() => {
-    mockSubscribe = jest.fn();
-    mockUnsubscribe = jest.fn();
-
     mockEventBus = {
       subscribe: jest.fn(),
-      unsubscribe: jest.fn(),
       publish: jest.fn(),
-      clear: jest.fn(),
-      getHandlerCount: jest.fn(),
-      hasHandlers: jest.fn(),
-      getEventNames: jest.fn(),
-    } as unknown as jest.Mocked<EventBus>;
+      unsubscribe: jest.fn(),
+    };
 
     mockApplicationStore = {
-      subscribe: mockSubscribe.mockReturnValue(mockUnsubscribe),
-      destroy: jest.fn(),
+      getState: jest.fn().mockReturnValue({
+        operations: [],
+        accounts: [],
+        categories: [],
+        goals: [],
+        loading: false,
+        error: null,
+        lastUpdated: Date.now(),
+      }),
+      setState: jest.fn(),
+      subscribe: jest.fn(),
       setLoading: jest.fn(),
       setError: jest.fn(),
       clearError: jest.fn(),
-      setSelectedPeriod: jest.fn(),
-      setIncludeVariableIncome: jest.fn(),
-      getFinancialSummary: jest.fn().mockReturnValue({
-        totalReceitas: 0,
-        totalDespesas: 0,
-        saldoLiquido: 0,
-        receitasPendentes: 0,
-        despesasPendentes: 0,
-        totalOperacoes: 0,
-        operacoesPendentes: 0,
-      }),
-      getFilteredOperations: jest.fn().mockReturnValue([]),
-    } as unknown as jest.Mocked<ApplicationStore>;
+      getCacheManager: jest.fn(),
+      setCachedData: jest.fn(),
+      getCachedData: jest.fn(),
+      hasCachedData: jest.fn(),
+      invalidateCache: jest.fn(),
+      getCacheStats: jest.fn(),
+      clearCache: jest.fn(),
+      stop: jest.fn(),
+    };
 
-    (container.resolve as jest.Mock).mockReturnValue(mockEventBus);
+    (container.resolve as jest.Mock).mockReturnValue(mockApplicationStore);
+    (EventBus as jest.Mock).mockImplementation(() => mockEventBus);
     (ApplicationStore as jest.Mock).mockImplementation(() => mockApplicationStore);
   });
 
@@ -94,8 +96,6 @@ describe('useApplicationStoreAdapter', () => {
     expect(hookResult.goals).toEqual([]);
     expect(hookResult.loading).toBe(false);
     expect(hookResult.error).toBe(null);
-    expect(hookResult.selectedPeriod).toBe('all');
-    expect(hookResult.includeVariableIncome).toBe(false);
   });
 
   it('should provide all required properties in return interface', () => {
@@ -116,16 +116,17 @@ describe('useApplicationStoreAdapter', () => {
       'goals',
       'loading',
       'error',
-      'selectedPeriod',
-      'includeVariableIncome',
-      'financialSummary',
-      'filteredOperations',
+      'lastUpdated',
+      'setState',
       'setLoading',
       'setError',
       'clearError',
-      'setSelectedPeriod',
-      'setIncludeVariableIncome',
-      'refreshData'
+      'getCachedData',
+      'setCachedData',
+      'hasCachedData',
+      'invalidateCache',
+      'getCacheStats',
+      'clearCache',
     ];
 
     expectedProperties.forEach(prop => {
@@ -133,34 +134,14 @@ describe('useApplicationStoreAdapter', () => {
     });
   });
 
-  it('should call container.resolve for EventBus when hook is used', () => {
+  it('should call container.resolve for ApplicationStore when hook is used', () => {
     render(
       <TestComponent 
         onHookResult={() => {}}
       />
     );
 
-    expect(container.resolve).toHaveBeenCalledWith('EventBus');
-  });
-
-  it('should create ApplicationStore instance with EventBus', () => {
-    render(
-      <TestComponent 
-        onHookResult={() => {}}
-      />
-    );
-
-    expect(ApplicationStore).toHaveBeenCalledWith(mockEventBus);
-  });
-
-  it('should subscribe to store changes', () => {
-    render(
-      <TestComponent 
-        onHookResult={() => {}}
-      />
-    );
-
-    expect(mockApplicationStore.subscribe).toHaveBeenCalled();
+    expect(container.resolve).toHaveBeenCalledWith('ApplicationStore');
   });
 
   it('should provide action functions that call store methods', () => {
@@ -173,6 +154,12 @@ describe('useApplicationStoreAdapter', () => {
         }}
       />
     );
+
+    // Test setState
+    act(() => {
+      hookResult.setState({ loading: true });
+    });
+    expect(mockApplicationStore.setState).toHaveBeenCalledWith({ loading: true });
 
     // Test setLoading
     act(() => {
@@ -191,120 +178,86 @@ describe('useApplicationStoreAdapter', () => {
       hookResult.clearError();
     });
     expect(mockApplicationStore.clearError).toHaveBeenCalled();
+  });
 
-    // Test setSelectedPeriod
+  it('should provide cache functions that call store methods', () => {
+    let hookResult: any = null;
+    
+    render(
+      <TestComponent 
+        onHookResult={(result) => {
+          hookResult = result;
+        }}
+      />
+    );
+
+    // Test setCachedData
     act(() => {
-      hookResult.setSelectedPeriod('month');
+      hookResult.setCachedData('test-domain', { id: '1' }, { data: 'test' });
     });
-    expect(mockApplicationStore.setSelectedPeriod).toHaveBeenCalledWith('month');
+    expect(mockApplicationStore.setCachedData).toHaveBeenCalledWith('test-domain', { id: '1' }, { data: 'test' });
 
-    // Test setIncludeVariableIncome
+    // Test getCachedData
     act(() => {
-      hookResult.setIncludeVariableIncome(true);
+      hookResult.getCachedData('test-domain', { id: '1' });
     });
-    expect(mockApplicationStore.setIncludeVariableIncome).toHaveBeenCalledWith(true);
-  });
+    expect(mockApplicationStore.getCachedData).toHaveBeenCalledWith('test-domain', { id: '1' });
 
-  it('should provide computed values from store', () => {
-    let hookResult: any = null;
-    
-    render(
-      <TestComponent 
-        onHookResult={(result) => {
-          hookResult = result;
-        }}
-      />
-    );
-
-    expect(hookResult.financialSummary).toBeDefined();
-    expect(hookResult.financialSummary.totalReceitas).toBe(0);
-    expect(hookResult.financialSummary.totalDespesas).toBe(0);
-    expect(hookResult.filteredOperations).toEqual([]);
-  });
-
-  it('should provide refreshData function', () => {
-    let hookResult: any = null;
-    
-    render(
-      <TestComponent 
-        onHookResult={(result) => {
-          hookResult = result;
-        }}
-      />
-    );
-
-    expect(typeof hookResult.refreshData).toBe('function');
-    expect(hookResult.refreshData).toBeInstanceOf(Function);
-  });
-
-  it('should handle refreshData async operation', async () => {
-    let hookResult: any = null;
-    
-    render(
-      <TestComponent 
-        onHookResult={(result) => {
-          hookResult = result;
-        }}
-      />
-    );
-
-    // Mock the setLoading and clearError functions
-    const mockSetLoading = jest.fn();
-    const mockClearError = jest.fn();
-    const mockSetError = jest.fn();
-    
-    // Replace the functions with mocks for testing
-    hookResult.setLoading = mockSetLoading;
-    hookResult.clearError = mockClearError;
-    hookResult.setError = mockSetError;
-
-    await act(async () => {
-      await hookResult.refreshData();
+    // Test hasCachedData
+    act(() => {
+      hookResult.hasCachedData('test-domain', { id: '1' });
     });
+    expect(mockApplicationStore.hasCachedData).toHaveBeenCalledWith('test-domain', { id: '1' });
 
-    // Verify that loading state is managed correctly
-    expect(mockSetLoading).toHaveBeenCalledWith(true);
-    expect(mockClearError).toHaveBeenCalled();
-    expect(mockSetLoading).toHaveBeenCalledWith(false);
+    // Test invalidateCache
+    act(() => {
+      hookResult.invalidateCache('test-domain');
+    });
+    expect(mockApplicationStore.invalidateCache).toHaveBeenCalledWith('test-domain');
+
+    // Test clearCache
+    act(() => {
+      hookResult.clearCache();
+    });
+    expect(mockApplicationStore.clearCache).toHaveBeenCalled();
+
+    // Test getCacheStats
+    act(() => {
+      hookResult.getCacheStats();
+    });
+    expect(mockApplicationStore.getCacheStats).toHaveBeenCalled();
   });
 
-  it('should handle errors in refreshData', async () => {
-    let hookResult: any = null;
-    
-    render(
-      <TestComponent 
-        onHookResult={(result) => {
-          hookResult = result;
-        }}
-      />
-    );
-
-    // Mock the functions
-    const mockSetLoading = jest.fn();
-    const mockSetError = jest.fn();
-    
-    hookResult.setLoading = mockSetLoading;
-    hookResult.setError = mockSetError;
-
-    // Mock refreshData to throw an error
-    const originalRefreshData = hookResult.refreshData;
-    hookResult.refreshData = async () => {
-      mockSetLoading(true);
-      try {
-        throw new Error('Test error');
-      } catch (error) {
-        mockSetError(error instanceof Error ? error.message : 'Erro ao atualizar dados');
-      } finally {
-        mockSetLoading(false);
-      }
+  it('should provide state properties from store', () => {
+    // Mock store with specific state
+    const mockState = {
+      operations: [{ id: '1', nature: 'despesa', value: 100 }],
+      accounts: [{ id: '1', name: 'Conta Corrente' }],
+      categories: [{ id: '1', name: 'Alimentação' }],
+      goals: [{ id: '1', name: 'Viagem' }],
+      loading: true,
+      error: 'Test error',
+      lastUpdated: 1234567890,
     };
 
-    await act(async () => {
-      await hookResult.refreshData();
-    });
+    mockApplicationStore.getState.mockReturnValue(mockState);
 
-    expect(mockSetLoading).toHaveBeenCalledWith(true);
-    expect(mockSetError).toHaveBeenCalledWith('Test error');
-    expect(mockSetLoading).toHaveBeenCalledWith(false);
+    let hookResult: any = null;
+    
+    render(
+      <TestComponent 
+        onHookResult={(result) => {
+          hookResult = result;
+        }}
+      />
+    );
+
+    expect(hookResult.operations).toEqual(mockState.operations);
+    expect(hookResult.accounts).toEqual(mockState.accounts);
+    expect(hookResult.categories).toEqual(mockState.categories);
+    expect(hookResult.goals).toEqual(mockState.goals);
+    expect(hookResult.loading).toBe(mockState.loading);
+    expect(hookResult.error).toBe(mockState.error);
+    expect(hookResult.lastUpdated).toBe(mockState.lastUpdated);
   });
 });

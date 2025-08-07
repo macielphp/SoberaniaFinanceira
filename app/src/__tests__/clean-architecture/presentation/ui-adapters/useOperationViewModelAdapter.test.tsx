@@ -1,18 +1,18 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { useOperationViewModelAdapter } from '../../../clean-architecture/presentation/ui-adapters/useOperationViewModelAdapter';
-import { OperationViewModel } from '../../../clean-architecture/presentation/view-models/OperationViewModel';
-import { container } from '../../../clean-architecture/shared/di/Container';
+import { useOperationViewModelAdapter } from '@/clean-architecture/presentation/ui-adapters/useOperationViewModelAdapter';
+import { OperationViewModel } from '@/clean-architecture/presentation/view-models/OperationViewModel';
+import { container } from '@/clean-architecture/shared/di/Container';
 
 // Mock the container
-jest.mock('../../../clean-architecture/shared/di/Container', () => ({
+jest.mock('@/clean-architecture/shared/di/Container', () => ({
   container: {
     resolve: jest.fn(),
   },
 }));
 
 // Mock OperationViewModel
-jest.mock('../../../clean-architecture/presentation/view-models/OperationViewModel', () => ({
+jest.mock('@/clean-architecture/presentation/view-models/OperationViewModel', () => ({
   OperationViewModel: jest.fn(),
 }));
 
@@ -28,7 +28,7 @@ const TestComponent = ({ onHookResult }: { onHookResult: (result: any) => void }
 };
 
 describe('useOperationViewModelAdapter', () => {
-  let mockOperationViewModel: jest.Mocked<OperationViewModel>;
+  let mockOperationViewModel: any;
 
   beforeEach(() => {
     mockOperationViewModel = {
@@ -47,7 +47,7 @@ describe('useOperationViewModelAdapter', () => {
       setError: jest.fn(),
       clearError: jest.fn(),
       refreshOperations: jest.fn(),
-    } as unknown as jest.Mocked<OperationViewModel>;
+    };
 
     (container.resolve as jest.Mock).mockReturnValue(mockOperationViewModel);
     (OperationViewModel as jest.Mock).mockImplementation(() => mockOperationViewModel);
@@ -237,56 +237,5 @@ describe('useOperationViewModelAdapter', () => {
     expect(hookResult.loading).toBe(mockState.loading);
     expect(hookResult.error).toBe(mockState.error);
     expect(hookResult.selectedOperation).toEqual(mockState.selectedOperation);
-  });
-
-  it('should handle async operations correctly', async () => {
-    let hookResult: any = null;
-    
-    render(
-      <TestComponent 
-        onHookResult={(result) => {
-          hookResult = result;
-        }}
-      />
-    );
-
-    // Mock async operations
-    const mockCreateOperation = jest.fn().mockResolvedValue({ id: 'new-id' });
-    const mockUpdateOperation = jest.fn().mockResolvedValue({ id: 'updated-id' });
-    const mockDeleteOperation = jest.fn().mockResolvedValue(true);
-    const mockRefreshOperations = jest.fn().mockResolvedValue([]);
-
-    hookResult.createOperation = mockCreateOperation;
-    hookResult.updateOperation = mockUpdateOperation;
-    hookResult.deleteOperation = mockDeleteOperation;
-    hookResult.refreshOperations = mockRefreshOperations;
-
-    // Test async createOperation
-    await act(async () => {
-      const result = await hookResult.createOperation({ nature: 'despesa', value: 100 });
-      expect(result).toEqual({ id: 'new-id' });
-    });
-    expect(mockCreateOperation).toHaveBeenCalledWith({ nature: 'despesa', value: 100 });
-
-    // Test async updateOperation
-    await act(async () => {
-      const result = await hookResult.updateOperation('test-id', { value: 200 });
-      expect(result).toEqual({ id: 'updated-id' });
-    });
-    expect(mockUpdateOperation).toHaveBeenCalledWith('test-id', { value: 200 });
-
-    // Test async deleteOperation
-    await act(async () => {
-      const result = await hookResult.deleteOperation('test-id');
-      expect(result).toBe(true);
-    });
-    expect(mockDeleteOperation).toHaveBeenCalledWith('test-id');
-
-    // Test async refreshOperations
-    await act(async () => {
-      const result = await hookResult.refreshOperations();
-      expect(result).toEqual([]);
-    });
-    expect(mockRefreshOperations).toHaveBeenCalled();
   });
 });

@@ -1,18 +1,18 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { useOperationSummaryViewModelAdapter } from '../../../clean-architecture/presentation/ui-adapters/useOperationSummaryViewModelAdapter';
-import { OperationSummaryViewModel } from '../../../clean-architecture/presentation/view-models/OperationSummaryViewModel';
-import { container } from '../../../clean-architecture/shared/di/Container';
+import { useOperationSummaryViewModelAdapter } from '@/clean-architecture/presentation/ui-adapters/useOperationSummaryViewModelAdapter';
+import { OperationSummaryViewModel } from '@/clean-architecture/presentation/view-models/OperationSummaryViewModel';
+import { container } from '@/clean-architecture/shared/di/Container';
 
 // Mock the container
-jest.mock('../../../clean-architecture/shared/di/Container', () => ({
+jest.mock('@/clean-architecture/shared/di/Container', () => ({
   container: {
     resolve: jest.fn(),
   },
 }));
 
 // Mock OperationSummaryViewModel
-jest.mock('../../../clean-architecture/presentation/view-models/OperationSummaryViewModel', () => ({
+jest.mock('@/clean-architecture/presentation/view-models/OperationSummaryViewModel', () => ({
   OperationSummaryViewModel: jest.fn(),
 }));
 
@@ -28,18 +28,11 @@ const TestComponent = ({ onHookResult }: { onHookResult: (result: any) => void }
 };
 
 describe('useOperationSummaryViewModelAdapter', () => {
-  let mockOperationSummaryViewModel: jest.Mocked<OperationSummaryViewModel>;
+  let mockOperationSummaryViewModel: any;
 
   beforeEach(() => {
     mockOperationSummaryViewModel = {
-      operations: [],
-      loading: false,
-      error: null,
-      selectedPeriod: 'all',
-      includeVariableIncome: false,
-      getOperations: jest.fn().mockReturnValue([]),
-      getFilteredOperations: jest.fn().mockReturnValue([]),
-      getFinancialSummary: jest.fn().mockReturnValue({
+      summary: {
         totalReceitas: 0,
         totalDespesas: 0,
         saldoLiquido: 0,
@@ -47,14 +40,23 @@ describe('useOperationSummaryViewModelAdapter', () => {
         despesasPendentes: 0,
         totalOperacoes: 0,
         operacoesPendentes: 0,
+      },
+      loading: false,
+      error: null,
+      selectedPeriod: 'all',
+      includeVariableIncome: false,
+      getSummary: jest.fn().mockReturnValue({
+        totalReceitas: 0,
+        totalDespesas: 0,
+        saldoLiquido: 0,
       }),
       setSelectedPeriod: jest.fn(),
       setIncludeVariableIncome: jest.fn(),
       setLoading: jest.fn(),
       setError: jest.fn(),
       clearError: jest.fn(),
-      refreshData: jest.fn(),
-    } as unknown as jest.Mocked<OperationSummaryViewModel>;
+      refreshSummary: jest.fn(),
+    };
 
     (container.resolve as jest.Mock).mockReturnValue(mockOperationSummaryViewModel);
     (OperationSummaryViewModel as jest.Mock).mockImplementation(() => mockOperationSummaryViewModel);
@@ -76,7 +78,7 @@ describe('useOperationSummaryViewModelAdapter', () => {
     );
 
     expect(hookResult).toBeDefined();
-    expect(hookResult.operations).toEqual([]);
+    expect(hookResult.summary).toBeDefined();
     expect(hookResult.loading).toBe(false);
     expect(hookResult.error).toBe(null);
     expect(hookResult.selectedPeriod).toBe('all');
@@ -95,20 +97,18 @@ describe('useOperationSummaryViewModelAdapter', () => {
     );
 
     const expectedProperties = [
-      'operations',
+      'summary',
       'loading',
       'error',
       'selectedPeriod',
       'includeVariableIncome',
-      'getOperations',
-      'getFilteredOperations',
-      'getFinancialSummary',
+      'getSummary',
       'setSelectedPeriod',
       'setIncludeVariableIncome',
       'setLoading',
       'setError',
       'clearError',
-      'refreshData'
+      'refreshSummary'
     ];
 
     expectedProperties.forEach(prop => {
@@ -167,11 +167,11 @@ describe('useOperationSummaryViewModelAdapter', () => {
     });
     expect(mockOperationSummaryViewModel.clearError).toHaveBeenCalled();
 
-    // Test refreshData
+    // Test refreshSummary
     act(() => {
-      hookResult.refreshData();
+      hookResult.refreshSummary();
     });
-    expect(mockOperationSummaryViewModel.refreshData).toHaveBeenCalled();
+    expect(mockOperationSummaryViewModel.refreshSummary).toHaveBeenCalled();
   });
 
   it('should provide getter functions that call view model methods', () => {
@@ -185,36 +185,34 @@ describe('useOperationSummaryViewModelAdapter', () => {
       />
     );
 
-    // Test getOperations
+    // Test getSummary
     act(() => {
-      hookResult.getOperations();
+      hookResult.getSummary();
     });
-    expect(mockOperationSummaryViewModel.getOperations).toHaveBeenCalled();
-
-    // Test getFilteredOperations
-    act(() => {
-      hookResult.getFilteredOperations();
-    });
-    expect(mockOperationSummaryViewModel.getFilteredOperations).toHaveBeenCalled();
-
-    // Test getFinancialSummary
-    act(() => {
-      hookResult.getFinancialSummary();
-    });
-    expect(mockOperationSummaryViewModel.getFinancialSummary).toHaveBeenCalled();
+    expect(mockOperationSummaryViewModel.getSummary).toHaveBeenCalled();
   });
 
   it('should provide state properties from view model', () => {
     // Mock view model with specific state
+    const mockSummary = {
+      totalReceitas: 5000,
+      totalDespesas: 3000,
+      saldoLiquido: 2000,
+      receitasPendentes: 1000,
+      despesasPendentes: 500,
+      totalOperacoes: 50,
+      operacoesPendentes: 10,
+    };
+
     const mockState = {
-      operations: [{ id: '1', nature: 'despesa', value: 100 }],
+      summary: mockSummary,
       loading: true,
       error: 'Test error',
       selectedPeriod: 'month',
       includeVariableIncome: true,
     };
 
-    mockOperationSummaryViewModel.operations = mockState.operations;
+    mockOperationSummaryViewModel.summary = mockState.summary;
     mockOperationSummaryViewModel.loading = mockState.loading;
     mockOperationSummaryViewModel.error = mockState.error;
     mockOperationSummaryViewModel.selectedPeriod = mockState.selectedPeriod;
@@ -230,14 +228,14 @@ describe('useOperationSummaryViewModelAdapter', () => {
       />
     );
 
-    expect(hookResult.operations).toEqual(mockState.operations);
+    expect(hookResult.summary).toEqual(mockState.summary);
     expect(hookResult.loading).toBe(mockState.loading);
     expect(hookResult.error).toBe(mockState.error);
     expect(hookResult.selectedPeriod).toBe(mockState.selectedPeriod);
     expect(hookResult.includeVariableIncome).toBe(mockState.includeVariableIncome);
   });
 
-  it('should handle async operations correctly', async () => {
+  it('should handle different periods correctly', () => {
     let hookResult: any = null;
     
     render(
@@ -248,77 +246,8 @@ describe('useOperationSummaryViewModelAdapter', () => {
       />
     );
 
-    // Mock async operations
-    const mockRefreshData = jest.fn().mockResolvedValue(true);
-    const mockGetFinancialSummary = jest.fn().mockResolvedValue({
-      totalReceitas: 1000,
-      totalDespesas: 500,
-      saldoLiquido: 500,
-    });
-
-    hookResult.refreshData = mockRefreshData;
-    hookResult.getFinancialSummary = mockGetFinancialSummary;
-
-    // Test async refreshData
-    await act(async () => {
-      const result = await hookResult.refreshData();
-      expect(result).toBe(true);
-    });
-    expect(mockRefreshData).toHaveBeenCalled();
-
-    // Test async getFinancialSummary
-    await act(async () => {
-      const result = await hookResult.getFinancialSummary();
-      expect(result).toEqual({
-        totalReceitas: 1000,
-        totalDespesas: 500,
-        saldoLiquido: 500,
-      });
-    });
-    expect(mockGetFinancialSummary).toHaveBeenCalled();
-  });
-
-  it('should provide computed values from view model', () => {
-    let hookResult: any = null;
-    
-    render(
-      <TestComponent 
-        onHookResult={(result) => {
-          hookResult = result;
-        }}
-      />
-    );
-
-    // Test getFinancialSummary returns expected structure
-    const financialSummary = hookResult.getFinancialSummary();
-    expect(financialSummary).toBeDefined();
-    expect(financialSummary.totalReceitas).toBe(0);
-    expect(financialSummary.totalDespesas).toBe(0);
-    expect(financialSummary.saldoLiquido).toBe(0);
-    expect(financialSummary.receitasPendentes).toBe(0);
-    expect(financialSummary.despesasPendentes).toBe(0);
-    expect(financialSummary.totalOperacoes).toBe(0);
-    expect(financialSummary.operacoesPendentes).toBe(0);
-
-    // Test getFilteredOperations returns array
-    const filteredOperations = hookResult.getFilteredOperations();
-    expect(filteredOperations).toEqual([]);
-  });
-
-  it('should handle period changes correctly', () => {
-    let hookResult: any = null;
-    
-    render(
-      <TestComponent 
-        onHookResult={(result) => {
-          hookResult = result;
-        }}
-      />
-    );
-
-    // Test different period values
     const periods = ['all', 'month', 'quarter', 'year'];
-    
+
     periods.forEach(period => {
       act(() => {
         hookResult.setSelectedPeriod(period);
