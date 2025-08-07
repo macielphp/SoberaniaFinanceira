@@ -1,4 +1,4 @@
-import { EventBus } from '../../../clean-architecture/shared/events/EventBus';
+import { EventBus } from '@/clean-architecture/shared/events/EventBus';
 
 describe('Simple EventBus Test', () => {
   let eventBus: EventBus;
