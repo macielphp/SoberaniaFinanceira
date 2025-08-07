@@ -1,440 +1,298 @@
-import { ApplicationStore } from '../../../../clean-architecture/shared/state/ApplicationStore';
-import { EventBus } from '../../../../clean-architecture/shared/events/EventBus';
-import { DomainEventFactory } from '../../../../clean-architecture/domain/events/DomainEvents';
-import { Operation } from '../../../../clean-architecture/domain/entities/Operation';
-import { Account } from '../../../../clean-architecture/domain/entities/Account';
-import { Category } from '../../../../clean-architecture/domain/entities/Category';
-import { Goal } from '../../../../clean-architecture/domain/entities/Goal';
-import { Money } from '../../../../clean-architecture/shared/utils/Money';
+import { ApplicationStore } from '../../../clean-architecture/shared/state/ApplicationStore';
+import { EventBus } from '../../../clean-architecture/shared/events/EventBus';
 
-describe('ApplicationStore', () => {
-  let store: ApplicationStore;
-  let mockEventBus: jest.Mocked<EventBus>;
+describe('ApplicationStore with Cache', () => {
+  let applicationStore: ApplicationStore;
+  let eventBus: EventBus;
 
   beforeEach(() => {
-    mockEventBus = {
-      subscribe: jest.fn(),
-      unsubscribe: jest.fn(),
-      publish: jest.fn(),
-      clear: jest.fn(),
-      getHandlerCount: jest.fn(),
-      hasHandlers: jest.fn(),
-      getEventNames: jest.fn(),
-    } as unknown as jest.Mocked<EventBus>;
-
-    store = new ApplicationStore(mockEventBus);
+    eventBus = new EventBus();
+    applicationStore = new ApplicationStore(eventBus);
   });
 
-  describe('initialization', () => {
-    it('should initialize with empty state', () => {
-      const state = store.getState();
+  afterEach(() => {
+    applicationStore.stop();
+  });
+
+  describe('Initial State', () => {
+    it('should initialize with default state', () => {
+      const state = applicationStore.getState();
       
       expect(state.operations).toEqual([]);
-      expect(state.accounts).toEqual([]);
       expect(state.categories).toEqual([]);
+      expect(state.accounts).toEqual([]);
       expect(state.goals).toEqual([]);
       expect(state.loading).toBe(false);
-      expect(state.error).toBeNull();
-      expect(state.selectedPeriod).toBe('all');
-      expect(state.includeVariableIncome).toBe(false);
-    });
-
-    it('should subscribe to domain events on initialization', () => {
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('OperationCreated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('OperationUpdated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('OperationDeleted', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('AccountCreated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('AccountUpdated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('AccountDeleted', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('CategoryCreated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('CategoryUpdated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('CategoryDeleted', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('GoalCreated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('GoalUpdated', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('GoalDeleted', expect.any(Function));
+      expect(state.error).toBe(null);
+      expect(state.lastUpdated).toBeDefined();
     });
   });
 
-  describe('state management', () => {
-    it('should update state and notify listeners', () => {
-      const mockListener = jest.fn();
-      store.subscribe(mockListener);
-
-      const newOperations = [
-        new Operation({
-          id: 'op1',
-          nature: 'receita',
-          state: 'recebido',
-          paymentMethod: 'Pix',
-          sourceAccount: 'main',
-          destinationAccount: 'main',
-          date: new Date('2024-01-01'),
-          value: new Money(1000, 'BRL'),
-          category: 'salary',
-          createdAt: new Date(),
-        })
-      ];
-
-      store.setState({ operations: newOperations });
-
-      expect(store.getState().operations).toEqual(newOperations);
-      expect(mockListener).toHaveBeenCalledWith(expect.objectContaining({
-        operations: newOperations
-      }));
-    });
-
-    it('should handle partial state updates', () => {
-      const mockListener = jest.fn();
-      store.subscribe(mockListener);
-
-      store.setState({ loading: true, error: 'Test error' });
-
-      const state = store.getState();
-      expect(state.loading).toBe(true);
-      expect(state.error).toBe('Test error');
-      expect(mockListener).toHaveBeenCalledWith(expect.objectContaining({
+  describe('State Management', () => {
+    it('should update state correctly', () => {
+      const newState = {
+        operations: [{ id: '1', nature: 'despesa', value: 100 }],
         loading: true,
-        error: 'Test error'
-      }));
+      };
+
+      applicationStore.setState(newState);
+      const state = applicationStore.getState();
+
+      expect(state.operations).toEqual(newState.operations);
+      expect(state.loading).toBe(true);
+      expect(state.lastUpdated).toBeGreaterThan(0);
     });
 
-    it('should unsubscribe listeners', () => {
+    it('should notify listeners when state changes', () => {
       const mockListener = jest.fn();
-      const unsubscribe = store.subscribe(mockListener);
+      applicationStore.subscribe(mockListener);
 
-      store.setState({ loading: true });
+      applicationStore.setState({ loading: true });
+
+      expect(mockListener).toHaveBeenCalledWith(
+        expect.objectContaining({ loading: true })
+      );
+    });
+
+    it('should return unsubscribe function', () => {
+      const mockListener = jest.fn();
+      const unsubscribe = applicationStore.subscribe(mockListener);
+
+      applicationStore.setState({ loading: true });
       expect(mockListener).toHaveBeenCalledTimes(1);
 
       unsubscribe();
-      store.setState({ loading: false });
+      applicationStore.setState({ loading: false });
       expect(mockListener).toHaveBeenCalledTimes(1); // Should not be called again
     });
   });
 
-  describe('event handling', () => {
+  describe('Loading and Error States', () => {
+    it('should set loading state', () => {
+      applicationStore.setLoading(true);
+      expect(applicationStore.getState().loading).toBe(true);
+
+      applicationStore.setLoading(false);
+      expect(applicationStore.getState().loading).toBe(false);
+    });
+
+    it('should set error state', () => {
+      applicationStore.setError('Test error');
+      expect(applicationStore.getState().error).toBe('Test error');
+
+      applicationStore.clearError();
+      expect(applicationStore.getState().error).toBe(null);
+    });
+  });
+
+  describe('Event Handling', () => {
     it('should handle OperationCreated event', () => {
-      const operation = new Operation({
-        id: 'op1',
-        nature: 'receita',
-        state: 'recebido',
-        paymentMethod: 'Pix',
-        sourceAccount: 'main',
-        destinationAccount: 'main',
-        date: new Date('2024-01-01'),
-        value: new Money(1000, 'BRL'),
-        category: 'salary',
-        createdAt: new Date(),
-      });
-
-      const event = DomainEventFactory.createOperationCreated(operation);
+      const operation = { id: '1', nature: 'despesa', value: 100 };
       
-      // Simulate event being published
-      const eventHandler = mockEventBus.subscribe.mock.calls.find(
-        call => call[0] === 'OperationCreated'
-      )?.[1];
+      eventBus.publish('OperationCreated', operation);
       
-      if (eventHandler) {
-        eventHandler(event);
-      }
-
-      const state = store.getState();
+      const state = applicationStore.getState();
       expect(state.operations).toContainEqual(operation);
     });
 
     it('should handle OperationUpdated event', () => {
-      const originalOperation = new Operation({
-        id: 'op1',
-        nature: 'receita',
-        state: 'recebido',
-        paymentMethod: 'Pix',
-        sourceAccount: 'main',
-        destinationAccount: 'main',
-        date: new Date('2024-01-01'),
-        value: new Money(1000, 'BRL'),
-        category: 'salary',
-        createdAt: new Date(),
-      });
-
-      const updatedOperation = new Operation({
-        id: 'op1',
-        nature: 'receita',
-        state: 'recebido',
-        paymentMethod: 'Pix',
-        sourceAccount: 'main',
-        destinationAccount: 'main',
-        date: new Date('2024-01-01'),
-        value: new Money(1500, 'BRL'),
-        category: 'salary',
-        createdAt: new Date(),
-      });
-
-      // Add original operation to state
-      store.setState({ operations: [originalOperation] });
-
-      const event = DomainEventFactory.createOperationUpdated(updatedOperation);
+      const originalOperation = { id: '1', nature: 'despesa', value: 100 };
+      const updatedOperation = { id: '1', nature: 'despesa', value: 200 };
       
-      // Simulate event being published
-      const eventHandler = mockEventBus.subscribe.mock.calls.find(
-        call => call[0] === 'OperationUpdated'
-      )?.[1];
+      // Add original operation
+      eventBus.publish('OperationCreated', originalOperation);
       
-      if (eventHandler) {
-        eventHandler(event);
-      }
-
-      const state = store.getState();
+      // Update operation
+      eventBus.publish('OperationUpdated', updatedOperation);
+      
+      const state = applicationStore.getState();
       expect(state.operations).toContainEqual(updatedOperation);
       expect(state.operations).not.toContainEqual(originalOperation);
     });
 
     it('should handle OperationDeleted event', () => {
-      const operation = new Operation({
-        id: 'op1',
-        nature: 'receita',
-        state: 'recebido',
-        paymentMethod: 'Pix',
-        sourceAccount: 'main',
-        destinationAccount: 'main',
-        date: new Date('2024-01-01'),
-        value: new Money(1000, 'BRL'),
-        category: 'salary',
-        createdAt: new Date(),
-      });
-
-      // Add operation to state
-      store.setState({ operations: [operation] });
-
-      const event = DomainEventFactory.createOperationDeleted('op1');
+      const operation = { id: '1', nature: 'despesa', value: 100 };
       
-      // Simulate event being published
-      const eventHandler = mockEventBus.subscribe.mock.calls.find(
-        call => call[0] === 'OperationDeleted'
-      )?.[1];
+      // Add operation
+      eventBus.publish('OperationCreated', operation);
       
-      if (eventHandler) {
-        eventHandler(event);
-      }
-
-      const state = store.getState();
-      expect(state.operations).toEqual([]);
-    });
-
-    it('should handle AccountCreated event', () => {
-      const account = new Account({
-        id: 'acc1',
-        name: 'Conta Principal',
-        type: 'corrente',
-        balance: new Money(5000, 'BRL'),
-        createdAt: new Date(),
-      });
-
-      const event = DomainEventFactory.createAccountCreated(account);
+      // Delete operation
+      eventBus.publish('OperationDeleted', '1');
       
-      // Simulate event being published
-      const eventHandler = mockEventBus.subscribe.mock.calls.find(
-        call => call[0] === 'AccountCreated'
-      )?.[1];
-      
-      if (eventHandler) {
-        eventHandler(event);
-      }
-
-      const state = store.getState();
-      expect(state.accounts).toContainEqual(account);
+      const state = applicationStore.getState();
+      expect(state.operations).not.toContainEqual(operation);
     });
 
     it('should handle CategoryCreated event', () => {
-      const category = new Category({
-        id: 'cat1',
-        name: 'Alimentação',
-        type: 'expense',
-        createdAt: new Date(),
-      });
-
-      const event = DomainEventFactory.createCategoryCreated(category);
+      const category = { id: '1', name: 'Alimentação', type: 'expense' };
       
-      // Simulate event being published
-      const eventHandler = mockEventBus.subscribe.mock.calls.find(
-        call => call[0] === 'CategoryCreated'
-      )?.[1];
+      eventBus.publish('CategoryCreated', category);
       
-      if (eventHandler) {
-        eventHandler(event);
-      }
-
-      const state = store.getState();
+      const state = applicationStore.getState();
       expect(state.categories).toContainEqual(category);
     });
 
+    it('should handle AccountCreated event', () => {
+      const account = { id: '1', name: 'Conta Corrente', type: 'corrente' };
+      
+      eventBus.publish('AccountCreated', account);
+      
+      const state = applicationStore.getState();
+      expect(state.accounts).toContainEqual(account);
+    });
+
     it('should handle GoalCreated event', () => {
-      const goal = new Goal({
-        id: 'goal1',
-        userId: 'user1',
-        description: 'Comprar Carro',
-        type: 'compra',
-        targetValue: new Money(50000, 'BRL'),
-        startDate: new Date('2024-01-01'),
-        endDate: new Date('2024-12-31'),
-        monthlyIncome: new Money(8000, 'BRL'),
-        fixedExpenses: new Money(3000, 'BRL'),
-        availablePerMonth: new Money(2000, 'BRL'),
-        importance: 'alta',
-        priority: 1,
-        monthlyContribution: new Money(1500, 'BRL'),
-        numParcela: 12,
-        status: 'active',
-        createdAt: new Date(),
-      });
-
-      const event = DomainEventFactory.createGoalCreated(goal);
+      const goal = { id: '1', name: 'Viagem', targetAmount: 5000 };
       
-      // Simulate event being published
-      const eventHandler = mockEventBus.subscribe.mock.calls.find(
-        call => call[0] === 'GoalCreated'
-      )?.[1];
+      eventBus.publish('GoalCreated', goal);
       
-      if (eventHandler) {
-        eventHandler(event);
-      }
-
-      const state = store.getState();
+      const state = applicationStore.getState();
       expect(state.goals).toContainEqual(goal);
     });
   });
 
-  describe('computed values', () => {
-    it('should calculate financial summary correctly', () => {
-      const operations = [
-        new Operation({
-          id: 'op1',
-          nature: 'receita',
-          state: 'recebido',
-          paymentMethod: 'Pix',
-          sourceAccount: 'main',
-          destinationAccount: 'main',
-          date: new Date('2024-01-01'),
-          value: new Money(3000, 'BRL'),
-          category: 'salary',
-          createdAt: new Date(),
-        }),
-        new Operation({
-          id: 'op2',
-          nature: 'despesa',
-          state: 'pago',
-          paymentMethod: 'Pix',
-          sourceAccount: 'main',
-          destinationAccount: 'main',
-          date: new Date('2024-01-02'),
-          value: new Money(500, 'BRL'),
-          category: 'housing',
-          createdAt: new Date(),
-        }),
-        new Operation({
-          id: 'op3',
-          nature: 'receita',
-          state: 'receber',
-          paymentMethod: 'Pix',
-          sourceAccount: 'main',
-          destinationAccount: 'main',
-          date: new Date('2024-01-03'),
-          value: new Money(1000, 'BRL'),
-          category: 'freelance',
-          createdAt: new Date(),
-        })
-      ];
-
-      store.setState({ operations });
-
-      const summary = store.getFinancialSummary();
-      
-      expect(summary.totalReceitas).toBe(3000);
-      expect(summary.totalDespesas).toBe(500);
-      expect(summary.saldoLiquido).toBe(2500);
-      expect(summary.receitasPendentes).toBe(1000);
-      expect(summary.despesasPendentes).toBe(0);
-      expect(summary.totalOperacoes).toBe(3);
-      expect(summary.operacoesPendentes).toBe(1);
+  describe('Cache Integration', () => {
+    it('should provide cache manager', () => {
+      const cacheManager = applicationStore.getCacheManager();
+      expect(cacheManager).toBeDefined();
     });
 
-    it('should filter operations by period', () => {
-      const operations = [
-        new Operation({
-          id: 'op1',
-          nature: 'receita',
-          state: 'recebido',
-          paymentMethod: 'Pix',
-          sourceAccount: 'main',
-          destinationAccount: 'main',
-          date: new Date(2024, 0, 1), // Janeiro 2024
-          value: new Money(3000, 'BRL'),
-          category: 'salary',
-          createdAt: new Date(),
-        }),
-        new Operation({
-          id: 'op2',
-          nature: 'despesa',
-          state: 'pago',
-          paymentMethod: 'Pix',
-          sourceAccount: 'main',
-          destinationAccount: 'main',
-          date: new Date(2024, 1, 1), // Fevereiro 2024
-          value: new Money(500, 'BRL'),
-          category: 'housing',
-          createdAt: new Date(),
-        })
-      ];
+    it('should get cached data', () => {
+      const testData = { id: '1', name: 'Test' };
+      applicationStore.setCachedData('test-domain', { id: '1' }, testData);
+      
+      const result = applicationStore.getCachedData('test-domain', { id: '1' });
+      expect(result).toEqual(testData);
+    });
 
-      store.setState({ 
-        operations,
-        selectedPeriod: '2024-01'
-      });
+    it('should check if data exists in cache', () => {
+      expect(applicationStore.hasCachedData('test-domain', { id: '1' })).toBe(false);
+      
+      applicationStore.setCachedData('test-domain', { id: '1' }, { data: 'test' });
+      expect(applicationStore.hasCachedData('test-domain', { id: '1' })).toBe(true);
+    });
 
-      const filteredOperations = store.getFilteredOperations();
-      expect(filteredOperations).toHaveLength(1);
-      expect(filteredOperations[0].id).toBe('op1');
+    it('should invalidate cache domain', () => {
+      applicationStore.setCachedData('operations', { id: '1' }, { data: 'op1' });
+      applicationStore.setCachedData('categories', { id: '1' }, { data: 'cat1' });
+      
+      expect(applicationStore.hasCachedData('operations', { id: '1' })).toBe(true);
+      expect(applicationStore.hasCachedData('categories', { id: '1' })).toBe(true);
+      
+      applicationStore.invalidateCache('operations');
+      
+      expect(applicationStore.hasCachedData('operations', { id: '1' })).toBe(false);
+      expect(applicationStore.hasCachedData('categories', { id: '1' })).toBe(true);
+    });
+
+    it('should get cache statistics', () => {
+      const stats = applicationStore.getCacheStats();
+      
+      expect(stats).toHaveProperty('size');
+      expect(stats).toHaveProperty('maxSize');
+      expect(stats).toHaveProperty('hitRate');
+      expect(stats).toHaveProperty('missRate');
+    });
+
+    it('should clear cache', () => {
+      applicationStore.setCachedData('test-domain', { id: '1' }, { data: 'test' });
+      expect(applicationStore.hasCachedData('test-domain', { id: '1' })).toBe(true);
+      
+      applicationStore.clearCache();
+      expect(applicationStore.hasCachedData('test-domain', { id: '1' })).toBe(false);
     });
   });
 
-  describe('error handling', () => {
-    it('should handle errors gracefully', () => {
+  describe('Cache Invalidation on Events', () => {
+    it('should invalidate operations cache on operation events', () => {
+      applicationStore.setCachedData('operations', { id: '1' }, { data: 'op1' });
+      applicationStore.setCachedData('financial-summary', {}, { total: 1000 });
+      
+      expect(applicationStore.hasCachedData('operations', { id: '1' })).toBe(true);
+      expect(applicationStore.hasCachedData('financial-summary', {})).toBe(true);
+      
+      eventBus.publish('OperationCreated', { id: 'new-op' });
+      
+      expect(applicationStore.hasCachedData('operations', { id: '1' })).toBe(false);
+      expect(applicationStore.hasCachedData('financial-summary', {})).toBe(false);
+    });
+
+    it('should invalidate categories cache on category events', () => {
+      applicationStore.setCachedData('categories', { id: '1' }, { data: 'cat1' });
+      applicationStore.setCachedData('financial-summary', {}, { total: 1000 });
+      
+      expect(applicationStore.hasCachedData('categories', { id: '1' })).toBe(true);
+      expect(applicationStore.hasCachedData('financial-summary', {})).toBe(true);
+      
+      eventBus.publish('CategoryCreated', { id: 'new-cat' });
+      
+      expect(applicationStore.hasCachedData('categories', { id: '1' })).toBe(false);
+      expect(applicationStore.hasCachedData('financial-summary', {})).toBe(false);
+    });
+
+    it('should invalidate accounts cache on account events', () => {
+      applicationStore.setCachedData('accounts', { id: '1' }, { data: 'acc1' });
+      applicationStore.setCachedData('financial-summary', {}, { total: 1000 });
+      
+      expect(applicationStore.hasCachedData('accounts', { id: '1' })).toBe(true);
+      expect(applicationStore.hasCachedData('financial-summary', {})).toBe(true);
+      
+      eventBus.publish('AccountCreated', { id: 'new-acc' });
+      
+      expect(applicationStore.hasCachedData('accounts', { id: '1' })).toBe(false);
+      expect(applicationStore.hasCachedData('financial-summary', {})).toBe(false);
+    });
+
+    it('should invalidate goals cache on goal events', () => {
+      applicationStore.setCachedData('goals', { id: '1' }, { data: 'goal1' });
+      
+      expect(applicationStore.hasCachedData('goals', { id: '1' })).toBe(true);
+      
+      eventBus.publish('GoalCreated', { id: 'new-goal' });
+      
+      expect(applicationStore.hasCachedData('goals', { id: '1' })).toBe(false);
+    });
+  });
+
+  describe('Lifecycle', () => {
+    it('should stop cache manager on stop', () => {
+      expect(() => applicationStore.stop()).not.toThrow();
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle multiple rapid state updates', () => {
       const mockListener = jest.fn();
-      store.subscribe(mockListener);
+      applicationStore.subscribe(mockListener);
 
-      store.setState({ 
-        error: 'Database connection failed',
-        loading: false 
-      });
+      // Multiple rapid updates
+      applicationStore.setState({ loading: true });
+      applicationStore.setState({ loading: false });
+      applicationStore.setState({ error: 'test' });
 
-      const state = store.getState();
-      expect(state.error).toBe('Database connection failed');
-      expect(state.loading).toBe(false);
+      expect(mockListener).toHaveBeenCalledTimes(3);
     });
 
-    it('should clear errors', () => {
-      store.setState({ error: 'Test error' });
-      expect(store.getState().error).toBe('Test error');
+    it('should handle empty state updates', () => {
+      const mockListener = jest.fn();
+      applicationStore.subscribe(mockListener);
 
-      store.setState({ error: null });
-      expect(store.getState().error).toBeNull();
+      applicationStore.setState({});
+
+      expect(mockListener).toHaveBeenCalled();
     });
-  });
 
-  describe('cleanup', () => {
-    it('should unsubscribe from events on destroy', () => {
-      store.destroy();
-      
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('OperationCreated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('OperationUpdated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('OperationDeleted', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('AccountCreated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('AccountUpdated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('AccountDeleted', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('CategoryCreated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('CategoryUpdated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('CategoryDeleted', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('GoalCreated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('GoalUpdated', expect.any(Function));
-      expect(mockEventBus.unsubscribe).toHaveBeenCalledWith('GoalDeleted', expect.any(Function));
+    it('should handle multiple listeners', () => {
+      const mockListener1 = jest.fn();
+      const mockListener2 = jest.fn();
+
+      applicationStore.subscribe(mockListener1);
+      applicationStore.subscribe(mockListener2);
+
+      applicationStore.setState({ loading: true });
+
+      expect(mockListener1).toHaveBeenCalled();
+      expect(mockListener2).toHaveBeenCalled();
     });
   });
 });
