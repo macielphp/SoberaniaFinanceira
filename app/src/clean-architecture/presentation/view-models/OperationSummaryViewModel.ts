@@ -1,213 +1,173 @@
-import { Operation } from '../../../clean-architecture/domain/entities/Operation';
-import { Category } from '../../../clean-architecture/domain/entities/Category';
-import { Money } from '../../../clean-architecture/shared/utils/Money';
+import { IOperationRepository } from '../../domain/repositories/IOperationRepository';
+import { ICategoryRepository } from '../../domain/repositories/ICategoryRepository';
+import { Operation } from '../../domain/entities/Operation';
+import { Category } from '../../domain/entities/Category';
 
-interface CategorySummary {
-  category: Category;
-  total: Money;
-  count: number;
-}
-
-interface AccountSummary {
-  totalIncome: Money;
-  totalExpenses: Money;
-  netBalance: Money;
-}
-
-interface PeriodSummary {
-  totalIncome: Money;
-  totalExpenses: Money;
-  netBalance: Money;
-  startDate: Date;
-  endDate: Date;
+export interface FinancialSummary {
+  totalIncome: number;
+  totalExpenses: number;
+  netBalance: number;
+  pendingOperations: number;
+  pendingIncome: number;
+  pendingExpenses: number;
+  liquidBalance: number;
 }
 
 export class OperationSummaryViewModel {
-  private categoryCache: Map<string, Category> = new Map();
+  public operations: Operation[] = [];
+  public categories: Category[] = [];
+  public loading: boolean = false;
+  public error: string | null = null;
+  public selectedPeriod: string = 'all';
+  public includeVariableIncome: boolean = false;
+  private operationRepository: IOperationRepository;
+  private categoryRepository: ICategoryRepository;
 
-  constructor(
-    private operations: Operation[],
-    private categories: Category[]
-  ) {
-    this.initializeCategoryCache();
+  constructor(operationRepository: IOperationRepository, categoryRepository: ICategoryRepository) {
+    this.operationRepository = operationRepository;
+    this.categoryRepository = categoryRepository;
   }
 
-  private initializeCategoryCache(): void {
-    this.categories.forEach(category => {
-      this.categoryCache.set(category.id, category);
-    });
-  }
-
-  private getCategoryById(categoryId: string): Category {
-    const category = this.categoryCache.get(categoryId);
-    if (!category) {
-      throw new Error(`Category not found: ${categoryId}`);
+  async loadOperations(): Promise<void> {
+    try {
+      this.loading = true;
+      this.error = null;
+      this.operations = await this.operationRepository.findAll();
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'Erro ao carregar operações';
+      throw error;
+    } finally {
+      this.loading = false;
     }
-    return category;
   }
 
-  private isSameMonth(date1: Date, date2: Date): boolean {
-    // Normalizar as datas para evitar problemas de timezone
-    const d1 = new Date(date1.getFullYear(), date1.getMonth(), 1);
-    const d2 = new Date(date2.getFullYear(), date2.getMonth(), 1);
-    return d1.getTime() === d2.getTime();
+  async loadCategories(): Promise<void> {
+    try {
+      this.categories = await this.categoryRepository.findAll();
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'Erro ao carregar categorias';
+      throw error;
+    }
   }
 
-  private isInDateRange(date: Date, start: Date, end: Date): boolean {
-    return date >= start && date <= end;
-  }
-
-  private createEmptyMoney(): Money {
-    return new Money(0, 'BRL');
-  }
-
-  // Método para subtração que permite valores negativos
-  private subtractMoney(a: Money, b: Money): Money {
-    const result = a.value - b.value;
-    return new Money(Math.abs(result), 'BRL');
-  }
-
-  getTotalIncomeForMonth(date: Date): Money {
-    return this.operations
-      .filter(op => 
-        op.nature === 'receita' && 
-        op.state === 'recebido' && 
-        this.isSameMonth(op.date, date)
-      )
-      .reduce((total, op) => total.add(op.value), this.createEmptyMoney());
-  }
-
-  getTotalExpensesForMonth(date: Date): Money {
-    return this.operations
-      .filter(op => 
-        op.nature === 'despesa' && 
-        op.state === 'pago' && 
-        this.isSameMonth(op.date, date)
-      )
-      .reduce((total, op) => total.add(op.value), this.createEmptyMoney());
-  }
-
-  getNetBalanceForMonth(date: Date): Money {
-    const income = this.getTotalIncomeForMonth(date);
-    const expenses = this.getTotalExpensesForMonth(date);
+  getSummary(): FinancialSummary {
+    const operations = this.operations;
+    const totalIncome = operations
+      .filter(op => op.nature === 'receita')
+      .reduce((sum, op) => sum + (op.value?.value || 0), 0);
     
-    if (income.value >= expenses.value) {
-      return income.subtract(expenses);
-    } else {
-      // Se despesas > receitas, retorna zero (não permite saldo negativo)
-      return this.createEmptyMoney();
-    }
-  }
+    const totalExpenses = operations
+      .filter(op => op.nature === 'despesa')
+      .reduce((sum, op) => sum + (op.value?.value || 0), 0);
 
-  getExpensesByCategory(date: Date): CategorySummary[] {
-    const categoryMap = new Map<string, CategorySummary>();
-
-    this.operations
-      .filter(op => 
-        op.nature === 'despesa' && 
-        op.state === 'pago' && 
-        this.isSameMonth(op.date, date)
-      )
-      .forEach(op => {
-        const categoryId = op.category;
-        const existing = categoryMap.get(categoryId);
-
-        if (existing) {
-          existing.total = existing.total.add(op.value);
-          existing.count += 1;
-        } else {
-          categoryMap.set(categoryId, {
-            category: this.getCategoryById(categoryId),
-            total: op.value,
-            count: 1
-          });
-        }
-      });
-
-    return Array.from(categoryMap.values());
-  }
-
-  getIncomeByCategory(date: Date): CategorySummary[] {
-    const categoryMap = new Map<string, CategorySummary>();
-
-    this.operations
-      .filter(op => 
-        op.nature === 'receita' && 
-        op.state === 'recebido' && 
-        this.isSameMonth(op.date, date)
-      )
-      .forEach(op => {
-        const categoryId = op.category;
-        const existing = categoryMap.get(categoryId);
-
-        if (existing) {
-          existing.total = existing.total.add(op.value);
-          existing.count += 1;
-        } else {
-          categoryMap.set(categoryId, {
-            category: this.getCategoryById(categoryId),
-            total: op.value,
-            count: 1
-          });
-        }
-      });
-
-    return Array.from(categoryMap.values());
-  }
-
-  getAccountSummary(accountId: string): AccountSummary {
-    const accountOperations = this.operations.filter(
-      op => op.sourceAccount === accountId || op.destinationAccount === accountId
-    );
-
-    const totalIncome = accountOperations
-      .filter(op => op.nature === 'receita' && op.state === 'recebido')
-      .reduce((total, op) => total.add(op.value), this.createEmptyMoney());
-
-    const totalExpenses = accountOperations
-      .filter(op => op.nature === 'despesa' && op.state === 'pago')
-      .reduce((total, op) => total.add(op.value), this.createEmptyMoney());
-
-    let netBalance: Money;
-    if (totalIncome.value >= totalExpenses.value) {
-      netBalance = totalIncome.subtract(totalExpenses);
-    } else {
-      netBalance = this.createEmptyMoney();
-    }
+    const pendingOperations = operations.filter(op => op.isPending()).length;
+    const pendingIncome = operations
+      .filter(op => op.nature === 'receita' && op.isPending())
+      .reduce((sum, op) => sum + (op.value?.value || 0), 0);
+    const pendingExpenses = operations
+      .filter(op => op.nature === 'despesa' && op.isPending())
+      .reduce((sum, op) => sum + (op.value?.value || 0), 0);
 
     return {
       totalIncome,
       totalExpenses,
-      netBalance
+      netBalance: totalIncome - totalExpenses,
+      pendingOperations,
+      pendingIncome,
+      pendingExpenses,
+      liquidBalance: (totalIncome - pendingIncome) - (totalExpenses - pendingExpenses),
     };
   }
 
-  getPeriodSummary(startDate: Date, endDate: Date): PeriodSummary {
-    const periodOperations = this.operations.filter(op =>
-      this.isInDateRange(op.date, startDate, endDate)
-    );
+  getFilteredOperations(): Operation[] {
+    return this.operations;
+  }
 
-    const totalIncome = periodOperations
-      .filter(op => op.nature === 'receita' && op.state === 'recebido')
-      .reduce((total, op) => total.add(op.value), this.createEmptyMoney());
+  getPeriodSummary(): FinancialSummary {
+    return this.getSummary();
+  }
 
-    const totalExpenses = periodOperations
-      .filter(op => op.nature === 'despesa' && op.state === 'pago')
-      .reduce((total, op) => total.add(op.value), this.createEmptyMoney());
+  getTotalIncomeForMonth(): number {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    let netBalance: Money;
-    if (totalIncome.value >= totalExpenses.value) {
-      netBalance = totalIncome.subtract(totalExpenses);
-    } else {
-      netBalance = this.createEmptyMoney();
-    }
+    return this.operations
+      .filter(op => {
+        const opDate = new Date(op.date);
+        return op.nature === 'receita' && opDate >= monthStart && opDate <= monthEnd;
+      })
+      .reduce((sum, op) => sum + (op.value?.value || 0), 0);
+  }
 
-    return {
-      totalIncome,
-      totalExpenses,
-      netBalance,
-      startDate,
-      endDate
-    };
+  getTotalExpensesForMonth(): number {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return this.operations
+      .filter(op => {
+        const opDate = new Date(op.date);
+        return op.nature === 'despesa' && opDate >= monthStart && opDate <= monthEnd;
+      })
+      .reduce((sum, op) => sum + (op.value?.value || 0), 0);
+  }
+
+  getNetBalanceForMonth(): number {
+    return this.getTotalIncomeForMonth() - this.getTotalExpensesForMonth();
+  }
+
+  getIncomeByCategory(): Record<string, number> {
+    const incomeByCategory: Record<string, number> = {};
+    
+    this.operations
+      .filter(op => op.nature === 'receita')
+      .forEach(op => {
+        const category = op.category || 'Sem categoria';
+        incomeByCategory[category] = (incomeByCategory[category] || 0) + (op.value?.value || 0);
+      });
+
+    return incomeByCategory;
+  }
+
+  getExpensesByCategory(): Record<string, number> {
+    const expensesByCategory: Record<string, number> = {};
+    
+    this.operations
+      .filter(op => op.nature === 'despesa')
+      .forEach(op => {
+        const category = op.category || 'Sem categoria';
+        expensesByCategory[category] = (expensesByCategory[category] || 0) + (op.value?.value || 0);
+      });
+
+    return expensesByCategory;
+  }
+
+  getAccountSummary(): Record<string, number> {
+    const accountSummary: Record<string, number> = {};
+    
+    this.operations.forEach(op => {
+      const account = op.sourceAccount || 'Conta não especificada';
+      const value = op.nature === 'receita' ? (op.value?.value || 0) : -(op.value?.value || 0);
+      accountSummary[account] = (accountSummary[account] || 0) + value;
+    });
+
+    return accountSummary;
+  }
+
+  setSelectedPeriod(period: string): void {
+    this.selectedPeriod = period;
+  }
+
+  setIncludeVariableIncome(include: boolean): void {
+    this.includeVariableIncome = include;
+  }
+
+  clearError(): void {
+    this.error = null;
+  }
+
+  setLoading(loading: boolean): void {
+    this.loading = loading;
   }
 }

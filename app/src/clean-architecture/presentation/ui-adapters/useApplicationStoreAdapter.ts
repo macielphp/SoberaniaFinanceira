@@ -1,137 +1,137 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ApplicationStore, AppState, FinancialSummary } from '../../shared/state/ApplicationStore';
-import { EventBus } from '../../shared/events/EventBus';
 import { container } from '../../shared/di/Container';
 
-export interface UseApplicationStoreAdapterReturn {
-  // State
+interface UseApplicationStoreAdapterReturn {
+  // Estado
   operations: AppState['operations'];
-  accounts: AppState['accounts'];
   categories: AppState['categories'];
+  accounts: AppState['accounts'];
   goals: AppState['goals'];
   loading: AppState['loading'];
   error: AppState['error'];
-  selectedPeriod: AppState['selectedPeriod'];
-  includeVariableIncome: AppState['includeVariableIncome'];
+  lastUpdated: AppState['lastUpdated'];
   
-  // Computed values
-  financialSummary: FinancialSummary;
-  filteredOperations: AppState['operations'];
-  
-  // Actions
+  // Ações
+  setState: (newState: Partial<AppState>) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
-  setSelectedPeriod: (period: string) => void;
-  setIncludeVariableIncome: (include: boolean) => void;
   
-  // Utility methods
-  refreshData: () => Promise<void>;
+  // Cache
+  getCacheManager: () => any;
+  getCachedData: <T>(domain: string, params?: Record<string, any>) => T | null;
+  setCachedData: <T>(domain: string, params: Record<string, any>, data: T, ttl?: number) => void;
+  hasCachedData: (domain: string, params?: Record<string, any>) => boolean;
+  invalidateCache: (domain: string) => void;
+  getCacheStats: () => any;
+  clearCache: () => void;
+  
+  // Resumo financeiro
+  getFinancialSummary: () => FinancialSummary;
+  getFilteredOperations: () => any[];
 }
 
-export const useApplicationStoreAdapter = (): UseApplicationStoreAdapterReturn => {
+export function useApplicationStoreAdapter(): UseApplicationStoreAdapterReturn {
   const [state, setState] = useState<AppState>({
     operations: [],
-    accounts: [],
     categories: [],
+    accounts: [],
     goals: [],
     loading: false,
     error: null,
-    selectedPeriod: 'all',
-    includeVariableIncome: false,
+    lastUpdated: Date.now(),
   });
 
-  const [store, setStore] = useState<ApplicationStore | null>(null);
+  const store = container.resolve<ApplicationStore>('ApplicationStore');
 
-  // Initialize store
   useEffect(() => {
-    const eventBus = container.resolve<EventBus>('EventBus');
-    const applicationStore = new ApplicationStore(eventBus);
-    setStore(applicationStore);
-
-    // Subscribe to state changes
-    const unsubscribe = applicationStore.subscribe((newState) => {
+    const unsubscribe = store.subscribe((newState: AppState) => {
       setState(newState);
     });
 
-    return () => {
-      unsubscribe();
-      applicationStore.destroy();
-    };
-  }, []);
-
-  // Computed values
-  const financialSummary = store?.getFinancialSummary() || {
-    totalReceitas: 0,
-    totalDespesas: 0,
-    saldoLiquido: 0,
-    receitasPendentes: 0,
-    despesasPendentes: 0,
-    totalOperacoes: 0,
-    operacoesPendentes: 0,
-  };
-
-  const filteredOperations = store?.getFilteredOperations() || [];
-
-  // Actions
-  const setLoading = useCallback((loading: boolean) => {
-    store?.setLoading(loading);
+    return unsubscribe;
   }, [store]);
 
-  const setError = useCallback((error: string | null) => {
-    store?.setError(error);
+  const setStateHandler = useCallback((newState: Partial<AppState>) => {
+    store.setState(newState);
   }, [store]);
 
-  const clearError = useCallback(() => {
-    store?.clearError();
+  const setLoadingHandler = useCallback((loading: boolean) => {
+    store.setLoading(loading);
   }, [store]);
 
-  const setSelectedPeriod = useCallback((period: string) => {
-    store?.setSelectedPeriod(period);
+  const setErrorHandler = useCallback((error: string | null) => {
+    store.setError(error);
   }, [store]);
 
-  const setIncludeVariableIncome = useCallback((include: boolean) => {
-    store?.setIncludeVariableIncome(include);
+  const clearErrorHandler = useCallback(() => {
+    store.clearError();
   }, [store]);
 
-  const refreshData = useCallback(async () => {
-    if (!store) return;
-    
-    setLoading(true);
-    try {
-      // Here you would typically load data from repositories
-      // For now, we'll just clear the error
-      clearError();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erro ao atualizar dados');
-    } finally {
-      setLoading(false);
-    }
-  }, [store, setLoading, clearError, setError]);
+  const getCacheManager = useCallback(() => {
+    return store.getCacheManager();
+  }, [store]);
+
+  const getCachedData = useCallback(<T>(domain: string, params: Record<string, any> = {}): T | null => {
+    return store.getCachedData<T>(domain, params);
+  }, [store]);
+
+  const setCachedData = useCallback(<T>(domain: string, params: Record<string, any>, data: T, ttl?: number) => {
+    store.setCachedData(domain, params, data, ttl);
+  }, [store]);
+
+  const hasCachedData = useCallback((domain: string, params: Record<string, any> = {}): boolean => {
+    return store.hasCachedData(domain, params);
+  }, [store]);
+
+  const invalidateCache = useCallback((domain: string) => {
+    store.invalidateCache(domain);
+  }, [store]);
+
+  const getCacheStats = useCallback(() => {
+    return store.getCacheStats();
+  }, [store]);
+
+  const clearCache = useCallback(() => {
+    store.clearCache();
+  }, [store]);
+
+  const getFinancialSummary = useCallback((): FinancialSummary => {
+    return store.getFinancialSummary();
+  }, [store]);
+
+  const getFilteredOperations = useCallback((): any[] => {
+    return store.getFilteredOperations();
+  }, [store]);
 
   return {
-    // State
+    // Estado
     operations: state.operations,
-    accounts: state.accounts,
     categories: state.categories,
+    accounts: state.accounts,
     goals: state.goals,
     loading: state.loading,
     error: state.error,
-    selectedPeriod: state.selectedPeriod,
-    includeVariableIncome: state.includeVariableIncome,
+    lastUpdated: state.lastUpdated,
     
-    // Computed values
-    financialSummary,
-    filteredOperations,
+    // Ações
+    setState: setStateHandler,
+    setLoading: setLoadingHandler,
+    setError: setErrorHandler,
+    clearError: clearErrorHandler,
     
-    // Actions
-    setLoading,
-    setError,
-    clearError,
-    setSelectedPeriod,
-    setIncludeVariableIncome,
+    // Cache
+    getCacheManager,
+    getCachedData,
+    setCachedData,
+    hasCachedData,
+    invalidateCache,
+    getCacheStats,
+    clearCache,
     
-    // Utility methods
-    refreshData,
+    // Resumo financeiro
+    getFinancialSummary,
+    getFilteredOperations,
   };
-};
+}

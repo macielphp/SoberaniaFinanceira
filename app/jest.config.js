@@ -40,14 +40,29 @@ module.exports = {
     '^@/services/(.*)$': '<rootDir>/src/services/$1',
     '^@/database/(.*)$': '<rootDir>/src/database/$1',
     '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
-    '^@/styles/(.*)$': '<rootDir>/src/styles/$1'
+    '^@/styles/(.*)$': '<rootDir>/src/styles/$1',
+    // Mock React Native modules
+    '^react-native$': '<rootDir>/src/__mocks__/react-native.ts',
+    '^@react-native/(.*)$': '<rootDir>/src/__mocks__/@react-native/$1',
+    '^@react-navigation/(.*)$': '<rootDir>/src/__mocks__/@react-navigation/$1',
+    // Mock Expo modules
+    '^expo-sqlite$': '<rootDir>/src/__mocks__/expo-sqlite.ts',
+    '^expo/(.*)$': '<rootDir>/src/__mocks__/expo/$1',
+    // Mock other problematic modules
+    '^react-native-gesture-handler$': '<rootDir>/src/__mocks__/react-native-gesture-handler.ts',
+    '^@react-native-async-storage/async-storage$': '<rootDir>/src/__mocks__/@react-native-async-storage/async-storage.ts',
   },
   setupFilesAfterEnv: [],
   testTimeout: 10000,
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-navigation)/)'
+    'node_modules/(?!(react-native|@react-native|@react-navigation|react-native-.*|expo-.*)/)'
   ],
+  // Reduzir verbosidade dos logs
+  verbose: false,
+  silent: false,
+  // Mostrar apenas erros e warnings
+  errorOnDeprecated: false,
   globals: {
     'ts-jest': {
       tsconfig: {

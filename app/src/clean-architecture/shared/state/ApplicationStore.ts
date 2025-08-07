@@ -4,7 +4,7 @@ import { CacheManager } from './CacheManager';
 /**
  * Interface para o estado da aplicação
  */
-interface AppState {
+export interface AppState {
   operations: any[];
   categories: any[];
   accounts: any[];
@@ -12,6 +12,19 @@ interface AppState {
   loading: boolean;
   error: string | null;
   lastUpdated: number;
+}
+
+/**
+ * Interface para resumo financeiro
+ */
+export interface FinancialSummary {
+  totalIncome: number;
+  totalExpenses: number;
+  netBalance: number;
+  pendingOperations: number;
+  pendingIncome: number;
+  pendingExpenses: number;
+  liquidBalance: number;
 }
 
 /**
@@ -107,22 +120,22 @@ export class ApplicationStore {
   }
 
   /**
-   * Obtém o estado atual
+   * Obtém o estado atual da aplicação
    */
   public getState(): AppState {
     return { ...this.state };
   }
 
   /**
-   * Atualiza o estado
+   * Atualiza o estado da aplicação
    */
   public setState(newState: Partial<AppState>): void {
-    this.state = { ...this.state, ...newState, lastUpdated: Date.now() };
+    this.state = { ...this.state, ...newState };
     this.notifyListeners();
   }
 
   /**
-   * Adiciona um listener para mudanças de estado
+   * Inscreve um listener para mudanças de estado
    */
   public subscribe(listener: (state: AppState) => void): () => void {
     this.listeners.push(listener);
@@ -135,166 +148,158 @@ export class ApplicationStore {
   }
 
   /**
-   * Notifica todos os listeners
+   * Notifica todos os listeners sobre mudanças de estado
    */
   private notifyListeners(): void {
     this.listeners.forEach(listener => listener(this.state));
   }
 
-  // === OPERAÇÕES ===
-
   /**
    * Adiciona uma operação ao estado
    */
   private addOperation(operation: any): void {
-    const operations = [...this.state.operations, operation];
-    this.setState({ operations });
-    this.cacheManager.invalidateDomain('operations');
-    this.cacheManager.invalidateDomain('financial-summary');
+    this.state.operations.push(operation);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
 
   /**
    * Atualiza uma operação no estado
    */
   private updateOperation(operation: any): void {
-    const operations = this.state.operations.map(op => 
-      op.id === operation.id ? operation : op
-    );
-    this.setState({ operations });
-    this.cacheManager.invalidateDomain('operations');
-    this.cacheManager.invalidateDomain('financial-summary');
+    const index = this.state.operations.findIndex(op => op.id === operation.id);
+    if (index !== -1) {
+      this.state.operations[index] = operation;
+      this.state.lastUpdated = Date.now();
+      this.notifyListeners();
+    }
   }
 
   /**
    * Remove uma operação do estado
    */
   private removeOperation(operationId: string): void {
-    const operations = this.state.operations.filter(op => op.id !== operationId);
-    this.setState({ operations });
-    this.cacheManager.invalidateDomain('operations');
-    this.cacheManager.invalidateDomain('financial-summary');
+    this.state.operations = this.state.operations.filter(op => op.id !== operationId);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
-
-  // === CATEGORIAS ===
 
   /**
    * Adiciona uma categoria ao estado
    */
   private addCategory(category: any): void {
-    const categories = [...this.state.categories, category];
-    this.setState({ categories });
-    this.cacheManager.invalidateDomain('categories');
+    this.state.categories.push(category);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
 
   /**
    * Atualiza uma categoria no estado
    */
   private updateCategory(category: any): void {
-    const categories = this.state.categories.map(cat => 
-      cat.id === category.id ? category : cat
-    );
-    this.setState({ categories });
-    this.cacheManager.invalidateDomain('categories');
+    const index = this.state.categories.findIndex(cat => cat.id === category.id);
+    if (index !== -1) {
+      this.state.categories[index] = category;
+      this.state.lastUpdated = Date.now();
+      this.notifyListeners();
+    }
   }
 
   /**
    * Remove uma categoria do estado
    */
   private removeCategory(categoryId: string): void {
-    const categories = this.state.categories.filter(cat => cat.id !== categoryId);
-    this.setState({ categories });
-    this.cacheManager.invalidateDomain('categories');
+    this.state.categories = this.state.categories.filter(cat => cat.id !== categoryId);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
-
-  // === CONTAS ===
 
   /**
    * Adiciona uma conta ao estado
    */
   private addAccount(account: any): void {
-    const accounts = [...this.state.accounts, account];
-    this.setState({ accounts });
-    this.cacheManager.invalidateDomain('accounts');
+    this.state.accounts.push(account);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
 
   /**
    * Atualiza uma conta no estado
    */
   private updateAccount(account: any): void {
-    const accounts = this.state.accounts.map(acc => 
-      acc.id === account.id ? account : acc
-    );
-    this.setState({ accounts });
-    this.cacheManager.invalidateDomain('accounts');
+    const index = this.state.accounts.findIndex(acc => acc.id === account.id);
+    if (index !== -1) {
+      this.state.accounts[index] = account;
+      this.state.lastUpdated = Date.now();
+      this.notifyListeners();
+    }
   }
 
   /**
    * Remove uma conta do estado
    */
   private removeAccount(accountId: string): void {
-    const accounts = this.state.accounts.filter(acc => acc.id !== accountId);
-    this.setState({ accounts });
-    this.cacheManager.invalidateDomain('accounts');
+    this.state.accounts = this.state.accounts.filter(acc => acc.id !== accountId);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
-
-  // === METAS ===
 
   /**
    * Adiciona uma meta ao estado
    */
   private addGoal(goal: any): void {
-    const goals = [...this.state.goals, goal];
-    this.setState({ goals });
-    this.cacheManager.invalidateDomain('goals');
+    this.state.goals.push(goal);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
 
   /**
    * Atualiza uma meta no estado
    */
   private updateGoal(goal: any): void {
-    const goals = this.state.goals.map(g => 
-      g.id === goal.id ? goal : g
-    );
-    this.setState({ goals });
-    this.cacheManager.invalidateDomain('goals');
+    const index = this.state.goals.findIndex(g => g.id === goal.id);
+    if (index !== -1) {
+      this.state.goals[index] = goal;
+      this.state.lastUpdated = Date.now();
+      this.notifyListeners();
+    }
   }
 
   /**
    * Remove uma meta do estado
    */
   private removeGoal(goalId: string): void {
-    const goals = this.state.goals.filter(g => g.id !== goalId);
-    this.setState({ goals });
-    this.cacheManager.invalidateDomain('goals');
+    this.state.goals = this.state.goals.filter(g => g.id !== goalId);
+    this.state.lastUpdated = Date.now();
+    this.notifyListeners();
   }
-
-  // === ESTADOS DE LOADING E ERRO ===
 
   /**
    * Define o estado de loading
    */
   public setLoading(loading: boolean): void {
-    this.setState({ loading });
+    this.state.loading = loading;
+    this.notifyListeners();
   }
 
   /**
-   * Define o erro
+   * Define o erro atual
    */
   public setError(error: string | null): void {
-    this.setState({ error });
+    this.state.error = error;
+    this.notifyListeners();
   }
 
   /**
-   * Limpa o erro
+   * Limpa o erro atual
    */
   public clearError(): void {
-    this.setState({ error: null });
+    this.state.error = null;
+    this.notifyListeners();
   }
 
-  // === CACHE ===
-
   /**
-   * Obtém o cache manager
+   * Obtém o gerenciador de cache
    */
   public getCacheManager(): CacheManager {
     return this.cacheManager;
@@ -304,7 +309,7 @@ export class ApplicationStore {
    * Obtém dados do cache
    */
   public getCachedData<T>(domain: string, params: Record<string, any> = {}): T | null {
-    return this.cacheManager.get<T>(domain, params);
+    return this.cacheManager.get(domain, params);
   }
 
   /**
@@ -322,7 +327,7 @@ export class ApplicationStore {
   }
 
   /**
-   * Invalida cache de um domínio
+   * Invalida cache por domínio
    */
   public invalidateCache(domain: string): void {
     this.cacheManager.invalidateDomain(domain);
@@ -343,9 +348,70 @@ export class ApplicationStore {
   }
 
   /**
-   * Para o cache manager (para cleanup)
+   * Para o store e limpa listeners
    */
   public stop(): void {
+    this.listeners = [];
     this.cacheManager.stop();
+  }
+
+  /**
+   * Obtém resumo financeiro (método de compatibilidade)
+   */
+  public getFinancialSummary(): FinancialSummary {
+    const operations = this.state.operations;
+    const totalIncome = operations
+      .filter(op => op.nature === 'receita')
+      .reduce((sum, op) => sum + (op.value || 0), 0);
+    
+    const totalExpenses = operations
+      .filter(op => op.nature === 'despesa')
+      .reduce((sum, op) => sum + (op.value || 0), 0);
+
+    const pendingOperations = operations.filter(op => op.state === 'pendente').length;
+    const pendingIncome = operations
+      .filter(op => op.nature === 'receita' && op.state === 'pendente')
+      .reduce((sum, op) => sum + (op.value || 0), 0);
+    const pendingExpenses = operations
+      .filter(op => op.nature === 'despesa' && op.state === 'pendente')
+      .reduce((sum, op) => sum + (op.value || 0), 0);
+
+    return {
+      totalIncome,
+      totalExpenses,
+      netBalance: totalIncome - totalExpenses,
+      pendingOperations,
+      pendingIncome,
+      pendingExpenses,
+      liquidBalance: (totalIncome - pendingIncome) - (totalExpenses - pendingExpenses),
+    };
+  }
+
+  /**
+   * Obtém operações filtradas (método de compatibilidade)
+   */
+  public getFilteredOperations(): any[] {
+    return this.state.operations;
+  }
+
+  /**
+   * Define período selecionado (método de compatibilidade)
+   */
+  public setSelectedPeriod(period: string): void {
+    // Implementação futura
+  }
+
+  /**
+   * Define inclusão de receita variável (método de compatibilidade)
+   */
+  public setIncludeVariableIncome(include: boolean): void {
+    // Implementação futura
+  }
+
+  /**
+   * Destrói o store (método de compatibilidade)
+   */
+  public destroy(): void {
+    this.stop();
   }
 }

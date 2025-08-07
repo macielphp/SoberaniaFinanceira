@@ -2,104 +2,101 @@
 // Responsável por criar uma nova meta (Goal)
 
 import { IGoalRepository } from '../repositories/IGoalRepository';
-import { Goal, GoalType, GoalImportance } from '../entities/Goal';
-import { Result, success, failure } from '../../shared/utils/Result';
+import { Goal } from '../entities/Goal';
 import { Money } from '../../shared/utils/Money';
-import { EventBus } from '../../shared/events/EventBus';
-import { DomainEventFactory } from '../events/DomainEvents';
 
-// Input DTO for creating goals
 export interface CreateGoalRequest {
   description: string;
-  type: GoalType;
-  targetValue: number;
-  userId: string;
+  targetValue: Money;
   startDate: Date;
   endDate: Date;
-  monthlyIncome: number;
-  fixedExpenses: number;
-  availablePerMonth: number;
-  importance: GoalImportance;
+  monthlyIncome: Money;
+  fixedExpenses: Money;
+  availablePerMonth: Money;
+  importance: 'baixa' | 'média' | 'alta';
   priority: number;
-  monthlyContribution: number;
+  type: 'economia' | 'compra';
+  status?: 'active' | 'completed' | 'paused' | 'cancelled';
+  userId: string;
+  strategy?: string;
+  monthlyContribution: Money;
   numParcela: number;
 }
 
-// Output DTO for the use case result
 export interface CreateGoalResponse {
   goal: Goal;
 }
 
 export class CreateGoalUseCase {
-  constructor(
-    private goalRepository: IGoalRepository,
-    private eventBus?: EventBus
-  ) {}
+  constructor(private goalRepository: IGoalRepository) {}
 
-  async execute(request: CreateGoalRequest): Promise<Result<CreateGoalResponse, Error>> {
+  async execute(request: CreateGoalRequest): Promise<Goal> {
     try {
-      // Validação básica
-      if (!request.description || request.description.trim() === '') {
-        return failure<CreateGoalResponse, Error>(new Error('Goal description cannot be empty'));
-      }
-      if (!request.type || (request.type !== 'economia' && request.type !== 'compra')) {
-        return failure<CreateGoalResponse, Error>(new Error('Invalid goal type'));
-      }
-      if (!request.userId || request.userId.trim() === '') {
-        return failure<CreateGoalResponse, Error>(new Error('User ID cannot be empty'));
-      }
-      if (request.targetValue <= 0) {
-        return failure<CreateGoalResponse, Error>(new Error('Target value must be greater than zero'));
-      }
-      if (request.monthlyIncome < 0 || request.fixedExpenses < 0 || request.availablePerMonth < 0 || request.monthlyContribution < 0) {
-        return failure<CreateGoalResponse, Error>(new Error('Values must be non-negative'));
-      }
-      if (request.priority < 1 || request.priority > 5) {
-        return failure<CreateGoalResponse, Error>(new Error('Priority must be between 1 and 5'));
-      }
-      if (!request.startDate || !request.endDate || request.endDate <= request.startDate) {
-        return failure<CreateGoalResponse, Error>(new Error('End date must be after start date'));
-      }
+      this.validateCreateData(request);
 
-      // Criar Goal
+      // Create new goal
       const goal = new Goal({
         id: this.generateId(),
         userId: request.userId,
         description: request.description,
         type: request.type,
-        targetValue: new Money(request.targetValue, 'BRL'),
+        targetValue: request.targetValue,
         startDate: request.startDate,
         endDate: request.endDate,
-        monthlyIncome: new Money(request.monthlyIncome, 'BRL'),
-        fixedExpenses: new Money(request.fixedExpenses, 'BRL'),
-        availablePerMonth: new Money(request.availablePerMonth, 'BRL'),
+        monthlyIncome: request.monthlyIncome,
+        fixedExpenses: request.fixedExpenses,
+        availablePerMonth: request.availablePerMonth,
         importance: request.importance,
         priority: request.priority,
-        strategy: undefined,
-        monthlyContribution: new Money(request.monthlyContribution, 'BRL'),
+        strategy: request.strategy,
+        monthlyContribution: request.monthlyContribution,
         numParcela: request.numParcela,
-        status: 'active',
-        createdAt: new Date()
+        status: request.status || 'active',
+        createdAt: new Date(),
       });
 
-      // Salvar no repositório
+      // Save to repository
       const savedGoal = await this.goalRepository.save(goal);
-      
-      // Publicar evento se EventBus estiver disponível
-      if (this.eventBus) {
-        const event = DomainEventFactory.createGoalCreated(savedGoal);
-        this.eventBus.publish('GoalCreated', event);
-      }
-      
-      return success<CreateGoalResponse, Error>({ goal: savedGoal });
+      return savedGoal;
     } catch (error) {
-      return failure<CreateGoalResponse, Error>(
-        new Error(`Failed to create goal${error instanceof Error ? ': ' + error.message : ''}`)
-      );
+      if (error instanceof Error) {
+        // Re-throw validation errors as-is
+        if (error.message.includes('Descrição do objetivo é obrigatória') || 
+            error.message.includes('Valor alvo deve ser positivo') ||
+            error.message.includes('Prioridade deve ser entre 1 e 5') ||
+            error.message.includes('Tipo de objetivo inválido')) {
+          throw error;
+        }
+        // Wrap repository errors
+        throw new Error('Erro ao salvar objetivo');
+      }
+      throw new Error('Erro ao salvar objetivo');
+    }
+  }
+
+  private validateCreateData(data: CreateGoalRequest): void {
+    if (!data.description || data.description.trim() === '') {
+      throw new Error('Descrição do objetivo é obrigatória');
+    }
+
+    if (data.targetValue.value <= 0) {
+      throw new Error('Valor alvo deve ser positivo');
+    }
+
+    if (data.priority < 1 || data.priority > 5) {
+      throw new Error('Prioridade deve ser entre 1 e 5');
+    }
+
+    if (!data.type || !['economia', 'compra'].includes(data.type)) {
+      throw new Error('Tipo de objetivo inválido');
+    }
+
+    if (data.endDate <= data.startDate) {
+      throw new Error('Data de fim deve ser posterior à data de início');
     }
   }
 
   private generateId(): string {
-    return `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
   }
 }

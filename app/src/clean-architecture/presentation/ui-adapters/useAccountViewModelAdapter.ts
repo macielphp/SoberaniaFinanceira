@@ -1,20 +1,18 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AccountViewModel } from '../view-models/AccountViewModel';
-import { AccountProps } from '../../domain/entities/Account';
-import { SQLiteAccountRepository } from '../../../clean-architecture/data/repositories/SQLiteAccountRepository';
-
-// TODO: Substituir por DI real
-const accountRepository = new SQLiteAccountRepository();
+import { Account, AccountProps } from '../../domain/entities/Account';
+import { container } from '../../shared/di/Container';
 
 export function useAccountViewModelAdapter() {
-  const [viewModel] = useState(() => new AccountViewModel(accountRepository));
-  const [accounts, setAccounts] = useState(viewModel.accounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+
+  const viewModel = container.resolve<AccountViewModel>('AccountViewModel');
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       await viewModel.loadAccounts();
       setAccounts([...viewModel.accounts]);
@@ -31,7 +29,6 @@ export function useAccountViewModelAdapter() {
 
   const createAccount = async (props: AccountProps) => {
     setLoading(true);
-    setError(null);
     try {
       await viewModel.createAccount(props);
       setAccounts([...viewModel.accounts]);
@@ -43,11 +40,10 @@ export function useAccountViewModelAdapter() {
     }
   };
 
-  const updateAccount = async (props: AccountProps) => {
+  const updateAccount = async (accountId: string, accountProps: Partial<AccountProps>) => {
     setLoading(true);
-    setError(null);
     try {
-      await viewModel.updateAccount(props);
+      await viewModel.updateAccount(accountId, accountProps);
       setAccounts([...viewModel.accounts]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar conta');
@@ -59,7 +55,6 @@ export function useAccountViewModelAdapter() {
 
   const deleteAccount = async (id: string) => {
     setLoading(true);
-    setError(null);
     try {
       await viewModel.deleteAccount(id);
       setAccounts([...viewModel.accounts]);
@@ -71,13 +66,31 @@ export function useAccountViewModelAdapter() {
     }
   };
 
+  const getAccounts = useCallback(() => {
+    return viewModel.getAccounts();
+  }, [viewModel]);
+
+  const setSelectedAccountHandler = useCallback((account: Account | null) => {
+    viewModel.setSelectedAccount(account);
+    setSelectedAccount(account);
+  }, [viewModel]);
+
+  const clearError = useCallback(() => {
+    viewModel.clearError();
+    setError(null);
+  }, [viewModel]);
+
   return {
     accounts,
     loading,
     error,
+    selectedAccount,
     createAccount,
     updateAccount,
     deleteAccount,
     loadAccounts,
+    getAccounts,
+    setSelectedAccount: setSelectedAccountHandler,
+    clearError,
   };
 }

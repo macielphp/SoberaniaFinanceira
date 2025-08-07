@@ -1,29 +1,31 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { OperationViewModel } from '../view-models/OperationViewModel';
-import { OperationProps } from '../../domain/entities/Operation';
-import { SQLiteOperationRepository } from '../../../clean-architecture/data/repositories/SQLiteOperationRepository';
-import { SQLiteCategoryRepository } from '../../../clean-architecture/data/repositories/SQLiteCategoryRepository';
-import { SQLiteAccountRepository } from '../../../clean-architecture/data/repositories/SQLiteAccountRepository';
+import { Operation, OperationProps } from '../../domain/entities/Operation';
 import { Category } from '../../domain/entities/Category';
 import { Account } from '../../domain/entities/Account';
-
-// TODO: Substituir por DI real
-const operationRepository = new SQLiteOperationRepository();
-const categoryRepository = new SQLiteCategoryRepository();
-const accountRepository = new SQLiteAccountRepository();
+import { container } from '../../shared/di/Container';
 
 export function useOperationViewModelAdapter() {
-  const [viewModel] = useState(() => new OperationViewModel(operationRepository));
-  const [operations, setOperations] = useState(viewModel.operations);
+  const [operations, setOperations] = useState<Operation[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const viewModel = container.resolve<OperationViewModel>('OperationViewModel');
+  const categoryRepository = container.resolve<any>('CategoryRepository');
+  const accountRepository = container.resolve<any>('AccountRepository');
 
   const loadOperations = useCallback(async () => {
     setLoading(true);
-    await viewModel.loadOperations();
-    setOperations([...viewModel.operations]);
-    setLoading(false);
+    try {
+      await viewModel.loadOperations();
+      setOperations([...viewModel.operations]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar operações');
+    } finally {
+      setLoading(false);
+    }
   }, [viewModel]);
 
   const loadCategories = useCallback(async () => {
@@ -69,20 +71,19 @@ export function useOperationViewModelAdapter() {
     setLoading(false);
   };
 
-  const updateOperation = async (props: OperationProps) => {
+  const updateOperation = async (operationId: string, operationProps: Partial<OperationProps>) => {
     setLoading(true);
-    await viewModel.updateOperation(props);
+    await viewModel.updateOperation(operationId, operationProps);
     setOperations([...viewModel.operations]);
     setLoading(false);
   };
 
   const updateOperationState = async (operation: any, newState: string) => {
     setLoading(true);
-    const updatedProps: OperationProps = {
-      ...operation,
+    const updatedProps: Partial<OperationProps> = {
       state: newState as any,
     };
-    await viewModel.updateOperation(updatedProps);
+    await viewModel.updateOperation(operation.id, updatedProps);
     setOperations([...viewModel.operations]);
     setLoading(false);
   };
@@ -113,6 +114,7 @@ export function useOperationViewModelAdapter() {
     categories,
     accounts,
     loading,
+    error,
     createOperation,
     createDoubleOperation,
     updateOperation,

@@ -2,130 +2,81 @@
 // Responsável por atualizar uma operação existente
 
 import { IOperationRepository } from '../repositories/IOperationRepository';
-import { Operation } from '../entities/Operation';
-import { Result, success, failure } from '../../shared/utils/Result';
-import { EventBus } from '../../shared/events/EventBus';
-import { DomainEventFactory } from '../events/DomainEvents';
-
-// Input DTO for updating operations
-export interface UpdateOperationRequest {
-  id: string;
-  nature: 'despesa' | 'receita';
-  state: 'pagar' | 'pago' | 'receber' | 'recebido';
-  paymentMethod: 'Cartão de crédito' | 'Cartão de débito' | 'Pix' | 'TED' | 'Estorno' | 'Transferência bancária';
-  sourceAccount: string;
-  destinationAccount: string;
-  date: Date;
-  value: any; // Money object
-  category: string;
-  details?: string;
-  project?: string;
-}
-
-// Output DTO for the use case result
-export interface UpdateOperationResponse {
-  operation: Operation;
-}
+import { Operation, OperationProps } from '../entities/Operation';
 
 export class UpdateOperationUseCase {
-  constructor(
-    private operationRepository: IOperationRepository,
-    private eventBus?: EventBus
-  ) {}
+  constructor(private operationRepository: IOperationRepository) {}
 
-  async execute(request: UpdateOperationRequest): Promise<Result<UpdateOperationResponse, Error>> {
-    try {
-      // Find existing operation
-      const existingOperation = await this.operationRepository.findById(request.id);
-      if (!existingOperation) {
-        return failure<UpdateOperationResponse, Error>(new Error('Operation not found'));
-      }
+  async execute(operationId: string, updateData: Partial<OperationProps>): Promise<Operation> {
+    // Buscar operação existente
+    const existingOperation = await this.operationRepository.findById(operationId);
+    if (!existingOperation) {
+      throw new Error('Operation not found');
+    }
 
-      // Validate request
-      const validationResult = this.validateRequest(request);
-      if (validationResult.isFailure()) {
-        return validationResult.match(
-          () => failure<UpdateOperationResponse, Error>(new Error('Validation failed')),
-          (error) => failure<UpdateOperationResponse, Error>(error)
-        );
-      }
+    // Validar dados de atualização
+    this.validateUpdateData(updateData);
 
-      // Create updated operation entity
-      const updatedOperation = new Operation({
-        id: existingOperation.id, // Preserve original ID
-        nature: request.nature,
-        state: request.state,
-        paymentMethod: request.paymentMethod,
-        sourceAccount: request.sourceAccount,
-        destinationAccount: request.destinationAccount,
-        date: request.date,
-        value: request.value,
-        category: request.category,
-        details: request.details ?? existingOperation.details,
-        project: request.project ?? existingOperation.project,
-        createdAt: existingOperation.createdAt // Preserve original creation date
-      });
+    // Criar nova operação com dados atualizados
+    const updatedOperationProps: OperationProps = {
+      id: operationId,
+      nature: updateData.nature || existingOperation.nature,
+      state: updateData.state || existingOperation.state,
+      paymentMethod: updateData.paymentMethod || existingOperation.paymentMethod,
+      sourceAccount: updateData.sourceAccount || existingOperation.sourceAccount,
+      destinationAccount: updateData.destinationAccount || existingOperation.destinationAccount,
+      date: updateData.date || existingOperation.date,
+      value: updateData.value || existingOperation.value,
+      category: updateData.category || existingOperation.category,
+      details: updateData.details || existingOperation.details,
+      receipt: updateData.receipt || existingOperation.receipt,
+      project: updateData.project || existingOperation.project,
+      createdAt: existingOperation.createdAt, // Preservar data de criação original
+    };
 
-      // Save updated operation
-      const savedOperation = await this.operationRepository.save(updatedOperation);
+    // Criar nova instância da operação
+    const updatedOperation = new Operation(updatedOperationProps);
 
-      // Publish domain event if event bus is available
-      if (this.eventBus) {
-        const event = DomainEventFactory.createOperationUpdated(savedOperation);
-        this.eventBus.publish('OperationUpdated', event);
-      }
+    // Salvar no repositório
+    const savedOperation = await this.operationRepository.save(updatedOperation);
 
-      return success<UpdateOperationResponse, Error>({
-        operation: savedOperation
-      });
+    return savedOperation;
+  }
 
-    } catch (error) {
-      return failure<UpdateOperationResponse, Error>(
-        new Error(`Failed to update operation: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      );
+  private validateUpdateData(updateData: Partial<OperationProps>): void {
+    // Validar valor se fornecido
+    if (updateData.value && updateData.value.value <= 0) {
+      throw new Error('Operation value must be greater than zero');
+    }
+
+    // Validar método de pagamento se fornecido
+    if (updateData.paymentMethod && !this.isValidPaymentMethod(updateData.paymentMethod)) {
+      throw new Error('Invalid payment method');
+    }
+
+    // Validar natureza se fornecida
+    if (updateData.nature && !this.isValidNature(updateData.nature)) {
+      throw new Error('Invalid operation nature');
+    }
+
+    // Validar estado se fornecido
+    if (updateData.state && !this.isValidState(updateData.state)) {
+      throw new Error('Invalid operation state');
     }
   }
 
-  private validateRequest(request: UpdateOperationRequest): Result<void, Error> {
-    // Validate nature
-    if (!['despesa', 'receita'].includes(request.nature)) {
-      return failure<void, Error>(new Error('Invalid nature'));
-    }
+  private isValidPaymentMethod(method: string): boolean {
+    const validMethods = ['Pix', 'Cartão de crédito', 'Cartão de débito', 'TED', 'Estorno', 'Transferência bancária'];
+    return validMethods.includes(method);
+  }
 
-    // Validate state
-    if (!['pagar', 'pago', 'receber', 'recebido'].includes(request.state)) {
-      return failure<void, Error>(new Error('Invalid state'));
-    }
+  private isValidNature(nature: string): boolean {
+    const validNatures = ['despesa', 'receita'];
+    return validNatures.includes(nature);
+  }
 
-    // Validate payment method
-    if (!['Cartão de crédito', 'Cartão de débito', 'Pix', 'TED', 'Estorno', 'Transferência bancária'].includes(request.paymentMethod)) {
-      return failure<void, Error>(new Error('Invalid payment method'));
-    }
-
-    // Validate source account
-    if (!request.sourceAccount || request.sourceAccount.trim() === '') {
-      return failure<void, Error>(new Error('Source account cannot be empty'));
-    }
-
-    // Validate destination account
-    if (!request.destinationAccount || request.destinationAccount.trim() === '') {
-      return failure<void, Error>(new Error('Destination account cannot be empty'));
-    }
-
-    // Validate category
-    if (!request.category || request.category.trim() === '') {
-      return failure<void, Error>(new Error('Category cannot be empty'));
-    }
-
-    // Validate state compatibility with nature
-    if (request.nature === 'despesa' && !['pagar', 'pago', 'transferir', 'transferido'].includes(request.state)) {
-      return failure<void, Error>(new Error(`State "${request.state}" is not compatible with nature "${request.nature}"`));
-    }
-
-    if (request.nature === 'receita' && !['receber', 'recebido'].includes(request.state)) {
-      return failure<void, Error>(new Error(`State "${request.state}" is not compatible with nature "${request.nature}"`));
-    }
-
-    return success<void, Error>(undefined);
+  private isValidState(state: string): boolean {
+    const validStates = ['pagar', 'pago', 'receber', 'recebido'];
+    return validStates.includes(state);
   }
 } 
