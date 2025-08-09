@@ -1,87 +1,234 @@
-import { IOperationRepository } from '../../domain/repositories/IOperationRepository';
 import { Operation, OperationProps } from '../../domain/entities/Operation';
+import { Money } from '../../shared/utils/Money';
+
+// Interfaces para os Use Cases
+interface CreateOperationUseCase {
+  execute(data: CreateOperationData): Promise<Operation>;
+}
+
+interface UpdateOperationUseCase {
+  execute(id: string, data: UpdateOperationData): Promise<Operation>;
+}
+
+interface GetOperationByIdUseCase {
+  execute(id: string): Promise<Operation>;
+}
+
+// Interfaces para os dados
+interface CreateOperationData {
+  nature: 'receita' | 'despesa';
+  state: 'receber' | 'recebido' | 'pagar' | 'pago';
+  paymentMethod: 'Cartão de débito' | 'Cartão de crédito' | 'Pix' | 'TED' | 'Estorno' | 'Transferência bancária';
+  sourceAccount: string;
+  destinationAccount: string;
+  date: Date;
+  value: Money;
+  category: string;
+  details?: string;
+}
+
+interface UpdateOperationData {
+  nature?: 'receita' | 'despesa';
+  state?: 'receber' | 'recebido' | 'pagar' | 'pago';
+  paymentMethod?: 'Cartão de débito' | 'Cartão de crédito' | 'Pix' | 'TED' | 'Estorno' | 'Transferência bancária';
+  sourceAccount?: string;
+  destinationAccount?: string;
+  date?: Date;
+  value?: Money;
+  category?: string;
+  details?: string;
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  errors: Record<string, string>;
+}
+
+interface OperationSummary {
+  id: string;
+  description: string;
+  amount: string;
+  type: 'receita' | 'despesa';
+  categoryName: string;
+  accountName: string;
+  date: string;
+  isRecurring: boolean;
+  installments: number;
+  currentInstallment: number;
+}
 
 export class OperationViewModel {
-  public operations: Operation[] = [];
-  public loading: boolean = false;
-  public error: string | null = null;
-  public selectedOperation: Operation | null = null;
-  private operationRepository: IOperationRepository;
+  private _operation: Operation | null = null;
+  private _isLoading: boolean = false;
+  private _error: string | null = null;
+  private _isEditing: boolean = false;
 
-  constructor(operationRepository: IOperationRepository) {
-    this.operationRepository = operationRepository;
+  constructor(
+    private createOperationUseCase: CreateOperationUseCase,
+    private updateOperationUseCase: UpdateOperationUseCase,
+    private getOperationByIdUseCase: GetOperationByIdUseCase
+  ) {}
+
+  // Getters
+  get operation(): Operation | null {
+    return this._operation;
   }
 
-  async loadOperations(): Promise<void> {
-    try {
-      this.loading = true;
-      this.error = null;
-      this.operations = await this.operationRepository.findAll();
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Erro ao carregar operações';
-      throw error;
-    } finally {
-      this.loading = false;
-    }
+  get isLoading(): boolean {
+    return this._isLoading;
   }
 
-  async createOperation(operationProps: OperationProps): Promise<void> {
-    try {
-      this.loading = true;
-      this.error = null;
-      const operation = new Operation(operationProps);
-      await this.operationRepository.save(operation);
-      this.operations = await this.operationRepository.findAll();
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Erro ao criar operação';
-      throw error;
-    } finally {
-      this.loading = false;
-    }
+  get error(): string | null {
+    return this._error;
   }
 
-  async updateOperation(operationId: string, operationProps: Partial<OperationProps>): Promise<void> {
-    try {
-      this.loading = true;
-      this.error = null;
-      const operation = new Operation({ id: operationId, ...operationProps } as OperationProps);
-      await this.operationRepository.save(operation);
-      this.operations = await this.operationRepository.findAll();
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Erro ao atualizar operação';
-      throw error;
-    } finally {
-      this.loading = false;
-    }
+  get isEditing(): boolean {
+    return this._isEditing;
   }
 
-  async deleteOperation(operationId: string): Promise<void> {
-    try {
-      this.loading = true;
-      this.error = null;
-      await this.operationRepository.delete(operationId);
-      this.operations = await this.operationRepository.findAll();
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Erro ao deletar operação';
-      throw error;
-    } finally {
-      this.loading = false;
-    }
-  }
-
-  getOperations(): Operation[] {
-    return this.operations;
-  }
-
-  setSelectedOperation(operation: Operation | null): void {
-    this.selectedOperation = operation;
-  }
-
-  clearError(): void {
-    this.error = null;
+  // Setters
+  setOperation(operation: Operation | null): void {
+    this._operation = operation;
+    this._isEditing = operation !== null;
   }
 
   setLoading(loading: boolean): void {
-    this.loading = loading;
+    this._isLoading = loading;
+  }
+
+  setError(error: string | null): void {
+    this._error = error;
+  }
+
+  reset(): void {
+    this._operation = null;
+    this._isLoading = false;
+    this._error = null;
+    this._isEditing = false;
+  }
+
+  validateForm(data: CreateOperationData): ValidationResult {
+    const errors: Record<string, string> = {};
+
+    // Validar natureza
+    if (!data.nature) {
+      errors.nature = 'Natureza é obrigatória';
+    }
+
+    // Validar estado
+    if (!data.state) {
+      errors.state = 'Estado é obrigatório';
+    }
+
+    // Validar método de pagamento
+    if (!data.paymentMethod) {
+      errors.paymentMethod = 'Método de pagamento é obrigatório';
+    }
+
+    // Validar conta de origem
+    if (!data.sourceAccount) {
+      errors.sourceAccount = 'Conta de origem é obrigatória';
+    }
+
+    // Validar conta de destino
+    if (!data.destinationAccount) {
+      errors.destinationAccount = 'Conta de destino é obrigatória';
+    }
+
+    // Validar valor
+    if (data.value.value <= 0) {
+      errors.value = 'Valor deve ser maior que zero';
+    }
+
+    // Validar categoria
+    if (!data.category) {
+      errors.category = 'Categoria é obrigatória';
+    }
+
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors,
+    };
+  }
+
+  async createOperation(data: CreateOperationData): Promise<Operation> {
+    try {
+      this.setLoading(true);
+      this.setError(null);
+
+      const operation = await this.createOperationUseCase.execute(data);
+      this.setOperation(operation);
+
+      return operation;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar operação';
+      this.setError(errorMessage);
+      throw error;
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  async updateOperation(data: UpdateOperationData): Promise<Operation> {
+    if (!this._operation) {
+      throw new Error('Nenhuma operação selecionada para edição');
+    }
+
+    try {
+      this.setLoading(true);
+      this.setError(null);
+
+      const updatedOperation = await this.updateOperationUseCase.execute(this._operation.id, data);
+      this.setOperation(updatedOperation);
+
+      return updatedOperation;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar operação';
+      this.setError(errorMessage);
+      throw error;
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  async loadOperation(id: string): Promise<Operation> {
+    try {
+      this.setLoading(true);
+      this.setError(null);
+
+      const operation = await this.getOperationByIdUseCase.execute(id);
+      this.setOperation(operation);
+
+      return operation;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Operação não encontrada';
+      this.setError(errorMessage);
+      throw error;
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  formatAmount(amount: Money): string {
+    return amount.format();
+  }
+
+  getOperationSummary(): OperationSummary | null {
+    if (!this._operation) {
+      return null;
+    }
+
+    return {
+      id: this._operation.id,
+      description: this._operation.details || 'Sem descrição',
+      amount: this.formatAmount(this._operation.value),
+      type: this._operation.nature,
+      categoryName: this._operation.category,
+      accountName: this._operation.sourceAccount,
+      date: this._operation.date.toLocaleDateString('pt-BR'),
+      isRecurring: false, // Não implementado na entidade atual
+      installments: 1, // Não implementado na entidade atual
+      currentInstallment: 1, // Não implementado na entidade atual
+    };
   }
 }
