@@ -1,7 +1,5 @@
 # PLANO DE REFATORAÇÃO - Clean Architecture
 
-  
-
 ## FASE 1: Clean Architecture Setup ✅ CONCLUÍDA
 
 - [x] Criar estrutura de pastas Clean Architecture
@@ -251,7 +249,8 @@ data/
 presentation/
 ├── view-models/      # Modelos de visualização (estado da UI)
 ├── ui-adapters/      # Adaptadores para componentes React Native
-└── pure-components/  # Componentes puros sem dependências externas
+├── pure-components/  # Componentes puros sem dependências externas
+└── screens/          # Telas da aplicação (composição de componentes)
 ```
 
 ### 🔧 **Shared Layer** (`shared/`)
@@ -263,32 +262,29 @@ shared/
 ├── events/           # Sistema de eventos
 ├── state/            # Gerenciamento de estado global
 ├── store/            # Store compartilhado
-└── utils/            # Utilitários gerais
+├── utils/            # Utilitários gerais
+├── feature-flags/    # Sistema de feature flags para migração gradual
+└── migration/        # Componentes de apoio à migração (MigrationWrapper)
 ```
 
 ## �� **Status Atual**
 
-Segundo o `PLANO_REFATORACAO.md`, o projeto está na **FASE 4.4 - Pure Components**:
+Segundo o `PLANO_REFATORACAO.md`, o projeto está na **FASE 5.0 - Migration Strategy**:
 
 ### ✅ **Concluído:**
 - **FASE 1**: Clean Architecture Setup
 - **FASE 2**: Domain Layer (entidades, use cases, serviços)
 - **FASE 3**: Data Layer (repositórios SQLite, mappers)
-- **FASE 4.1**: View Models
-- **FASE 4.2**: View Models Tests
-- **FASE 4.3**: UI Adapters
-- **FASE 4.4**: Pure Components (parcialmente)
+- **FASE 4**: Presentation Layer Refactoring
 
 ### �� **Em Andamento:**
-- **FASE 4.4**: Pure Components restantes:
-  - [ ] GoalForm.tsx
-  - [ ] UserForm.tsx
-  - [ ] LoadingSpinner.tsx
-  - [ ] ErrorMessage.tsx
-  - [ ] MoneyDisplay.tsx
+- **FASE 5.0**: Migration Strategy:
+- [ ] Migrar componentes existentes gradualmente
+- [ ] Implementar feature flags
+- [ ] Testes de regressão
+- [ ] Documentação de migração
 
 ### 📋 **Próximas Fases:**
-- **FASE 5**: State Management
 - **FASE 6**: UI Components
 - **FASE 7**: Testing & Documentation
 - **FASE 8**: Performance & Optimization

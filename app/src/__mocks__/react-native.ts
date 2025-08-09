@@ -46,6 +46,12 @@ export const Alert = {
 
 export const StyleSheet = {
   create: (styles: any) => styles,
+  flatten: (styles: any) => {
+    if (Array.isArray(styles)) {
+      return Object.assign({}, ...styles.filter(Boolean));
+    }
+    return styles || {};
+  },
 };
 
 export const Dimensions = {

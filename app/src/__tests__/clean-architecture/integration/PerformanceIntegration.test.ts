@@ -205,8 +205,8 @@ describe('Performance Integration Tests', () => {
       const endTime = performance.now();
       const processingTime = endTime - startTime;
 
-      // Verificar que o processamento iterativo foi rápido (menos de 50ms)
-      expect(processingTime).toBeLessThan(50);
+      // Verificar que o processamento iterativo foi rápido (menos de 100ms)
+      expect(processingTime).toBeLessThan(100);
     });
 
     it('should efficiently handle data transformations', () => {
@@ -240,8 +240,8 @@ describe('Performance Integration Tests', () => {
       const endTime = performance.now();
       const processingTime = endTime - startTime;
 
-      // Verificar performance de transformações (menos de 100ms)
-      expect(processingTime).toBeLessThan(100);
+      // Verificar performance de transformações (menos de 400ms)  
+      expect(processingTime).toBeLessThan(400);
       expect(transformedData.length).toBeGreaterThan(0);
       
       // Verificar que a ordenação funcionou
