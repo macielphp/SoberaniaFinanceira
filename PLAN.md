@@ -285,9 +285,9 @@ Segundo o `PLANO_REFATORACAO.md`, o projeto está na **FASE 5.0 - Migration Stra
 - [ ] Documentação de migração
 
 ### 📋 **Próximas Fases:**
-- **FASE 6**: UI Components
-- **FASE 7**: Testing & Documentation
-- **FASE 8**: Performance & Optimization
+- **FASE 6**: Screens (Composition Layer)
+- **FASE 7**: Optimization
+- **FASE 8**: Documentation
 - **FASE 9**: Deployment & CI/CD
 - **FASE 10**: Final Validation
 

@@ -66,21 +66,31 @@
 - [x] Testes de regressão completos
 - [x] Documentação de migração (MIGRATION_GUIDE.md)
 
-## FASE 6: Optimization
+
+## FASE 6: Screens (Composition Layer) 🚧 EM ANDAMENTO
+- [x] Implementar HomeScreen ✅ CONCLUÍDA
+- [ ] Implementar RegisterScreen
+- [ ] Implementar AccountScreen
+- [ ] Implementar GoalScreen
+- [ ] Implementar OperationScreen
+- [ ] Integrar screens com navigation
+- [ ] Testes de integração das screens
+
+## FASE 7: Optimization
 - [ ] Otimizar performance
 - [ ] Implementar lazy loading
 - [ ] Otimizar bundle size
 - [ ] Implementar caching avançado
 
-## FASE 7: Documentation
+## FASE 8: Documentation
 - [ ] Documentar arquitetura
 - [ ] Criar guias de desenvolvimento
 - [ ] Documentar padrões
 - [ ] Criar exemplos de uso
 
-## STATUS ATUAL: FASE 5 CONCLUÍDA ✅
+## STATUS ATUAL: FASE 6 EM ANDAMENTO 🚧
 
-**Próximo passo:** Implementar FASE 6 - Optimization
+**Próximo passo:** Implementar RegisterScreen (Composition Layer)
 
 ### 🎉 **FASE 5 - Migration Strategy FINALIZADA!**
 

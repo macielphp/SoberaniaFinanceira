@@ -17,6 +17,10 @@ const mockGetOperationByIdUseCase = {
   execute: jest.fn(),
 };
 
+const mockGetOperationsUseCase = {
+  execute: jest.fn(),
+};
+
 describe('OperationViewModel', () => {
   let operationViewModel: OperationViewModel;
   let mockOperation: Operation;
@@ -57,7 +61,8 @@ describe('OperationViewModel', () => {
     operationViewModel = new OperationViewModel(
       mockCreateOperationUseCase,
       mockUpdateOperationUseCase,
-      mockGetOperationByIdUseCase
+      mockGetOperationByIdUseCase,
+      mockGetOperationsUseCase
     );
   });
 
@@ -389,6 +394,69 @@ describe('OperationViewModel', () => {
     it('should return null when no operation is set', () => {
       const summary = operationViewModel.getOperationSummary();
       expect(summary).toBeNull();
+    });
+  });
+
+  describe('loadOperations', () => {
+    it('should load operations successfully and update state', async () => {
+      // Arrange
+      const mockOperations = [mockOperation];
+      const successResult = {
+        match: jest.fn((onSuccess, onError) => onSuccess({ operations: mockOperations }))
+      };
+      mockGetOperationsUseCase.execute.mockResolvedValue(successResult);
+
+      // Act
+      const result = await operationViewModel.loadOperations();
+
+      // Assert
+      expect(mockGetOperationsUseCase.execute).toHaveBeenCalledWith({});
+      expect(operationViewModel.operations).toEqual(mockOperations);
+      expect(operationViewModel.error).toBeNull();
+      expect(result).toEqual(mockOperations);
+    });
+
+    it('should handle errors when loading operations fails', async () => {
+      // Arrange
+      const errorMessage = 'Erro ao carregar operações';
+      const errorResult = {
+        match: jest.fn((onSuccess, onError) => onError(new Error(errorMessage)))
+      };
+      mockGetOperationsUseCase.execute.mockResolvedValue(errorResult);
+
+      // Act & Assert
+      await expect(operationViewModel.loadOperations()).rejects.toThrow(errorMessage);
+      expect(operationViewModel.error).toBe(errorMessage);
+      expect(operationViewModel.operations).toEqual([]);
+    });
+
+    it('should handle unexpected errors', async () => {
+      // Arrange
+      const errorMessage = 'Unexpected error';
+      mockGetOperationsUseCase.execute.mockRejectedValue(new Error(errorMessage));
+
+      // Act & Assert
+      await expect(operationViewModel.loadOperations()).rejects.toThrow(errorMessage);
+      expect(operationViewModel.error).toBe(errorMessage);
+    });
+
+    it('should set loading state correctly during operation', async () => {
+      // Arrange
+      let loadingDuringExecution = false;
+      const successResult = {
+        match: jest.fn((onSuccess, onError) => {
+          loadingDuringExecution = operationViewModel.isLoading;
+          return onSuccess({ operations: [] });
+        })
+      };
+      mockGetOperationsUseCase.execute.mockResolvedValue(successResult);
+
+      // Act
+      await operationViewModel.loadOperations();
+
+      // Assert
+      expect(loadingDuringExecution).toBe(true);
+      expect(operationViewModel.isLoading).toBe(false);
     });
   });
 });

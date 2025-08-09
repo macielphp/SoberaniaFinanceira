@@ -14,8 +14,8 @@ export function useAccountViewModelAdapter() {
   const loadAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      await viewModel.loadAccounts();
-      setAccounts([...viewModel.accounts]);
+      const accounts = await viewModel.getAllAccounts();
+      setAccounts(accounts);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar contas');
     } finally {
@@ -66,19 +66,17 @@ export function useAccountViewModelAdapter() {
     }
   };
 
-  const getAccounts = useCallback(() => {
-    return viewModel.getAccounts();
+  const getAccounts = useCallback(async () => {
+    return await viewModel.getAllAccounts();
   }, [viewModel]);
 
   const setSelectedAccountHandler = useCallback((account: Account | null) => {
-    viewModel.setSelectedAccount(account);
     setSelectedAccount(account);
-  }, [viewModel]);
+  }, []);
 
   const clearError = useCallback(() => {
-    viewModel.clearError();
     setError(null);
-  }, [viewModel]);
+  }, []);
 
   return {
     accounts,

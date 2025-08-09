@@ -14,6 +14,10 @@ interface GetOperationByIdUseCase {
   execute(id: string): Promise<Operation>;
 }
 
+interface GetOperationsUseCase {
+  execute(request: any): Promise<any>;
+}
+
 // Interfaces para os dados
 interface CreateOperationData {
   nature: 'receita' | 'despesa';
@@ -59,6 +63,7 @@ interface OperationSummary {
 
 export class OperationViewModel {
   private _operation: Operation | null = null;
+  private _operations: Operation[] = [];
   private _isLoading: boolean = false;
   private _error: string | null = null;
   private _isEditing: boolean = false;
@@ -66,12 +71,17 @@ export class OperationViewModel {
   constructor(
     private createOperationUseCase: CreateOperationUseCase,
     private updateOperationUseCase: UpdateOperationUseCase,
-    private getOperationByIdUseCase: GetOperationByIdUseCase
+    private getOperationByIdUseCase: GetOperationByIdUseCase,
+    private getOperationsUseCase: GetOperationsUseCase
   ) {}
 
   // Getters
   get operation(): Operation | null {
     return this._operation;
+  }
+
+  get operations(): Operation[] {
+    return this._operations;
   }
 
   get isLoading(): boolean {
@@ -230,5 +240,28 @@ export class OperationViewModel {
       installments: 1, // Não implementado na entidade atual
       currentInstallment: 1, // Não implementado na entidade atual
     };
+  }
+
+  async loadOperations(): Promise<Operation[]> {
+    try {
+      this._isLoading = true;
+      this._error = null;
+
+      const result = await this.getOperationsUseCase.execute({});
+      const operations = result.match(
+        (response: any) => response.operations,
+        (error: any) => {
+          this._error = error.message;
+          throw error;
+        }
+      );
+      this._operations = operations;
+      return operations;
+    } catch (error) {
+      this._error = error instanceof Error ? error.message : 'Erro ao carregar operações';
+      throw error;
+    } finally {
+      this._isLoading = false;
+    }
   }
 }

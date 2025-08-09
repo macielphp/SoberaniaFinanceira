@@ -16,7 +16,42 @@ import Accounts from './src/screens/Accounts/Accounts';
 import { FinanceProvider } from './src/contexts/FinanceContext';
 import { db } from './src/database/db';
 
+// Clean Architecture imports
+import { HomeScreen } from './src/clean-architecture/presentation/screens/HomeScreen';
+import { FeatureFlagManager } from './src/clean-architecture/shared/feature-flags/FeatureFlags';
+import { MigrationWrapper } from './src/clean-architecture/shared/migration/MigrationWrapper';
+import { initializeContainer } from './src/clean-architecture/shared/di/Container';
+
+// TODO: Após migrar todas as telas para Clean Architecture, remover:
+// - Todas as importações de ./src/screens/* (Home, Visualize, Register, Settings, Goals, Accounts)
+// - FinanceProvider (será substituído pelo sistema de DI da Clean Architecture)
+// - db import (será gerenciado pela camada de dados da Clean Architecture)
+// - MigrationWrapper (quando não houver mais componentes legados)
+// 
+// APENAS MANTER:
+// - React, StatusBar, SafeAreaProvider, NavigationContainer, createBottomTabNavigator, Ionicons, GestureHandlerRootView
+// - Imports das novas screens: HomeScreen, RegisterScreen, AccountScreen, GoalScreen, OperationScreen, SettingsScreen
+// - Container de DI da Clean Architecture
+
 const Tab = createBottomTabNavigator();
+
+// Inicializar Feature Flag Manager
+const featureFlagManager = new FeatureFlagManager();
+
+// Habilitar a nova HomeScreen da Clean Architecture
+featureFlagManager.enable('USE_CLEAN_HOME_SCREEN');
+
+// Componente wrapper para a Home Screen com migração
+function HomeScreenWrapper({ navigation }: any) {
+  return (
+    <MigrationWrapper
+      featureFlag="USE_CLEAN_HOME_SCREEN"
+      featureFlagManager={featureFlagManager}
+      legacyComponent={<Home navigation={navigation} />}
+      cleanComponent={<HomeScreen navigation={navigation} />}
+    />
+  );
+}
 
 function MyTabs() {
   const insets = useSafeAreaInsets();
@@ -57,7 +92,7 @@ function MyTabs() {
         tabBarInactiveTintColor: 'rgb(182, 182, 182)',
       })}
     >
-      <Tab.Screen name="Home" component={Home} />
+      <Tab.Screen name="Home" component={HomeScreenWrapper} />
       <Tab.Screen name="Register" component={Register} />
       <Tab.Screen name="Visualize" component={Visualize} />
       <Tab.Screen name="Accounts" component={Accounts} />
@@ -81,6 +116,9 @@ export default function App() {
           );
         `);
         console.log('[Cleanup] Limpeza de duplicatas em budget_items concluída!');
+        
+        // Inicializar Container de DI da Clean Architecture
+        initializeContainer();
       } catch (err) {
         console.error('[Cleanup] Erro ao limpar duplicatas em budget_items:', err);
       }

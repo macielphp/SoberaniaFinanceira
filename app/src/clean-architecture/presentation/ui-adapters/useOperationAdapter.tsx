@@ -104,10 +104,17 @@ export function useOperationAdapter(): UseOperationAdapterResult {
       }
     };
 
+    const mockGetOperationsUseCase = {
+      execute: async () => ({
+        match: (onSuccess: any) => onSuccess({ operations: [] })
+      })
+    };
+
     return new OperationViewModel(
       mockCreateUseCase,
       mockUpdateUseCase,
-      mockGetByIdUseCase
+      mockGetByIdUseCase,
+      mockGetOperationsUseCase
     );
   });
 
