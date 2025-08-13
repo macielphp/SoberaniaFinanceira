@@ -140,6 +140,19 @@ const BudgetItemsList: React.FC<{ budgetId: string }> = ({ budgetId }) => {
 };
 
 export default function Plan() {
+  // Função para formatar data para exibição, evitando problemas de fuso horário
+  const formatDateForDisplay = (dateString: string): string => {
+    if (!dateString) return '';
+    
+    // Dividir a data em partes para evitar problemas de fuso horário
+    const [year, month, day] = dateString.split('-').map(Number);
+    
+    // Criar data local (não UTC)
+    const date = new Date(year, month - 1, day); // month - 1 porque Date usa 0-11
+    
+    return date.toLocaleDateString('pt-BR');
+  };
+
   const [currentView, setCurrentView] = useState<ViewMode>('budget');
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [budgetFormData, setBudgetFormData] = useState<BudgetFormData>({
@@ -799,7 +812,7 @@ export default function Plan() {
           </View>
           <Text style={styles.budgetName}>{activeBudget.name}</Text>
           <Text style={styles.budgetPeriod}>
-            {new Date(activeBudget.start_period).toLocaleDateString('pt-BR')} - {new Date(activeBudget.end_period).toLocaleDateString('pt-BR')}
+            {formatDateForDisplay(activeBudget.start_period)} - {formatDateForDisplay(activeBudget.end_period)}
           </Text>
           <Text style={styles.budgetType}>
             Tipo: {activeBudget.type === 'manual' ? 'Manual' : 'Automático'}

@@ -84,7 +84,7 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
         console.log('Operações do mês:', monthOperations.length);
         console.log('Receita Total:', updatedData.total_monthly_income);
         console.log('Despesa Total:', updatedData.total_monthly_expense);
-        console.log('Despesas Variáveis (usado/máximo):', updatedData.variable_expense_used_value, '/', updatedData.variable_expense_max_value);
+        console.log('Despesas Variáveis:', updatedData.variable_expense_used_value);
         console.log('Contribuições para Metas:', updatedData.sum_monthly_contribution);
         console.log('Valor Disponível:', updatedData.total_monthly_available);
         
@@ -239,9 +239,9 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
         </View>
 
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Despesas Variáveis(não orçada)</Text>
+          <Text style={styles.summaryLabel}>Despesa Variável(não orçada)</Text>
           <Text style={styles.summaryValue}>
-            R$ {summary.variable_expense_used_value.toFixed(2)}/R$ {summary.variable_expense_max_value.toFixed(2)}
+            R$ {summary.variable_expense_used_value.toFixed(2)}|{summary.variable_expense_max_value.toFixed(2)}
           </Text>
         </View>
 
@@ -276,7 +276,7 @@ export default function MonthlySummaryPanel({ userId, month }: MonthlySummaryPan
             - Despesa: R$ {summary.total_monthly_expense.toFixed(2)}
           </Text>
           <Text style={styles.debugText}>
-            - Limite Despesas Variáveis: R$ {summary.variable_expense_max_value.toFixed(2)}
+            - Despesas Variáveis: R$ {summary.variable_expense_used_value.toFixed(2)}
           </Text>
           <Text style={styles.debugText}>
             - Contribuições Metas: R$ {summary.sum_monthly_contribution.toFixed(2)}

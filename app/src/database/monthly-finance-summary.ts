@@ -1,5 +1,6 @@
 import { db } from './db';
 import { FinanceService } from '../services/FinanceService';
+import { getActiveBudget, getBudgetItemsByBudgetId } from './budget';
 
 export interface MonthlyFinanceSummary {
   id: string;
@@ -180,11 +181,28 @@ export const createOrUpdateMonthlyFinanceSummary = async (
     despesasCount: realValues.despesas.length
   });
   
-  // Usar os valores do serviço centralizado
+  // Buscar orçamento ativo para separar despesas orçadas de não orçadas
+  const activeBudget = await getActiveBudget(user_id);
+  let budgetItems: any[] = [];
+  
+  if (activeBudget) {
+    budgetItems = await getBudgetItemsByBudgetId(activeBudget.id);
+    console.log(`[createOrUpdateMonthlyFinanceSummary] Orçamento ativo encontrado: ${activeBudget.name}`);
+    console.log(`[createOrUpdateMonthlyFinanceSummary] Itens do orçamento: ${budgetItems.length}`);
+  } else {
+    console.log(`[createOrUpdateMonthlyFinanceSummary] Nenhum orçamento ativo encontrado`);
+  }
+  
+  // Calcular despesas variáveis (categorias não orçadas)
+  const { calculateVariableExpenseUsedValue } = await import('../services/FinanceService');
+  const variable_expense_used_value = await calculateVariableExpenseUsedValue(user_id, month, budgetItems);
+  
+  // Separar despesas orçadas de não orçadas
   const total_monthly_income = realValues.totalReceitas;
-  const total_monthly_expense = realValues.totalDespesas;
+  const total_monthly_expense = realValues.totalDespesas - variable_expense_used_value; // Despesas orçadas apenas
     
-  console.log(`[createOrUpdateMonthlyFinanceSummary] Receita total: ${total_monthly_income}, Despesa total: ${total_monthly_expense}`);
+  console.log(`[createOrUpdateMonthlyFinanceSummary] Receita total: ${total_monthly_income}, Despesa orçada: ${total_monthly_expense}, Despesas variáveis: ${variable_expense_used_value}`);
+  console.log(`[createOrUpdateMonthlyFinanceSummary] Lógica de cálculo: Despesas variáveis (${variable_expense_used_value}) vs Limite (300)`);
   
   // Calcular contribuições mensais das metas
   const { calculateSumMonthlyContribution } = await import('../services/FinanceService');
@@ -200,19 +218,34 @@ export const createOrUpdateMonthlyFinanceSummary = async (
       ...existingSummary,
       total_monthly_income,
       total_monthly_expense,
+      variable_expense_used_value,
       sum_monthly_contribution,
       includeVariableIncome,
       updated_at: new Date().toISOString()
     };
     
     // Recalcular valor disponível
+    // Se as despesas variáveis ultrapassarem o limite, usar o valor real; senão usar o limite
+    const variableExpenseToSubtract = variable_expense_used_value > updatedSummary.variable_expense_max_value 
+      ? variable_expense_used_value 
+      : updatedSummary.variable_expense_max_value;
+    
+    console.log(`[createOrUpdateMonthlyFinanceSummary] Valor a subtrair: ${variableExpenseToSubtract} (limite: ${updatedSummary.variable_expense_max_value}, usado: ${variable_expense_used_value})`);
+    
     updatedSummary.total_monthly_available = 
-      total_monthly_income - total_monthly_expense - updatedSummary.variable_expense_max_value - sum_monthly_contribution;
+      total_monthly_income - total_monthly_expense - variableExpenseToSubtract - sum_monthly_contribution;
     
     await updateMonthlyFinanceSummary(updatedSummary);
     return updatedSummary;
   } else {
     // Criar novo resumo
+    // Se as despesas variáveis ultrapassarem o limite, usar o valor real; senão usar o limite
+    const variableExpenseToSubtract = variable_expense_used_value > 300 
+      ? variable_expense_used_value 
+      : 300;
+    
+    console.log(`[createOrUpdateMonthlyFinanceSummary] Novo resumo - Valor a subtrair: ${variableExpenseToSubtract} (limite: 300, usado: ${variable_expense_used_value})`);
+    
     const newSummary: MonthlyFinanceSummary = {
       id: `summary-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       user_id,
@@ -221,8 +254,8 @@ export const createOrUpdateMonthlyFinanceSummary = async (
       total_monthly_income,
       total_monthly_expense,
       variable_expense_max_value: 300, // Valor padrão
-      variable_expense_used_value: 0,
-      total_monthly_available: total_monthly_income - total_monthly_expense - 300 - sum_monthly_contribution,
+      variable_expense_used_value,
+      total_monthly_available: total_monthly_income - total_monthly_expense - variableExpenseToSubtract - sum_monthly_contribution,
       sum_monthly_contribution,
       includeVariableIncome,
       created_at: new Date().toISOString(),
