@@ -8,4 +8,5 @@ export * from './ICategoryRepository';
 export * from './IGoalRepository';
 export * from './IBudgetRepository';
 export * from './IBudgetItemRepository';
-export * from './IMonthlyFinanceSummaryRepository'; 
+export * from './IMonthlyFinanceSummaryRepository';
+export * from './IAlertRepository'; 

@@ -9,3 +9,4 @@ export * from './SQLiteGoalRepository';
 export * from './SQLiteBudgetRepository';
 export * from './SQLiteBudgetItemRepository';
 export * from './SQLiteMonthlyFinanceSummaryRepository';
+export * from './SQLiteAlertRepository';
