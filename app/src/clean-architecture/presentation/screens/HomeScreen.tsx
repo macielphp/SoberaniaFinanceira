@@ -2,12 +2,13 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useAccountViewModelAdapter } from '../ui-adapters/useAccountViewModelAdapter';
 import { useOperationViewModelAdapter } from '../ui-adapters/useOperationViewModelAdapter';
+import { useAlertViewModelAdapter } from '../ui-adapters/useAlertViewModelAdapter';
 
 interface HomeScreenProps {
   navigation?: any;
 }
 
-// Mock de dados para AlertsPanel (temporário)
+// Mock de dados para AlertsPanel (fallback quando não há alertas reais)
 const mockAlerts = [
   {
     id: '1',
@@ -35,11 +36,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     loadOperations 
   } = useOperationViewModelAdapter();
 
+  const {
+    alerts,
+    loading: alertsLoading,
+    error: alertsError,
+    dismissAlert,
+    activeAlerts
+  } = useAlertViewModelAdapter();
+
   // Carregar dados quando o componente montar
   useEffect(() => {
     console.log('🏠 HomeScreen: Carregando dados...');
     loadAccounts();
     loadOperations();
+    // Alerts são carregados automaticamente pelo adapter
   }, []);
 
   // Usar dados reais dos adapters, com fallback para mock se vazio
@@ -79,8 +89,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     console.log('Ver todos os alertas');
   };
 
-  const handleDismissAlert = (alertId: string) => {
-    console.log('Dismiss alert:', alertId);
+  const handleDismissAlert = async (alertId: string) => {
+    try {
+      await dismissAlert(alertId);
+      console.log('Alert dismissed:', alertId);
+    } catch (error) {
+      console.error('Failed to dismiss alert:', error);
+    }
   };
 
   const getAlertIcon = (alert: any) => {
@@ -101,7 +116,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   // Mostrar loading se estiver carregando
-  if (accountsLoading || operationsLoading) {
+  if (accountsLoading || operationsLoading || alertsLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
         <Text style={styles.subtitle}>🔄 Carregando dados...</Text>
@@ -110,10 +125,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }
 
   // Mostrar erro se houver
-  if (accountsError || operationsError) {
+  if (accountsError || operationsError || alertsError) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.subtitle}>❌ Erro: {accountsError || operationsError}</Text>
+        <Text style={styles.subtitle}>❌ Erro: {accountsError || operationsError || alertsError}</Text>
       </View>
     );
   }
@@ -129,39 +144,46 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </View>
 
         {/* Alerts Panel */}
-        {mockAlerts.length > 0 && (
+        {(activeAlerts.length > 0 || mockAlerts.length > 0) && (
           <View style={styles.alertsContainer}>
             <View style={styles.alertsHeader}>
               <View style={styles.alertsTitleSection}>
                 <Text style={styles.alertsTitle}>🔔 Alertas</Text>
                 <View style={styles.alertsBadge}>
-                  <Text style={styles.alertsBadgeText}>{mockAlerts.length}</Text>
+                  <Text style={styles.alertsBadgeText}>{activeAlerts.length || mockAlerts.length}</Text>
                 </View>
               </View>
-              {mockAlerts.length > 3 && (
+              {(activeAlerts.length > 3 || mockAlerts.length > 3) && (
                 <TouchableOpacity onPress={handleViewAllAlerts}>
                   <Text style={styles.viewAllText}>Ver Todos</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            {mockAlerts.slice(0, 3).map((alert) => (
-              <View key={alert.id} style={styles.alertItem}>
-                <View style={styles.alertContent}>
-                  <Text style={{fontSize: 24, color: getAlertColor(alert)}}>⚠️</Text>
-                  <View style={styles.alertTextContainer}>
-                    <Text style={styles.alertTitle}>{alert.title}</Text>
-                    <Text style={styles.alertMessage}>{alert.message}</Text>
+            {/* Mostrar alertas reais primeiro, depois mock se não houver reais */}
+            {(activeAlerts.length > 0 ? activeAlerts : mockAlerts).slice(0, 3).map((alert) => {
+              const isRealAlert = activeAlerts.length > 0 && 'message' in alert;
+              const alertTitle = isRealAlert ? alert.message.split(' ').slice(0, 2).join(' ') : (alert as any).title;
+              const alertMessage = isRealAlert ? alert.message : (alert as any).message;
+              
+              return (
+                <View key={alert.id} style={styles.alertItem}>
+                  <View style={styles.alertContent}>
+                    <Text style={{fontSize: 24, color: getAlertColor(alert)}}>⚠️</Text>
+                    <View style={styles.alertTextContainer}>
+                      <Text style={styles.alertTitle}>{alertTitle}</Text>
+                      <Text style={styles.alertMessage}>{alertMessage}</Text>
+                    </View>
                   </View>
+                  <TouchableOpacity
+                    onPress={() => handleDismissAlert(alert.id)}
+                    style={styles.dismissButton}
+                  >
+                    <Text style={{color: '#666666'}}>✕</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={() => handleDismissAlert(alert.id)}
-                  style={styles.dismissButton}
-                >
-                  <Text style={{color: '#666666'}}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 

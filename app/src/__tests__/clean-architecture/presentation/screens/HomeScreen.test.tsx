@@ -41,6 +41,44 @@ jest.mock('../../../../clean-architecture/presentation/ui-adapters/useOperationV
   })
 }));
 
+jest.mock('../../../../clean-architecture/presentation/ui-adapters/useAlertViewModelAdapter', () => ({
+  useAlertViewModelAdapter: () => ({
+    alerts: [],
+    loading: false,
+    error: null,
+    activeAlerts: [],
+    dismissedAlerts: [],
+    criticalAlerts: [],
+    warningAlerts: [],
+    loadAlerts: jest.fn(),
+    loadActiveAlerts: jest.fn(),
+    saveAlert: jest.fn(),
+    dismissAlert: jest.fn(),
+    deleteAlert: jest.fn(),
+    findAlertById: jest.fn(),
+    findAlertsByAccount: jest.fn(),
+    findAlertsByType: jest.fn(),
+    findAlertsBySeverity: jest.fn(),
+    getAlertCount: jest.fn(),
+    clearAllAlerts: jest.fn(),
+    refresh: jest.fn(),
+    setCustomError: jest.fn(),
+    clearError: jest.fn(),
+    getAlertsByAccount: jest.fn(),
+    getAlertsByType: jest.fn(),
+    getAlertsBySeverity: jest.fn(),
+    hasActiveAlerts: false,
+    hasCriticalAlerts: false,
+    getAlertSummary: jest.fn(() => ({
+      total: 0,
+      active: 0,
+      dismissed: 0,
+      critical: 0,
+      warnings: 0
+    }))
+  })
+}));
+
 // Mock do AccountCard
 jest.mock('../../../../clean-architecture/presentation/pure-components/AccountCard', () => ({
   AccountCard: ({ account }: any) => {
