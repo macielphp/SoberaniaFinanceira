@@ -101,6 +101,20 @@ export class Money extends ValueObject<number> {
     return new Money(amount, currency);
   }
 
+  // Factory method para valores negativos (para casos especiais como alertas)
+  static fromNegativeValue(amount: number, currency: string = 'BRL'): Money {
+    if (typeof amount !== 'number' || isNaN(amount)) {
+      throw new Error('Amount must be a valid number');
+    }
+    
+    // Cria uma instância sem validação de valores negativos
+    const money = Object.create(Money.prototype);
+    money._value = amount;
+    money._currency = currency.toUpperCase();
+    money.validateCurrency();
+    return money;
+  }
+
   // Override equals para incluir currency
   equals(other: Money): boolean {
     return super.equals(other) && this._currency === other._currency;
