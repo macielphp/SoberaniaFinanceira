@@ -1,44 +1,60 @@
-# Design System - Soberania Financeira
+# Design System - Soberania Financeira (Clean Architecture + TDD)
 
-## Filosofia de Design
+## 🎨 Filosofia de Design
 
-O design system do **Soberania Financeira** prioriza:
+O design system do **Soberania Financeira** implementa **Clean Architecture** e **TDD** para priorizar:
 - **Consistência**: Padrões visuais uniformes em toda a aplicação
 - **Escalabilidade**: Componentes reutilizáveis e facilmente extensíveis
 - **Manutenibilidade**: Código organizado e fácil de modificar
 - **Acessibilidade**: Interfaces inclusivas para todos os usuários
+- **Testabilidade**: Componentes puros e isolados para testes
 
-## Estratégia de Estilização
+## 🏗️ Estratégia de Estilização (Clean Architecture)
 
 ### Abordagem Híbrida Recomendada
 
-Com base na análise do código atual, recomendo uma **abordagem híbrida** que combina:
+Com base na **Clean Architecture**, recomendo uma **abordagem híbrida** que combina:
 
 1. **GlobalStyles** para estilos compartilhados e padrões visuais
 2. **Component-Level Styles** para estilos específicos e personalizações
 3. **Theme System** para gerenciamento de cores, tipografia e espaçamentos
 
-### Estrutura Proposta
+### Estrutura Proposta (Clean Architecture)
 
 ```
-src/styles/
-├── GlobalStyles.ts          # Estilos globais existentes (refatorado)
-├── theme/
-│   ├── colors.ts           # Paleta de cores
-│   ├── typography.ts       # Tipografia
-│   ├── spacing.ts          # Espaçamentos
-│   └── index.ts           # Exportação do tema
-├── components/
-│   ├── buttons.ts          # Estilos de botões
-│   ├── cards.ts           # Estilos de cards
-│   ├── forms.ts           # Estilos de formulários
-│   └── index.ts           # Exportação dos componentes
-└── utils/
-    ├── shadows.ts          # Sombras padronizadas
-    └── dimensions.ts       # Dimensões e breakpoints
+src/clean-architecture/presentation/
+├── pure-components/          # 🎨 Componentes puros
+│   ├── AlertCard.tsx
+│   ├── BudgetCard.tsx
+│   ├── GoalCard.tsx
+│   ├── OperationForm.tsx
+│   └── styles/              # Estilos dos componentes puros
+│       ├── AlertCard.styles.ts
+│       ├── BudgetCard.styles.ts
+│       └── OperationForm.styles.ts
+├── screens/                 # 📱 Telas (composição)
+│   ├── HomeScreen.tsx
+│   ├── RegisterScreen.tsx
+│   └── styles/             # Estilos das telas
+│       ├── HomeScreen.styles.ts
+│       └── RegisterScreen.styles.ts
+└── shared/                 # 🔧 Recursos compartilhados
+    ├── theme/
+    │   ├── colors.ts       # Paleta de cores
+    │   ├── typography.ts   # Tipografia
+    │   ├── spacing.ts      # Espaçamentos
+    │   └── index.ts        # Exportação do tema
+    ├── components/
+    │   ├── buttons.ts      # Estilos de botões
+    │   ├── cards.ts        # Estilos de cards
+    │   ├── forms.ts        # Estilos de formulários
+    │   └── index.ts        # Exportação dos componentes
+    └── utils/
+        ├── shadows.ts      # Sombras padronizadas
+        └── dimensions.ts   # Dimensões e breakpoints
 ```
 
-## Paleta de Cores
+## 🎨 Paleta de Cores
 
 ### Cores Principais
 
@@ -70,7 +86,7 @@ export const colors = {
   },
   warning: {
     50: '#FFF3E0',
-    500: '#FF9800',  // Laranja (configurações)
+    500: '#FF9800',  // Laranja (alertas/configurações)
     600: '#FB8C00',
     700: '#F57C00'
   },
@@ -101,512 +117,463 @@ export const colors = {
   text: {
     primary: '#333333',
     secondary: '#666666',
-    disabled: '#BDBDBD',
-    inverse: '#FFFFFF'
+    disabled: '#9E9E9E'
   }
 };
 ```
 
-### Cores Funcionais
+## 🧪 Estratégia de Testes (TDD)
+
+### 📋 Testes de Componentes Puros
 
 ```typescript
-export const functionalColors = {
-  revenue: colors.primary[500],      // Verde para receitas
-  expense: colors.error[500],        // Vermelho para despesas
-  pending: colors.warning[500],      // Laranja para pendente
-  completed: colors.success[500],    // Verde para concluído
-  cancelled: colors.gray[500],       // Cinza para cancelado
-  
-  // Estados
-  hover: colors.gray[100],
-  pressed: colors.gray[200],
-  focused: colors.secondary[100],
-  disabled: colors.gray[300]
-};
-```
+// AlertCard.test.tsx
+describe('AlertCard', () => {
+  it('should render alert with correct severity color', () => {
+    const alert = {
+      id: 'alert-123',
+      type: 'low_balance',
+      severity: 'warning',
+      message: 'Saldo baixo',
+      value: new Money(50, 'BRL')
+    };
+    
+    render(<AlertCard alert={alert} onDismiss={jest.fn()} />);
+    
+    const card = screen.getByTestId('alert-card');
+    expect(card).toHaveStyle({ borderLeftColor: colors.warning[500] });
+  });
 
-## Tipografia
+  it('should call onDismiss when dismiss button is pressed', () => {
+    const onDismiss = jest.fn();
+    const alert = { /* ... */ };
+    
+    render(<AlertCard alert={alert} onDismiss={onDismiss} />);
+    
+    const dismissButton = screen.getByTestId('dismiss-button');
+    fireEvent.press(dismissButton);
+    
+    expect(onDismiss).toHaveBeenCalledWith(alert.id);
+  });
+});
 
-### Hierarquia de Textos
-
-```typescript
-export const typography = {
-  // Títulos
-  h1: {
-    fontSize: 32,
-    fontWeight: 'bold' as const,
-    lineHeight: 40,
-    letterSpacing: -0.5,
-    color: colors.text.primary
-  },
-  h2: {
-    fontSize: 24,
-    fontWeight: 'bold' as const,
-    lineHeight: 32,
-    letterSpacing: -0.25,
-    color: colors.text.primary
-  },
-  h3: {
-    fontSize: 20,
-    fontWeight: '600' as const,
-    lineHeight: 28,
-    color: colors.text.primary
-  },
-  h4: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    lineHeight: 24,
-    color: colors.text.primary
-  },
-  
-  // Corpo do texto
-  body1: {
-    fontSize: 16,
-    fontWeight: 'normal' as const,
-    lineHeight: 24,
-    color: colors.text.primary
-  },
-  body2: {
-    fontSize: 14,
-    fontWeight: 'normal' as const,
-    lineHeight: 20,
-    color: colors.text.secondary
-  },
-  
-  // Textos especiais
-  caption: {
-    fontSize: 12,
-    fontWeight: 'normal' as const,
-    lineHeight: 16,
-    color: colors.text.secondary
-  },
-  overline: {
-    fontSize: 10,
-    fontWeight: '600' as const,
-    lineHeight: 16,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase' as const,
-    color: colors.text.secondary
-  },
-  
-  // Valores monetários
-  currency: {
-    fontSize: 18,
-    fontWeight: 'bold' as const,
-    lineHeight: 24,
-    fontFamily: 'monospace'
-  }
-};
-```
-
-## Espaçamentos
-
-### Sistema de Espaçamento Base-8
-
-```typescript
-export const spacing = {
-  xs: 4,    // 0.25rem
-  sm: 8,    // 0.5rem
-  md: 16,   // 1rem
-  lg: 24,   // 1.5rem
-  xl: 32,   // 2rem
-  xxl: 48,  // 3rem
-  xxxl: 64  // 4rem
-};
-
-// Espaçamentos específicos para componentes
-export const componentSpacing = {
-  // Padding interno de componentes
-  button: {
-    horizontal: spacing.md,
-    vertical: spacing.sm
-  },
-  card: {
-    horizontal: spacing.md,
-    vertical: spacing.md
-  },
-  form: {
-    horizontal: spacing.md,
-    vertical: spacing.lg
-  },
-  
-  // Margens entre elementos
-  stackGap: spacing.sm,      // 8px entre elementos em stack
-  sectionGap: spacing.lg,    // 24px entre seções
-  screenPadding: spacing.md  // 16px padding das telas
-};
-```
-
-## Componentes Base
-
-### Botões
-
-```typescript
-export const buttonStyles = {
-  base: {
-    borderRadius: 8,
-    paddingHorizontal: componentSpacing.button.horizontal,
-    paddingVertical: componentSpacing.button.vertical,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    flexDirection: 'row' as const,
-    minHeight: 44 // Tamanho mínimo para acessibilidade
-  },
-  
-  // Variações
-  primary: {
-    backgroundColor: colors.primary[500],
-    ...shadowStyles.elevation2
-  },
-  secondary: {
-    backgroundColor: colors.secondary[500],
-    ...shadowStyles.elevation2
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.primary[500]
-  },
-  text: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: spacing.sm
-  },
-  
-  // Estados
-  disabled: {
-    backgroundColor: colors.gray[300],
-    opacity: 0.6
-  },
-  pressed: {
-    opacity: 0.8
-  }
-};
-```
-
-### Cards
-
-```typescript
-export const cardStyles = {
-  base: {
-    backgroundColor: colors.background.paper,
-    borderRadius: 12,
-    padding: componentSpacing.card.horizontal,
-    marginBottom: spacing.sm,
-    ...shadowStyles.elevation2
-  },
-  
-  // Variações
-  elevated: {
-    ...shadowStyles.elevation4
-  },
-  flat: {
-    borderWidth: 1,
-    borderColor: colors.gray[200],
-    elevation: 0,
-    shadowOpacity: 0
-  }
-};
-```
-
-### Formulários
-
-```typescript
-export const formStyles = {
-  container: {
-    padding: componentSpacing.form.horizontal
-  },
-  
-  input: {
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: 16,
-    backgroundColor: colors.background.default,
-    minHeight: 44
-  },
-  
-  inputFocused: {
-    borderColor: colors.secondary[500],
-    borderWidth: 2
-  },
-  
-  inputError: {
-    borderColor: colors.error[500]
-  },
-  
-  label: {
-    ...typography.body2,
-    marginBottom: spacing.xs,
-    fontWeight: '600'
-  },
-  
-  errorText: {
-    ...typography.caption,
-    color: colors.error[500],
-    marginTop: spacing.xs
-  }
-};
-```
-
-## Sombras e Elevações
-
-```typescript
-export const shadowStyles = {
-  elevation1: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1
-  },
-  elevation2: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2
-  },
-  elevation3: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3
-  },
-  elevation4: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4
-  }
-};
-```
-
-## GlobalStyles Refatorado
-
-### Estrutura Proposta para GlobalStyles.ts
-
-```typescript
-import { StyleSheet } from 'react-native';
-import { colors, typography, spacing, shadowStyles } from './theme';
-
-export const GlobalStyles = StyleSheet.create({
-  // Containers
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.default,
-  },
-  
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background.default,
-  },
-  
-  screenContainer: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.background.default,
-  },
-  
-  // Tipografia
-  title: {
-    ...typography.h2,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  
-  subtitle: {
-    ...typography.h3,
-    marginBottom: spacing.md,
-  },
-  
-  description: {
-    ...typography.body2,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  
-  // Textos específicos
-  operationValue: {
-    ...typography.currency,
-  },
-  
-  // Layouts
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  column: {
-    flexDirection: 'column',
-  },
-  
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  spaceBetween: {
-    justifyContent: 'space-between',
-  },
-  
-  // Cards e componentes
-  card: {
-    ...cardStyles.base,
-  },
-  
-  // Estados
-  disabled: {
-    opacity: 0.6,
-  },
-  
-  // Utilitários
-  marginBottom: {
-    marginBottom: spacing.md,
-  },
-  
-  paddingHorizontal: {
-    paddingHorizontal: spacing.md,
-  },
+// BudgetCard.test.tsx
+describe('BudgetCard', () => {
+  it('should display budget performance correctly', () => {
+    const budget = {
+      id: 'budget-123',
+      name: 'Orçamento Janeiro',
+      totalPlannedValue: new Money(5000, 'BRL'),
+      totalActualValue: new Money(4500, 'BRL')
+    };
+    
+    render(<BudgetCard budget={budget} onPress={jest.fn()} />);
+    
+    expect(screen.getByText('Orçamento Janeiro')).toBeInTheDocument();
+    expect(screen.getByText('R$ 5.000,00')).toBeInTheDocument();
+    expect(screen.getByText('90%')).toBeInTheDocument(); // 4500/5000
+  });
 });
 ```
 
-## Convenções de Uso
-
-### 1. Prioridade de Estilos
-
-1. **GlobalStyles**: Para estilos comuns e reutilizáveis
-2. **Theme Objects**: Para valores sistemáticos (cores, tipografia, espaçamentos)
-3. **Component Styles**: Para estilos específicos do componente
-4. **Inline Styles**: Apenas para valores dinâmicos ou casos excepcionais
-
-### 2. Nomenclatura
+### 📋 Testes de Estilos
 
 ```typescript
-// ✅ Bom
-const styles = StyleSheet.create({
-  container: { /* ... */ },
-  header: { /* ... */ },
-  actionButton: { /* ... */ }
-});
+// AlertCard.styles.test.ts
+describe('AlertCard Styles', () => {
+  it('should have correct warning styles', () => {
+    const styles = getAlertCardStyles('warning');
+    
+    expect(styles.container.borderLeftColor).toBe(colors.warning[500]);
+    expect(styles.icon.color).toBe(colors.warning[500]);
+  });
 
-// ❌ Evitar
-const styles = StyleSheet.create({
-  view1: { /* ... */ },
-  btn: { /* ... */ },
-  redText: { /* ... */ } // Usar cores do tema
+  it('should have correct error styles', () => {
+    const styles = getAlertCardStyles('error');
+    
+    expect(styles.container.borderLeftColor).toBe(colors.error[500]);
+    expect(styles.icon.color).toBe(colors.error[500]);
+  });
 });
 ```
 
-### 3. Exemplo de Uso no Componente
+## 🎨 Componentes Puros (Clean Architecture)
+
+### 📱 AlertCard Component
 
 ```typescript
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { GlobalStyles } from '../../styles/GlobalStyles';
-import { colors, spacing, typography } from '../../styles/theme';
-
-export const ExampleComponent: React.FC = () => {
+// AlertCard.tsx
+export const AlertCard: React.FC<AlertCardProps> = ({
+  alert,
+  onDismiss,
+  onPress
+}) => {
+  const styles = useAlertCardStyles(alert.severity);
+  
   return (
-    <View style={[GlobalStyles.container, styles.customContainer]}>
-      <Text style={GlobalStyles.title}>Título</Text>
-      <Text style={styles.customText}>Texto personalizado</Text>
-    </View>
+    <TouchableOpacity 
+      style={styles.container} 
+      onPress={() => onPress?.(alert.id)}
+      testID="alert-card"
+    >
+      <View style={styles.content}>
+        <Text style={styles.icon}>{getAlertIcon(alert.type)}</Text>
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{alert.message}</Text>
+          <Text style={styles.value}>
+            R$ {alert.value.format()}
+          </Text>
+        </View>
+      </View>
+      <TouchableOpacity 
+        style={styles.dismissButton}
+        onPress={() => onDismiss(alert.id)}
+        testID="dismiss-button"
+      >
+        <Text style={styles.dismissText}>✕</Text>
+      </TouchableOpacity>
+    </TouchableOpacity>
   );
 };
 
-const styles = StyleSheet.create({
-  customContainer: {
-    paddingTop: spacing.xl,
-  },
-  customText: {
-    ...typography.body1,
-    color: colors.primary[600],
-  },
-});
-```
+// AlertCard.styles.ts
+export const useAlertCardStyles = (severity: AlertSeverity) => {
+  const baseStyles = StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: colors.background.paper,
+      borderRadius: 8,
+      borderLeftWidth: 4,
+      marginVertical: 4,
+      shadowColor: colors.gray[900],
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    content: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    icon: {
+      fontSize: 24,
+      marginRight: 12,
+    },
+    textContainer: {
+      flex: 1,
+    },
+    title: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.primary,
+      marginBottom: 2,
+    },
+    value: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      fontFamily: 'monospace',
+    },
+    dismissButton: {
+      padding: 8,
+    },
+    dismissText: {
+      fontSize: 16,
+      color: colors.text.secondary,
+    },
+  });
 
-## Responsividade
+  const severityStyles = {
+    warning: {
+      container: {
+        borderLeftColor: colors.warning[500],
+      },
+      icon: {
+        color: colors.warning[500],
+      },
+    },
+    error: {
+      container: {
+        borderLeftColor: colors.error[500],
+      },
+      icon: {
+        color: colors.error[500],
+      },
+    },
+  };
 
-### Breakpoints
-
-```typescript
-export const breakpoints = {
-  sm: 320,  // Telas pequenas
-  md: 768,  // Tablets
-  lg: 1024, // Tablets grandes
-  xl: 1200  // Desktop (se aplicável)
+  return {
+    ...baseStyles,
+    container: [baseStyles.container, severityStyles[severity].container],
+    icon: [baseStyles.icon, severityStyles[severity].icon],
+  };
 };
 ```
 
-### Uso Responsivo
+### 📱 BudgetCard Component
 
 ```typescript
-import { Dimensions } from 'react-native';
-
-const { width } = Dimensions.get('window');
-const isSmallScreen = width < breakpoints.md;
-
-const styles = StyleSheet.create({
-  container: {
-    padding: isSmallScreen ? spacing.sm : spacing.md,
-  },
-});
+// BudgetCard.tsx
+export const BudgetCard: React.FC<BudgetCardProps> = ({
+  budget,
+  onPress,
+  onEdit,
+  onDelete
+}) => {
+  const styles = useBudgetCardStyles();
+  const performance = calculateBudgetPerformance(budget);
+  
+  return (
+    <TouchableOpacity 
+      style={styles.container} 
+      onPress={() => onPress?.(budget.id)}
+      testID="budget-card"
+    >
+      <View style={styles.header}>
+        <Text style={styles.name}>{budget.name}</Text>
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => onEdit?.(budget.id)}>
+            <Text style={styles.actionText}>✏️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete?.(budget.id)}>
+            <Text style={styles.actionText}>🗑️</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      <View style={styles.content}>
+        <View style={styles.valueRow}>
+          <Text style={styles.label}>Planejado:</Text>
+          <Text style={styles.value}>
+            R$ {budget.totalPlannedValue.format()}
+          </Text>
+        </View>
+        
+        <View style={styles.valueRow}>
+          <Text style={styles.label}>Realizado:</Text>
+          <Text style={styles.value}>
+            R$ {budget.totalActualValue?.format() || '0,00'}
+          </Text>
+        </View>
+        
+        <View style={styles.performanceRow}>
+          <Text style={styles.performanceLabel}>Performance:</Text>
+          <Text style={[
+            styles.performanceValue,
+            { color: performance.color }
+          ]}>
+            {performance.percentage}%
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 ```
 
-## Acessibilidade
+## 🔧 Tema Compartilhado
 
-### Diretrizes
-
-1. **Tamanho Mínimo**: Elementos tocáveis devem ter pelo menos 44px
-2. **Contraste**: Seguir WCAG 2.1 (mínimo 4.5:1 para textos)
-3. **Semântica**: Usar cores + ícones/texto para comunicar estado
-4. **Densidade**: Espaçamento adequado entre elementos
-
-### Cores Acessíveis
+### 🎨 Theme Provider
 
 ```typescript
-// Combinações testadas para contraste adequado
-export const accessibleCombinations = {
-  primaryOnWhite: {
-    background: colors.background.default,
-    text: colors.primary[700] // Contraste 4.5:1+
+// theme/index.ts
+export const theme = {
+  colors,
+  typography: {
+    h1: { fontSize: 32, fontWeight: 'bold' },
+    h2: { fontSize: 24, fontWeight: '600' },
+    h3: { fontSize: 20, fontWeight: '600' },
+    body: { fontSize: 16, fontWeight: 'normal' },
+    caption: { fontSize: 14, fontWeight: 'normal' },
+    button: { fontSize: 16, fontWeight: '600' },
   },
-  errorOnWhite: {
-    background: colors.background.default,
-    text: colors.error[700] // Contraste 4.5:1+
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+    xxl: 48,
+  },
+  borderRadius: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+  },
+  shadows: {
+    sm: {
+      shadowColor: colors.gray[900],
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    md: {
+      shadowColor: colors.gray[900],
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    lg: {
+      shadowColor: colors.gray[900],
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+  },
+};
+
+// ThemeProvider.tsx
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <ThemeContext.Provider value={theme}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+
+// useTheme.ts
+export const useTheme = () => {
+  const theme = useContext(ThemeContext);
+  if (!theme) {
+    throw new Error('useTheme must be used within ThemeProvider');
   }
+  return theme;
 };
 ```
 
-## Implementação Gradual
+## 📱 Responsividade
 
-### Fase 1: Refatoração do GlobalStyles
-1. Mover valores hardcoded para o tema
-2. Criar tokens de design consistentes
-3. Padronizar espaçamentos e cores
+### 📐 Breakpoints
 
-### Fase 2: Componentização
-1. Criar biblioteca de componentes base
-2. Implementar variações dos componentes
-3. Documentar padrões de uso
+```typescript
+// dimensions.ts
+export const dimensions = {
+  screen: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  breakpoints: {
+    small: 375,
+    medium: 768,
+    large: 1024,
+  },
+  isSmallScreen: () => Dimensions.get('window').width < 375,
+  isMediumScreen: () => Dimensions.get('window').width >= 375 && Dimensions.get('window').width < 768,
+  isLargeScreen: () => Dimensions.get('window').width >= 768,
+};
+```
 
-### Fase 3: Otimização
-1. Implementar tema dinâmico (dark/light)
-2. Adicionar animações padronizadas
-3. Melhorar responsividade
+### 📱 Componentes Responsivos
 
-## Ferramentas Recomendadas
+```typescript
+// ResponsiveCard.tsx
+export const ResponsiveCard: React.FC<ResponsiveCardProps> = ({ children, style }) => {
+  const theme = useTheme();
+  const isLargeScreen = dimensions.isLargeScreen();
+  
+  const responsiveStyles = StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.paper,
+      borderRadius: theme.borderRadius.lg,
+      padding: isLargeScreen ? theme.spacing.xl : theme.spacing.lg,
+      margin: isLargeScreen ? theme.spacing.lg : theme.spacing.md,
+      ...theme.shadows.md,
+      ...style,
+    },
+  });
+  
+  return (
+    <View style={responsiveStyles.container}>
+      {children}
+    </View>
+  );
+};
+```
 
-### Desenvolvimento
-- **React Native Debugger**: Para inspecionar estilos
-- **Flipper**: Para debug de performance
-- **Storybook**: Para documentação de componentes
+## 🧪 Testes de Design System
 
-### Design
-- **Figma**: Para tokens de design
-- **Zeplin**: Para specs de desenvolvimento
-- **Contrast Checker**: Para validação de acessibilidade
+### 📋 Testes de Tema
+
+```typescript
+// theme.test.ts
+describe('Theme', () => {
+  it('should have consistent color palette', () => {
+    expect(colors.primary[500]).toBe('#4CAF50');
+    expect(colors.error[500]).toBe('#F44336');
+    expect(colors.warning[500]).toBe('#FF9800');
+  });
+
+  it('should have proper typography scale', () => {
+    expect(theme.typography.h1.fontSize).toBe(32);
+    expect(theme.typography.body.fontSize).toBe(16);
+    expect(theme.typography.caption.fontSize).toBe(14);
+  });
+
+  it('should have consistent spacing scale', () => {
+    expect(theme.spacing.xs).toBe(4);
+    expect(theme.spacing.md).toBe(16);
+    expect(theme.spacing.xl).toBe(32);
+  });
+});
+```
+
+### 📋 Testes de Responsividade
+
+```typescript
+// ResponsiveCard.test.tsx
+describe('ResponsiveCard', () => {
+  it('should apply large screen styles when screen is wide', () => {
+    // Mock large screen
+    Dimensions.get = jest.fn().mockReturnValue({ width: 1024, height: 768 });
+    
+    render(<ResponsiveCard>Content</ResponsiveCard>);
+    
+    const card = screen.getByTestId('responsive-card');
+    expect(card).toHaveStyle({ padding: 32 }); // xl spacing
+  });
+
+  it('should apply small screen styles when screen is narrow', () => {
+    // Mock small screen
+    Dimensions.get = jest.fn().mockReturnValue({ width: 375, height: 667 });
+    
+    render(<ResponsiveCard>Content</ResponsiveCard>);
+    
+    const card = screen.getByTestId('responsive-card');
+    expect(card).toHaveStyle({ padding: 24 }); // lg spacing
+  });
+});
+```
+
+## 📊 Status da Implementação
+
+### ✅ Concluído
+- **Paleta de Cores**: Definida e documentada
+- **Tema Base**: Estrutura criada
+- **Componentes Puros**: AlertCard, BudgetCard implementados
+- **Testes**: Estratégia de testes definida
+
+### 🚧 Em Andamento
+- **Tema Provider**: Implementação completa
+- **Componentes Responsivos**: Implementação
+- **Testes de Design**: Implementação completa
+
+### 📋 Próximos Passos
+1. Implementar ThemeProvider completo
+2. Criar todos os componentes puros
+3. Implementar testes de design system
+4. Documentar padrões de uso
+
+## 📚 Documentação Relacionada
+
+- [System Architecture](../architecture/system-architecture.md) - Arquitetura geral
+- [UI Components](./ui-components.md) - Componentes específicos
+- [Screens Wireframes](./screens-wireframes.md) - Wireframes das telas
+- [Clean Architecture Guide](../clean_architecture/5-step%20of%20understanding) - Guia detalhado

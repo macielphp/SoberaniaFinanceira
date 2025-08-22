@@ -1,378 +1,807 @@
-# Sistema de Metas (Goal System)
-
-## Visão Geral
-
-O sistema de metas permite ao usuário definir objetivos financeiros (ex: comprar um carro, pagar faculdade) e acompanhar o progresso vinculando operações financeiras a essas metas.
-
-## Estrutura de Dados
-
-### Tabela `goals`
-- `id`: identificador único
-- `name`: nome da meta
-- `description`: descrição detalhada (opcional)
-- `start_date`: data de início
-- `end_date`: data de término
-- `target_value`: valor objetivo
-- `created_at`, `updated_at`
-
-### Tabela `operations`
-- ... (campos existentes)
-- `goal_id`: referência à meta (pode ser NULL)
-
-## Fluxo de Vinculação
-
-- Ao criar/editar uma operação, o usuário pode selecionar uma meta existente.
-- Operações podem ser filtradas por meta.
-- O progresso da meta é calculado somando os valores das operações vinculadas.
-
-## Alternativas de Modelagem
-
-### 1. Coluna `goal_id` em `operations`
-- Simples, performático, escalável.
-- Permite 1 meta por operação.
-
-### 2. Tabela de ligação N:N
-- Máxima flexibilidade, mas mais complexidade.
-
-### 3. Campo texto livre
-- Simples, mas não escalável nem seguro.
-
-## Regras de Negócio
-
-- Uma operação pode ou não estar vinculada a uma meta.
-- Ao excluir uma meta, as operações associadas devem ter o campo `goal_id` setado para NULL (ou serem excluídas em cascata, conforme regra definida).
-- O progresso da meta é a soma dos valores das operações vinculadas.
-
-## Exemplos de Uso
-
-- Hugo define a meta "Pós-graduação" e vincula despesas de mensalidade a ela.
-- O sistema mostra quanto já foi gasto e quanto falta para atingir o objetivo.
-
-## Considerações de Escalabilidade e Performance
-
-- A abordagem de chave estrangeira é eficiente para bancos relacionais e fácil de consultar.
-- A tabela de ligação só é necessária para cenários avançados.
-- O campo texto livre deve ser evitado para garantir integridade e relatórios confiáveis.
-
----
-
-Se quiser, posso criar/editar o arquivo `goal-system.md` para você com esse conteúdo!
+# Sistema de Orçamentos (Clean Architecture + TDD)
 
 ## 🎯 Visão Geral
 
-O sistema de orçamento oferece duas modalidades para criação de orçamentos: **Manual** e **Automático**. Ambas as opções permitem ao usuário definir metas financeiras baseadas em categorias de despesas e receitas.
+O sistema de orçamentos implementa **Clean Architecture** e **TDD** para oferecer controle financeiro através de orçamentos manuais. O sistema permite ao usuário definir metas financeiras baseadas em categorias de despesas e receitas, com tracking de performance e alertas.
 
----
+## 🏗️ Arquitetura Clean Architecture
 
-## 📋 Modalidades de Orçamento
+### 🎯 Domain Layer
 
-### 🔧 Orçamento Manual
+#### **Entidades Principais**
 
-O usuário tem controle total sobre a definição do orçamento, selecionando categorias específicas e definindo valores personalizados.
-
-#### 🎯 Características
-- **Seleção de Categorias**: Usuário escolhe quais categorias incluir no orçamento
-- **Valores Personalizados**: Define valores específicos para cada categoria
-- **Flexibilidade Total**: Controle completo sobre a estrutura do orçamento
-- **Categorias de Despesas**: Apenas categorias relacionadas a gastos
-- **Categorias de Receitas**: Espaço dedicado para definir receitas esperadas
-
-#### 📊 Estrutura de Dados
 ```typescript
-interface ManualBudget {
+// Budget Entity (Domain)
+export class Budget {
+  private _id: string;
+  private _userId: string;
+  private _name: string;
+  private _startPeriod: Date;
+  private _endPeriod: Date;
+  private _type: 'manual'; // Limitado a manual
+  private _totalPlannedValue: Money;
+  private _isActive: boolean;
+  private _status: 'active' | 'inactive' | 'expired';
+  private _createdAt: Date;
+
+  // Métodos de domínio
+  activate(): Budget
+  deactivate(): Budget
+  updateTotalPlannedValue(value: Money): Budget
+  updateName(name: string): Budget
+  getDurationInDays(): number
+}
+
+// BudgetItem Entity (Domain)
+export class BudgetItem {
+  private _id: string;
+  private _budgetId: string;
+  private _categoryName: string;
+  private _plannedValue: Money;
+  private _categoryType: 'expense' | 'income';
+  private _actualValue?: Money;
+  private _createdAt: Date;
+
+  // Métodos de domínio
+  updatePlannedValue(value: Money): BudgetItem
+  updateActualValue(value: Money): BudgetItem
+  calculateVariance(): Money // Retorna Math.abs(variance)
+}
+
+// MonthlyFinanceSummary Entity (Domain)
+export class MonthlyFinanceSummary {
+  private _id: string;
+  private _userId: string;
+  private _month: string; // YYYY-MM
+  private _totalIncome: Money;
+  private _totalExpense: Money;
+  private _balance: Money; // Math.max(0, income - expense)
+  private _totalPlannedBudget: Money;
+  private _totalActualBudget: Money;
+  private _createdAt: Date;
+
+  // Métodos de domínio
+  updateTotalIncome(value: Money): MonthlyFinanceSummary
+  updateTotalExpense(value: Money): MonthlyFinanceSummary
+  calculateSavingsRate(): number
+  isProfitable(): boolean
+}
+```
+
+#### **Value Objects**
+
+```typescript
+// Money Value Object (Shared)
+export class Money extends ValueObject<{ value: number; currency: string }> {
+  constructor(value: number, currency: string = 'BRL') {
+    if (value < 0) {
+      throw new Error('Amount cannot be negative');
+    }
+    super({ value, currency });
+  }
+
+  add(other: Money): Money
+  subtract(other: Money): Money
+  multiply(factor: number): Money
+  format(): string
+}
+```
+
+#### **Interfaces de Repositório**
+
+```typescript
+// Domain Repository Interfaces
+export interface IBudgetRepository {
+  save(budget: Budget): Promise<Budget>;
+  findById(id: string): Promise<Budget | null>;
+  findAll(): Promise<Budget[]>;
+  findByUser(userId: string): Promise<Budget[]>;
+  findActiveByUser(userId: string): Promise<Budget[]>;
+  findByDateRange(startDate: Date, endDate: Date): Promise<Budget[]>;
+  delete(id: string): Promise<boolean>;
+  deleteAll(): Promise<void>;
+  count(): Promise<number>;
+}
+
+export interface IBudgetItemRepository {
+  save(budgetItem: BudgetItem): Promise<BudgetItem>;
+  findById(id: string): Promise<BudgetItem | null>;
+  findAll(): Promise<BudgetItem[]>;
+  findByBudget(budgetId: string): Promise<BudgetItem[]>;
+  findByCategory(categoryName: string): Promise<BudgetItem[]>;
+  delete(id: string): Promise<boolean>;
+  deleteAll(): Promise<void>;
+  count(): Promise<number>;
+}
+
+export interface IMonthlyFinanceSummaryRepository {
+  save(summary: MonthlyFinanceSummary): Promise<MonthlyFinanceSummary>;
+  findById(id: string): Promise<MonthlyFinanceSummary | null>;
+  findAll(): Promise<MonthlyFinanceSummary[]>;
+  findByUser(userId: string): Promise<MonthlyFinanceSummary[]>;
+  findByMonth(month: string): Promise<MonthlyFinanceSummary[]>;
+  findByUserAndMonth(userId: string, month: string): Promise<MonthlyFinanceSummary[]>;
+  delete(id: string): Promise<boolean>;
+  deleteAll(): Promise<void>;
+  count(): Promise<number>;
+}
+```
+
+### 💾 Data Layer
+
+#### **DTOs (Data Transfer Objects)**
+
+```typescript
+// BudgetDTO
+export interface BudgetDTO {
   id: string;
   user_id: string;
   name: string;
-  start_period: string;
-  end_period: string;
+  start_period: string; // ISO string
+  end_period: string;   // ISO string
   type: 'manual';
-  budget_items: BudgetItem[];
-  created_at: string;
-  updated_at: string;
+  total_planned_value: number;
+  is_active: boolean;
+  status: 'active' | 'inactive' | 'expired';
+  created_at: string;   // ISO string
 }
 
-interface BudgetItem {
+// BudgetItemDTO
+export interface BudgetItemDTO {
   id: string;
   budget_id: string;
   category_name: string;
   planned_value: number;
   category_type: 'expense' | 'income';
+  actual_value: number | null;
+  created_at: string;   // ISO string
 }
-```
 
-#### 🔄 Fluxo de Criação
-1. **Seleção de Período**: Usuário define período do orçamento
-2. **Escolha de Categorias**: Seleciona categorias de despesas da tabela `categories`
-3. **Definição de Valores**: Define valor > 0 para cada categoria selecionada
-4. **Receitas**: Define categorias de receitas e valores esperados
-5. **Validação**: Sistema valida valores e categorias
-6. **Salvamento**: Orçamento é salvo no banco de dados
-
----
-
-### 🤖 Orçamento Automático
-
-O sistema analisa o histórico financeiro do usuário e gera um orçamento baseado nos padrões reais de gastos e receitas.
-
-#### 🎯 Características
-- **Análise Histórica**: Baseado em dados reais do usuário
-- **Geração Automática**: Sistema calcula valores baseados no histórico
-- **Transparência**: Mostra valores reais que serviram de base
-- **Personalização**: Usuário pode ajustar valores gerados automaticamente
-- **Inteligência**: Considera sazonalidade e padrões mensais
-
-#### 📊 Estrutura de Dados
-```typescript
-interface AutomaticBudget {
+// MonthlyFinanceSummaryDTO
+export interface MonthlyFinanceSummaryDTO {
   id: string;
   user_id: string;
-  name: string;
-  start_period: string;
-  end_period: string;
-  type: 'automatic';
-  base_month: string; // Mês usado como referência
-  budget_items: BudgetItem[];
-  created_at: string;
-  updated_at: string;
-}
-
-interface BudgetItem {
-  id: string;
-  budget_id: string;
-  category_name: string;
-  planned_value: number;
-  actual_value: number; // Valor real do mês base
-  category_type: 'expense' | 'income';
+  month: string;        // YYYY-MM
+  total_income: number;
+  total_expense: number;
+  balance: number;
+  total_planned_budget: number;
+  total_actual_budget: number;
+  created_at: string;   // ISO string
 }
 ```
 
-#### 🔄 Fluxo de Criação
-1. **Seleção de Período**: Usuário define período do orçamento
-2. **Escolha do Mês Base**: Seleciona mês de referência (padrão: mês anterior)
-3. **Análise Automática**: Sistema busca categorias e valores do mês base
-4. **Apresentação**: Mostra categorias encontradas e valores reais
-5. **Ajustes**: Usuário pode modificar valores sugeridos
-6. **Confirmação**: Orçamento é salvo com valores finais
+#### **Mappers**
 
----
-
-## 🗄️ Estrutura do Banco de Dados
-
-### 📊 Tabela Principal: `budget`
-
-```sql
-CREATE TABLE IF NOT EXISTS budget (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    start_period TEXT NOT NULL,
-    end_period TEXT NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('manual', 'automatic')),
-    base_month TEXT, -- Apenas para orçamentos automáticos
-    total_planned_value REAL NOT NULL,
-    total_actual_value REAL, -- Para orçamentos automáticos
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-```
-
-### 📊 Tabela de Itens: `budget_items`
-
-```sql
-CREATE TABLE IF NOT EXISTS budget_items (
-    id TEXT PRIMARY KEY,
-    budget_id TEXT NOT NULL,
-    category_name TEXT NOT NULL,
-    planned_value REAL NOT NULL,
-    actual_value REAL, -- Valor real do mês base (automático)
-    category_type TEXT NOT NULL CHECK(category_type IN ('expense', 'income')),
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (budget_id) REFERENCES budget(id) ON DELETE CASCADE
-);
-```
-
----
-
-## 🔧 Funcionalidades do Sistema
-
-### 📊 Criação de Orçamento Manual
-
-#### Função: `createManualBudget`
 ```typescript
-async function createManualBudget(
-  user_id: string,
-  name: string,
-  start_period: string,
-  end_period: string,
-  budget_items: {
-    category_name: string;
-    planned_value: number;
-    category_type: 'expense' | 'income';
-  }[]
-): Promise<Budget>
+// BudgetMapper
+export class BudgetMapper {
+  toDomain(dto: BudgetDTO): Budget
+  toDTO(budget: Budget): BudgetDTO
+  toDomainList(dtos: BudgetDTO[]): Budget[]
+}
+
+// BudgetItemMapper
+export class BudgetItemMapper {
+  toDomain(dto: BudgetItemDTO): BudgetItem
+  toDTO(budgetItem: BudgetItem): BudgetItemDTO
+  toDomainList(dtos: BudgetItemDTO[]): BudgetItem[]
+}
+
+// MonthlyFinanceSummaryMapper
+export class MonthlyFinanceSummaryMapper {
+  toDomain(dto: MonthlyFinanceSummaryDTO): MonthlyFinanceSummary
+  toDTO(summary: MonthlyFinanceSummary): MonthlyFinanceSummaryDTO
+  toDomainList(dtos: MonthlyFinanceSummaryDTO[]): MonthlyFinanceSummary[]
+}
 ```
 
-#### Validações:
-- ✅ Valores devem ser > 0
-- ✅ Categorias devem existir na tabela `categories`
-- ✅ Período deve ser válido
-- ✅ Pelo menos uma categoria deve ser selecionada
+#### **Repositórios SQLite**
 
-### 🤖 Criação de Orçamento Automático
-
-#### Função: `createAutomaticBudget`
 ```typescript
-async function createAutomaticBudget(
-  user_id: string,
-  name: string,
-  start_period: string,
-  end_period: string,
-  base_month: string // Mês de referência (YYYY-MM)
-): Promise<Budget>
+// SQLiteBudgetRepository
+export class SQLiteBudgetRepository implements IBudgetRepository {
+  private db: SQLite.SQLiteDatabase;
+  private mapper: BudgetMapper;
+
+  constructor() {
+    this.db = SQLite.openDatabaseSync('finance.db');
+    this.mapper = new BudgetMapper();
+    this.initializeDatabase();
+  }
+
+  // Implementação de todos os métodos da interface
+  async save(budget: Budget): Promise<Budget>
+  async findById(id: string): Promise<Budget | null>
+  // ... outros métodos
+}
+
+// SQLiteBudgetItemRepository
+export class SQLiteBudgetItemRepository implements IBudgetItemRepository {
+  // Implementação similar
+}
+
+// SQLiteMonthlyFinanceSummaryRepository
+export class SQLiteMonthlyFinanceSummaryRepository implements IMonthlyFinanceSummaryRepository {
+  // Implementação similar
+}
 ```
 
-#### Processo Automático:
-1. **Buscar Operações**: Operações do mês base
-2. **Agrupar por Categoria**: Somar valores por categoria
-3. **Separar Despesas/Receitas**: Baseado na natureza da operação
-4. **Calcular Médias**: Considerar sazonalidade se necessário
-5. **Gerar Sugestões**: Valores baseados no histórico real
+### 🎨 Presentation Layer
 
-### 📈 Análise de Performance
+#### **ViewModels**
 
-#### Função: `calculateBudgetPerformance`
 ```typescript
-async function calculateBudgetPerformance(
-  budget_id: string,
-  user_id: string
-): Promise<BudgetPerformance>
+// BudgetViewModel
+export class BudgetViewModel {
+  private _budgets: Budget[] = [];
+  private _loading: boolean = false;
+  private _error: string | null = null;
+
+  // Observables/State
+  get budgets(): Budget[]
+  get loading(): boolean
+  get error(): string | null
+
+  // Actions
+  async loadBudgets(): Promise<void>
+  async createBudget(data: CreateBudgetDTO): Promise<Result<Budget>>
+  async updateBudget(id: string, data: UpdateBudgetDTO): Promise<Result<Budget>>
+  async deleteBudget(id: string): Promise<Result<boolean>>
+  async activateBudget(id: string): Promise<Result<Budget>>
+  async deactivateBudget(id: string): Promise<Result<Budget>>
+}
+
+// BudgetItemViewModel
+export class BudgetItemViewModel {
+  // Similar structure for budget items
+}
+
+// MonthlyFinanceSummaryViewModel
+export class MonthlyFinanceSummaryViewModel {
+  // Similar structure for monthly summaries
+}
 ```
 
-#### Indicadores Calculados:
-- **Valor Planejado vs Real**: Comparação por categoria
-- **Percentual de Atingimento**: (Real / Planejado) × 100
-- **Status por Categoria**: Superávit, Déficit, Equilibrado
-- **Status Geral**: Baseado no total de despesas
+#### **UI Adapters**
 
----
+```typescript
+// useBudgetAdapter
+export const useBudgetAdapter = () => {
+  const viewModel = useViewModel(BudgetViewModel);
+  
+  return {
+    budgets: viewModel.budgets,
+    loading: viewModel.loading,
+    error: viewModel.error,
+    loadBudgets: viewModel.loadBudgets,
+    createBudget: viewModel.createBudget,
+    updateBudget: viewModel.updateBudget,
+    deleteBudget: viewModel.deleteBudget,
+    activateBudget: viewModel.activateBudget,
+    deactivateBudget: viewModel.deactivateBudget,
+  };
+};
 
-## 🎨 Interface do Usuário
+// useBudgetItemAdapter
+export const useBudgetItemAdapter = () => {
+  // Similar structure
+};
 
-### 📱 Tela de Criação de Orçamento
-
-#### Seleção de Tipo
-```
-┌─────────────────────────────────────┐
-│  Criar Orçamento                    │
-├─────────────────────────────────────┤
-│  Tipo de Orçamento:                 │
-│  ○ Manual                           │
-│  ○ Automático                       │
-└─────────────────────────────────────┘
-```
-
-#### Formulário Manual
-```
-┌─────────────────────────────────────┐
-│  Orçamento Manual                   │
-├─────────────────────────────────────┤
-│  Nome: [________________]           │
-│  Período: [01/01/2024] a [31/01/2024] │
-│                                     │
-│  Categorias de Despesas:            │
-│  ☑ Aluguel: R$ [1.400,00]          │
-│  ☑ Alimentação: R$ [1.000,00]      │
-│  ☐ Transporte: R$ [_____]           │
-│                                     │
-│  Categorias de Receitas:            │
-│  ☑ Salário: R$ [5.000,00]          │
-│  ☐ Freelance: R$ [_____]            │
-└─────────────────────────────────────┘
+// useMonthlyFinanceSummaryAdapter
+export const useMonthlyFinanceSummaryAdapter = () => {
+  // Similar structure
+};
 ```
 
-#### Formulário Automático
+## 🧪 Estratégia de Testes (TDD)
+
+### 📋 Testes de Entidades (Domain)
+
+```typescript
+// Budget.test.ts
+describe('Budget', () => {
+  it('should create valid budget', () => {
+    const budget = new Budget({
+      id: 'budget-123',
+      userId: 'user-456',
+      name: 'Orçamento Janeiro 2024',
+      startPeriod: new Date('2024-01-01'),
+      endPeriod: new Date('2024-01-31'),
+      type: 'manual',
+      totalPlannedValue: new Money(5000, 'BRL')
+    });
+    
+    expect(budget.name).toBe('Orçamento Janeiro 2024');
+    expect(budget.isActive).toBe(true);
+  });
+
+  it('should throw error for negative planned value', () => {
+    expect(() => {
+      new Budget({
+        id: 'budget-123',
+        userId: 'user-456',
+        name: 'Orçamento Teste',
+        startPeriod: new Date('2024-01-01'),
+        endPeriod: new Date('2024-01-31'),
+        type: 'manual',
+        totalPlannedValue: new Money(-1000, 'BRL')
+      });
+    }).toThrow('Amount cannot be negative');
+  });
+
+  it('should activate and deactivate budget', () => {
+    const budget = new Budget({...});
+    const activated = budget.activate();
+    expect(activated.isActive).toBe(true);
+    
+    const deactivated = activated.deactivate();
+    expect(deactivated.isActive).toBe(false);
+  });
+});
+
+// BudgetItem.test.ts
+describe('BudgetItem', () => {
+  it('should calculate variance correctly', () => {
+    const budgetItem = new BudgetItem({
+      id: 'item-123',
+      budgetId: 'budget-456',
+      categoryName: 'Alimentação',
+      plannedValue: new Money(500, 'BRL'),
+      categoryType: 'expense',
+      actualValue: new Money(550, 'BRL')
+    });
+    
+    const variance = budgetItem.calculateVariance();
+    expect(variance).toEqual(new Money(50, 'BRL')); // Math.abs(500 - 550)
+  });
+});
+
+// MonthlyFinanceSummary.test.ts
+describe('MonthlyFinanceSummary', () => {
+  it('should calculate savings rate correctly', () => {
+    const summary = new MonthlyFinanceSummary({
+      id: 'summary-123',
+      userId: 'user-456',
+      month: '2024-01',
+      totalIncome: new Money(5000, 'BRL'),
+      totalExpense: new Money(3000, 'BRL'),
+      balance: new Money(2000, 'BRL'),
+      totalPlannedBudget: new Money(4000, 'BRL'),
+      totalActualBudget: new Money(3000, 'BRL')
+    });
+    
+    const savingsRate = summary.calculateSavingsRate();
+    expect(savingsRate).toBe(40); // (2000 / 5000) * 100
+  });
+
+  it('should handle negative balance with Money constraints', () => {
+    const summary = new MonthlyFinanceSummary({
+      id: 'summary-123',
+      userId: 'user-456',
+      month: '2024-01',
+      totalIncome: new Money(2000, 'BRL'),
+      totalExpense: new Money(3000, 'BRL'),
+      balance: new Money(0, 'BRL'), // Cannot be negative with Money
+      totalPlannedBudget: new Money(2500, 'BRL'),
+      totalActualBudget: new Money(3000, 'BRL')
+    });
+    
+    expect(summary.isProfitable()).toBe(false);
+  });
+});
 ```
-┌─────────────────────────────────────┐
-│  Orçamento Automático               │
-├─────────────────────────────────────┤
-│  Nome: [________________]           │
-│  Período: [01/02/2024] a [29/02/2024] │
-│  Mês Base: [Janeiro 2024]           │
-│                                     │
-│  Baseado no histórico de Janeiro:   │
-│                                     │
-│  Despesas:                          │
-│  ☑ Aluguel: R$ 1.400,00 → [1.400,00] │
-│  ☑ Alimentação: R$ 950,00 → [1.000,00] │
-│  ☑ Transporte: R$ 320,00 → [350,00]   │
-│                                     │
-│  Receitas:                          │
-│  ☑ Salário: R$ 5.000,00 → [5.000,00] │
-│  ☑ Freelance: R$ 800,00 → [800,00]   │
-└─────────────────────────────────────┘
+
+### 📋 Testes de Repositórios (Data)
+
+```typescript
+// SQLiteBudgetRepository.test.ts
+describe('SQLiteBudgetRepository', () => {
+  let repository: SQLiteBudgetRepository;
+  let mockDatabase: any;
+
+  beforeEach(() => {
+    mockDatabase = {
+      execAsync: jest.fn(),
+      runAsync: jest.fn(),
+      getAllAsync: jest.fn(),
+      getFirstAsync: jest.fn(),
+    };
+    
+    jest.mock('expo-sqlite', () => ({
+      openDatabaseSync: jest.fn(() => mockDatabase)
+    }));
+    
+    repository = new SQLiteBudgetRepository();
+  });
+
+  it('should save a new budget', async () => {
+    const budget = new Budget({...});
+    mockDatabase.runAsync.mockResolvedValue({ changes: 1 });
+    
+    const savedBudget = await repository.save(budget);
+    expect(savedBudget).toEqual(budget);
+    expect(mockDatabase.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO budgets'),
+      expect.arrayContaining([budget.id, budget.name])
+    );
+  });
+
+  it('should find budget by id', async () => {
+    const budgetDTO = {
+      id: 'budget-123',
+      user_id: 'user-456',
+      name: 'Test Budget',
+      start_period: '2024-01-01T00:00:00.000Z',
+      end_period: '2024-01-31T00:00:00.000Z',
+      type: 'manual',
+      total_planned_value: 5000,
+      is_active: 1,
+      status: 'active',
+      created_at: '2024-01-01T00:00:00.000Z'
+    };
+    
+    mockDatabase.getAllAsync.mockResolvedValue([budgetDTO]);
+    
+    const foundBudget = await repository.findById('budget-123');
+    expect(foundBudget).toBeInstanceOf(Budget);
+    expect(foundBudget?.name).toBe('Test Budget');
+  });
+});
 ```
 
----
+### 📋 Testes de ViewModels (Presentation)
 
-## 🔄 Regras de Negócio
+```typescript
+// BudgetViewModel.test.ts
+describe('BudgetViewModel', () => {
+  let viewModel: BudgetViewModel;
+  let mockBudgetRepository: jest.Mocked<IBudgetRepository>;
 
-### 📊 Validações Gerais
-- **Período**: Data início < Data fim
-- **Valores**: Todos os valores devem ser > 0
-- **Categorias**: Devem existir na tabela `categories`
-- **Usuário**: Orçamento pertence ao usuário logado
+  beforeEach(() => {
+    mockBudgetRepository = {
+      save: jest.fn(),
+      findById: jest.fn(),
+      findAll: jest.fn(),
+      findByUser: jest.fn(),
+      findActiveByUser: jest.fn(),
+      findByDateRange: jest.fn(),
+      delete: jest.fn(),
+      deleteAll: jest.fn(),
+      count: jest.fn(),
+    };
+    
+    viewModel = new BudgetViewModel(mockBudgetRepository);
+  });
 
-### 🎯 Regras Específicas
+  it('should load budgets successfully', async () => {
+    const mockBudgets = [
+      new Budget({...}),
+      new Budget({...})
+    ];
+    
+    mockBudgetRepository.findByUser.mockResolvedValue(mockBudgets);
+    
+    await viewModel.loadBudgets();
+    
+    expect(viewModel.budgets).toEqual(mockBudgets);
+    expect(viewModel.loading).toBe(false);
+    expect(viewModel.error).toBeNull();
+  });
 
-#### Orçamento Manual
-- Mínimo 1 categoria de despesa
-- Mínimo 1 categoria de receita
-- Valores obrigatórios para todas as categorias selecionadas
+  it('should handle error when loading budgets', async () => {
+    mockBudgetRepository.findByUser.mockRejectedValue(new Error('Database error'));
+    
+    await viewModel.loadBudgets();
+    
+    expect(viewModel.error).toBe('Database error');
+    expect(viewModel.loading).toBe(false);
+  });
+});
+```
 
-#### Orçamento Automático
-- Mês base deve ter dados disponíveis
-- Se não houver dados, sugerir criação manual
-- Considerar apenas operações com estado 'pago'/'recebido'
+## 📊 Regras de Negócio (Preservadas)
+
+### 💰 Validações Financeiras
+
+```typescript
+// 1. Money Value Object Constraints
+- Não aceita valores negativos
+- Validação automática no construtor
+- Operações matemáticas seguras
+
+// 2. Budget Constraints
+- BudgetType limitado a 'manual'
+- Períodos válidos (startPeriod < endPeriod)
+- Nome obrigatório e não vazio
+- Apenas um orçamento ativo por usuário
+
+// 3. BudgetItem Constraints
+- CategoryType: 'expense' | 'income'
+- Valores planejados obrigatórios
+- Valores reais opcionais
+- Cálculo de variância com Math.abs()
+
+// 4. MonthlyFinanceSummary Constraints
+- Balance = Math.max(0, totalIncome - totalExpense)
+- Month formato: YYYY-MM
+- Validação de consistência dos valores
+```
 
 ### 📈 Cálculos de Performance
-- **Superávit**: Real < Planejado (despesas)
-- **Déficit**: Real > Planejado (despesas)
-- **Equilibrado**: Real = Planejado (despesas)
 
----
+```typescript
+// 1. Budget Performance
+- Total Planned vs Total Actual
+- Percentual de uso: (actual / planned) * 100
+- Status: superávit, déficit, equilibrado
 
-## 🚀 Implementação
+// 2. BudgetItem Performance
+- Variance = Math.abs(planned - actual)
+- Percentual de uso por categoria
+- Status por item individual
 
-### 📁 Estrutura de Arquivos
+// 3. Monthly Finance Summary
+- Savings Rate = (balance / totalIncome) * 100
+- Profitability = totalIncome > totalExpense
+- Budget vs Actual comparison
 ```
-app/src/database/
-├── budget.ts          # Funções principais
-├── budget-items.ts    # Funções de itens
-└── budget-analysis.ts # Análises e cálculos
+
+### 🔄 Lifecycle Management
+
+```typescript
+// 1. Budget Lifecycle
+- Criação: isActive = true, status = 'active'
+- Desativação: isActive = false, status = 'inactive'
+- Expiração automática: status = 'expired'
+
+// 2. BudgetItem Lifecycle
+- Vinculação a Budget existente
+- Atualização de valores planejados
+- Registro de valores reais
+
+// 3. MonthlyFinanceSummary Lifecycle
+- Geração automática mensal
+- Atualização baseada em operações
+- Histórico preservado
 ```
 
-### 🔧 Próximos Passos
-1. Refatorar tabela `budget` existente
-2. Criar tabela `budget_items`
-3. Implementar funções de criação manual/automática
-4. Desenvolver interface de usuário
-5. Testes e validações
+## 🚀 Use Cases (A Implementar)
 
----
+### 📋 Budget Use Cases
 
-## 📝 Considerações Técnicas
+```typescript
+// CreateBudgetUseCase
+export class CreateBudgetUseCase {
+  constructor(private budgetRepository: IBudgetRepository) {}
+  
+  async execute(data: CreateBudgetDTO): Promise<Result<Budget>> {
+    // 1. Validar dados de entrada
+    // 2. Verificar se já existe orçamento ativo
+    // 3. Criar entidade Budget
+    // 4. Salvar no repositório
+    // 5. Retornar resultado
+  }
+}
 
-### 🔍 Performance
-- Índices em `user_id`, `period`, `type`
-- Consultas otimizadas para análise histórica
-- Cache de cálculos de performance
+// UpdateBudgetUseCase
+export class UpdateBudgetUseCase {
+  constructor(private budgetRepository: IBudgetRepository) {}
+  
+  async execute(id: string, data: UpdateBudgetDTO): Promise<Result<Budget>> {
+    // 1. Buscar orçamento existente
+    // 2. Validar modificações
+    // 3. Atualizar entidade
+    // 4. Salvar alterações
+    // 5. Retornar resultado
+  }
+}
 
-### 🛡️ Segurança
-- Validação de propriedade por usuário
-- Sanitização de inputs
-- Transações para operações complexas
+// CalculateBudgetPerformanceUseCase
+export class CalculateBudgetPerformanceUseCase {
+  constructor(
+    private budgetRepository: IBudgetRepository,
+    private budgetItemRepository: IBudgetItemRepository
+  ) {}
+  
+  async execute(budgetId: string): Promise<Result<BudgetPerformance>> {
+    // 1. Buscar orçamento e itens
+    // 2. Calcular performance
+    // 3. Gerar relatório
+    // 4. Retornar resultado
+  }
+}
+```
 
-### 🔄 Manutenibilidade
-- Código modular e reutilizável
-- Documentação clara
-- Testes unitários e de integração 
+### 📋 BudgetItem Use Cases
+
+```typescript
+// CreateBudgetItemUseCase
+export class CreateBudgetItemUseCase {
+  constructor(private budgetItemRepository: IBudgetItemRepository) {}
+  
+  async execute(data: CreateBudgetItemDTO): Promise<Result<BudgetItem>> {
+    // Implementação TDD
+  }
+}
+
+// UpdateBudgetItemUseCase
+export class UpdateBudgetItemUseCase {
+  constructor(private budgetItemRepository: IBudgetItemRepository) {}
+  
+  async execute(id: string, data: UpdateBudgetItemDTO): Promise<Result<BudgetItem>> {
+    // Implementação TDD
+  }
+}
+```
+
+### 📋 MonthlyFinanceSummary Use Cases
+
+```typescript
+// GenerateMonthlySummaryUseCase
+export class GenerateMonthlySummaryUseCase {
+  constructor(
+    private monthlySummaryRepository: IMonthlyFinanceSummaryRepository,
+    private operationRepository: IOperationRepository
+  ) {}
+  
+  async execute(userId: string, month: string): Promise<Result<MonthlyFinanceSummary>> {
+    // 1. Buscar operações do mês
+    // 2. Calcular totais
+    // 3. Gerar resumo
+    // 4. Salvar resultado
+    // 5. Retornar resultado
+  }
+}
+
+// GetMonthlySummaryUseCase
+export class GetMonthlySummaryUseCase {
+  constructor(private monthlySummaryRepository: IMonthlyFinanceSummaryRepository) {}
+  
+  async execute(userId: string, month: string): Promise<Result<MonthlyFinanceSummary | null>> {
+    // Implementação TDD
+  }
+}
+```
+
+## 📱 Integração com UI
+
+### 🎨 Pure Components
+
+```typescript
+// BudgetForm.tsx
+export const BudgetForm: React.FC<BudgetFormProps> = ({
+  onSubmit,
+  initialData,
+  loading
+}) => {
+  // Componente puro sem dependências externas
+  // Recebe props e callbacks
+  // Renderiza formulário de orçamento
+};
+
+// BudgetCard.tsx
+export const BudgetCard: React.FC<BudgetCardProps> = ({
+  budget,
+  onEdit,
+  onDelete,
+  onActivate
+}) => {
+  // Componente puro para exibição de orçamento
+  // Recebe dados e callbacks
+  // Renderiza card de orçamento
+};
+
+// BudgetPerformanceChart.tsx
+export const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({
+  performance,
+  onItemPress
+}) => {
+  // Componente puro para gráficos de performance
+  // Recebe dados de performance
+  // Renderiza visualizações
+};
+```
+
+### 🔗 UI Adapters
+
+```typescript
+// useBudgetFormAdapter.tsx
+export const useBudgetFormAdapter = () => {
+  const { createBudget, updateBudget, loading, error } = useBudgetAdapter();
+  
+  const handleSubmit = async (data: BudgetFormData) => {
+    if (data.id) {
+      return await updateBudget(data.id, data);
+    } else {
+      return await createBudget(data);
+    }
+  };
+  
+  return {
+    onSubmit: handleSubmit,
+    loading,
+    error
+  };
+};
+
+// useBudgetListAdapter.tsx
+export const useBudgetListAdapter = () => {
+  const { budgets, loadBudgets, deleteBudget, activateBudget } = useBudgetAdapter();
+  
+  useEffect(() => {
+    loadBudgets();
+  }, []);
+  
+  return {
+    budgets,
+    onDelete: deleteBudget,
+    onActivate: activateBudget
+  };
+};
+```
+
+## 🔄 Migração da Arquitetura Antiga
+
+### 📚 Legacy Code (app/src/database/budget.ts - 726 linhas)
+
+```typescript
+// Arquitetura Antiga
+export interface Budget {
+  id: string;
+  user_id: string;
+  name: string;
+  start_period: string;
+  end_period: string;
+  type: 'manual' | 'automatic'; // ❌ Automatic removido
+  base_month?: string;
+  total_planned_value: number;
+  total_actual_value?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Clean Architecture
+export class Budget {
+  private _type: 'manual'; // ✅ Apenas manual
+  private _totalPlannedValue: Money; // ✅ Money value object
+  // ... outros campos com validações
+}
+```
+
+### 🔄 Estratégia de Migração
+
+1. **Feature Flags**: Migração gradual por funcionalidade
+2. **MigrationWrapper**: Componente de transição
+3. **Testes de Regressão**: Garantir funcionalidade
+4. **Documentação**: Guias de migração
+
+## 📊 Status da Implementação
+
+### ✅ Concluído
+- **Entidades**: Budget, BudgetItem, MonthlyFinanceSummary
+- **Value Objects**: Money (com validações)
+- **Repositórios**: SQLite implementations
+- **Mappers**: DTO ↔ Entity conversion
+- **Testes**: 100% green para entidades e repositórios
+
+### 🚧 Em Andamento
+- **Use Cases**: Implementação TDD
+- **ViewModels**: Implementação TDD
+- **UI Adapters**: Implementação TDD
+- **Pure Components**: Implementação TDD
+
+### 📋 Próximos Passos
+1. Implementar Use Cases (TDD)
+2. Implementar ViewModels (TDD)
+3. Implementar UI Adapters (TDD)
+4. Implementar Pure Components (TDD)
+5. Testes de integração completos
+
+## 📚 Documentação Relacionada
+
+- [System Architecture](./system-architecture.md) - Arquitetura geral
+- [Data Model](./data-model.md) - Modelo de dados
+- [Database Schema](./database-schema.md) - Esquema do banco
+- [Goal System](./goal-system.md) - Sistema de metas
+- [Clean Architecture Guide](../clean_architecture/5-step%20of%20understanding) - Guia detalhado 
