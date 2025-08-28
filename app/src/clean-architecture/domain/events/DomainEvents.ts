@@ -2,6 +2,8 @@ import { Operation } from '../entities/Operation';
 import { Account } from '../entities/Account';
 import { Category } from '../entities/Category';
 import { Goal } from '../entities/Goal';
+import { Budget } from '../entities/Budget';
+import { BudgetItem } from '../entities/BudgetItem';
 
 // Base interface for all domain events
 export interface DomainEvent {
@@ -79,6 +81,38 @@ export interface GoalCompletedEvent extends DomainEvent {
   data: Goal;
 }
 
+// Budget Events
+export interface BudgetCreatedEvent extends DomainEvent {
+  type: 'BudgetCreated';
+  data: Budget;
+}
+
+export interface BudgetUpdatedEvent extends DomainEvent {
+  type: 'BudgetUpdated';
+  data: Budget;
+}
+
+export interface BudgetDeletedEvent extends DomainEvent {
+  type: 'BudgetDeleted';
+  data: { budgetId: string };
+}
+
+// BudgetItem Events
+export interface BudgetItemCreatedEvent extends DomainEvent {
+  type: 'BudgetItemCreated';
+  data: BudgetItem;
+}
+
+export interface BudgetItemUpdatedEvent extends DomainEvent {
+  type: 'BudgetItemUpdated';
+  data: BudgetItem;
+}
+
+export interface BudgetItemDeletedEvent extends DomainEvent {
+  type: 'BudgetItemDeleted';
+  data: { budgetItemId: string };
+}
+
 // Union type for all domain events
 export type DomainEventType = 
   | OperationCreatedEvent
@@ -93,7 +127,13 @@ export type DomainEventType =
   | GoalCreatedEvent
   | GoalUpdatedEvent
   | GoalDeletedEvent
-  | GoalCompletedEvent;
+  | GoalCompletedEvent
+  | BudgetCreatedEvent
+  | BudgetUpdatedEvent
+  | BudgetDeletedEvent
+  | BudgetItemCreatedEvent
+  | BudgetItemUpdatedEvent
+  | BudgetItemDeletedEvent;
 
 // Event factory functions
 export class DomainEventFactory {
@@ -200,6 +240,54 @@ export class DomainEventFactory {
       timestamp: new Date(),
     };
   }
+
+  static createBudgetCreated(budget: Budget): BudgetCreatedEvent {
+    return {
+      type: 'BudgetCreated',
+      data: budget,
+      timestamp: new Date(),
+    };
+  }
+
+  static createBudgetUpdated(budget: Budget): BudgetUpdatedEvent {
+    return {
+      type: 'BudgetUpdated',
+      data: budget,
+      timestamp: new Date(),
+    };
+  }
+
+  static createBudgetDeleted(budgetId: string): BudgetDeletedEvent {
+    return {
+      type: 'BudgetDeleted',
+      data: { budgetId },
+      timestamp: new Date(),
+    };
+  }
+
+  static createBudgetItemCreated(budgetItem: BudgetItem): BudgetItemCreatedEvent {
+    return {
+      type: 'BudgetItemCreated',
+      data: budgetItem,
+      timestamp: new Date(),
+    };
+  }
+
+  static createBudgetItemUpdated(budgetItem: BudgetItem): BudgetItemUpdatedEvent {
+    return {
+      type: 'BudgetItemUpdated',
+      data: budgetItem,
+      timestamp: new Date(),
+    };
+  }
+
+  static createBudgetItemDeleted(budgetItemId: string): BudgetItemDeletedEvent {
+    return {
+      type: 'BudgetItemDeleted',
+      data: { budgetItemId },
+      timestamp: new Date(),
+    };
+  }
 }
 
 // Event type guards
@@ -218,6 +306,14 @@ export class EventTypeGuards {
 
   static isGoalEvent(event: DomainEventType): event is GoalCreatedEvent | GoalUpdatedEvent | GoalDeletedEvent | GoalCompletedEvent {
     return event.type.startsWith('Goal');
+  }
+
+  static isBudgetEvent(event: DomainEventType): event is BudgetCreatedEvent | BudgetUpdatedEvent | BudgetDeletedEvent {
+    return event.type.startsWith('Budget') && !event.type.startsWith('BudgetItem');
+  }
+
+  static isBudgetItemEvent(event: DomainEventType): event is BudgetItemCreatedEvent | BudgetItemUpdatedEvent | BudgetItemDeletedEvent {
+    return event.type.startsWith('BudgetItem');
   }
 
   static isCreatedEvent(event: DomainEventType): boolean {

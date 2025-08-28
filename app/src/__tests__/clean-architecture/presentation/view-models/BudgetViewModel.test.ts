@@ -9,7 +9,8 @@ const mockBudgetRepository = {
   findById: jest.fn(),
   findAll: jest.fn(),
   findByUser: jest.fn(),
-  findByStatus: jest.fn(),
+  findActiveByUser: jest.fn(),
+  findByDateRange: jest.fn(),
   delete: jest.fn(),
   deleteAll: jest.fn(),
   count: jest.fn(),
@@ -19,6 +20,7 @@ const mockBudgetItemRepository = {
   save: jest.fn(),
   findById: jest.fn(),
   findByBudget: jest.fn(),
+  findByCategory: jest.fn(),
   findAll: jest.fn(),
   delete: jest.fn(),
   deleteAll: jest.fn(),
@@ -142,9 +144,9 @@ describe('BudgetViewModel', () => {
 
       const result = await viewModel.createBudget(createData);
 
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getValue()).toEqual(mockBudget);
       expect(mockBudgetRepository.save).toHaveBeenCalled();
+      expect(result.isSuccess()).toBe(true);
+      expect(result.getOrThrow()).toEqual(mockBudget);
       expect(viewModel.error).toBeNull();
     });
 
@@ -164,7 +166,7 @@ describe('BudgetViewModel', () => {
       const result = await viewModel.createBudget(createData);
 
       expect(result.isFailure()).toBe(true);
-      expect(result.getError()).toBe(errorMessage);
+      expect(() => result.getOrThrow()).toThrow('Failed to create budget');
       expect(viewModel.error).toBe(errorMessage);
     });
   });
@@ -178,18 +180,27 @@ describe('BudgetViewModel', () => {
       };
 
       const updatedBudget = new Budget({
-        ...mockBudget.props,
+        id: mockBudget.id,
+        userId: mockBudget.userId,
         name: 'Orçamento Atualizado',
-        totalPlannedValue: new Money(6000, 'BRL')
+        startPeriod: mockBudget.startPeriod,
+        endPeriod: mockBudget.endPeriod,
+        type: mockBudget.type,
+        totalPlannedValue: new Money(6000, 'BRL'),
+        isActive: mockBudget.isActive,
+        status: mockBudget.status,
+        createdAt: mockBudget.createdAt
       });
 
+      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
       mockBudgetRepository.save.mockResolvedValue(updatedBudget);
 
       const result = await viewModel.updateBudget(budgetId, updateData);
 
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getValue()).toEqual(updatedBudget);
+      expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
       expect(mockBudgetRepository.save).toHaveBeenCalled();
+      expect(result.isSuccess()).toBe(true);
+      expect(result.getOrThrow()).toEqual(updatedBudget);
       expect(viewModel.error).toBeNull();
     });
 
@@ -200,12 +211,13 @@ describe('BudgetViewModel', () => {
       };
 
       const errorMessage = 'Failed to update budget';
+      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
       mockBudgetRepository.save.mockRejectedValue(new Error(errorMessage));
 
       const result = await viewModel.updateBudget(budgetId, updateData);
 
       expect(result.isFailure()).toBe(true);
-      expect(result.getError()).toBe(errorMessage);
+      expect(() => result.getOrThrow()).toThrow('Failed to update budget');
       expect(viewModel.error).toBe(errorMessage);
     });
   });
@@ -217,9 +229,9 @@ describe('BudgetViewModel', () => {
 
       const result = await viewModel.deleteBudget(budgetId);
 
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getValue()).toBe(true);
       expect(mockBudgetRepository.delete).toHaveBeenCalledWith(budgetId);
+      expect(result.isSuccess()).toBe(true);
+      expect(result.getOrThrow()).toBe(true);
       expect(viewModel.error).toBeNull();
     });
 
@@ -231,7 +243,7 @@ describe('BudgetViewModel', () => {
       const result = await viewModel.deleteBudget(budgetId);
 
       expect(result.isFailure()).toBe(true);
-      expect(result.getError()).toBe(errorMessage);
+      expect(() => result.getOrThrow()).toThrow('Failed to delete budget');
       expect(viewModel.error).toBe(errorMessage);
     });
   });
@@ -240,26 +252,29 @@ describe('BudgetViewModel', () => {
     it('should activate budget successfully', async () => {
       const budgetId = 'budget-123';
       const activatedBudget = mockBudget.activate();
+      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
       mockBudgetRepository.save.mockResolvedValue(activatedBudget);
 
       const result = await viewModel.activateBudget(budgetId);
 
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getValue()).toEqual(activatedBudget);
-      expect(result.getValue()?.isActive).toBe(true);
+      expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
       expect(mockBudgetRepository.save).toHaveBeenCalled();
+      expect(result.isSuccess()).toBe(true);
+      expect(result.getOrThrow()).toEqual(activatedBudget);
+      expect(result.getOrThrow()?.isActive).toBe(true);
       expect(viewModel.error).toBeNull();
     });
 
     it('should handle error when activating budget fails', async () => {
       const budgetId = 'budget-123';
       const errorMessage = 'Failed to activate budget';
+      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
       mockBudgetRepository.save.mockRejectedValue(new Error(errorMessage));
 
       const result = await viewModel.activateBudget(budgetId);
 
       expect(result.isFailure()).toBe(true);
-      expect(result.getError()).toBe(errorMessage);
+      expect(() => result.getOrThrow()).toThrow('Failed to activate budget');
       expect(viewModel.error).toBe(errorMessage);
     });
   });
@@ -268,26 +283,29 @@ describe('BudgetViewModel', () => {
     it('should deactivate budget successfully', async () => {
       const budgetId = 'budget-123';
       const deactivatedBudget = mockBudget.deactivate();
+      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
       mockBudgetRepository.save.mockResolvedValue(deactivatedBudget);
 
       const result = await viewModel.deactivateBudget(budgetId);
 
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getValue()).toEqual(deactivatedBudget);
-      expect(result.getValue()?.isActive).toBe(false);
+      expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
       expect(mockBudgetRepository.save).toHaveBeenCalled();
+      expect(result.isSuccess()).toBe(true);
+      expect(result.getOrThrow()).toEqual(deactivatedBudget);
+      expect(result.getOrThrow()?.isActive).toBe(false);
       expect(viewModel.error).toBeNull();
     });
 
     it('should handle error when deactivating budget fails', async () => {
       const budgetId = 'budget-123';
       const errorMessage = 'Failed to deactivate budget';
+      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
       mockBudgetRepository.save.mockRejectedValue(new Error(errorMessage));
 
       const result = await viewModel.deactivateBudget(budgetId);
 
       expect(result.isFailure()).toBe(true);
-      expect(result.getError()).toBe(errorMessage);
+      expect(() => result.getOrThrow()).toThrow('Failed to deactivate budget');
       expect(viewModel.error).toBe(errorMessage);
     });
   });
@@ -299,8 +317,8 @@ describe('BudgetViewModel', () => {
 
       await viewModel.selectBudget(budgetId);
 
-      expect(viewModel.selectedBudget).toEqual(mockBudget);
       expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
+      expect(viewModel.selectedBudget).toEqual(mockBudget);
       expect(viewModel.error).toBeNull();
     });
 
