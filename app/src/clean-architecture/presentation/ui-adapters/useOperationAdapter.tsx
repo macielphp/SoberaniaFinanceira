@@ -39,6 +39,7 @@ export interface UseOperationAdapterResult {
   createOperation: (data: CreateOperationData) => Promise<Operation>;
   updateOperation: (data: UpdateOperationData) => Promise<Operation>;
   loadOperation: (id: string) => Promise<Operation>;
+  deleteOperation: (id: string) => Promise<void>;
   setOperation: (operation: Operation | null) => void;
   reset: () => void;
   
@@ -110,11 +111,19 @@ export function useOperationAdapter(): UseOperationAdapterResult {
       })
     };
 
+    const mockDeleteUseCase = {
+      execute: async (id: string) => {
+        // Mock delete operation
+        return Promise.resolve();
+      }
+    };
+
     return new OperationViewModel(
       mockCreateUseCase,
       mockUpdateUseCase,
       mockGetByIdUseCase,
-      mockGetOperationsUseCase
+      mockGetOperationsUseCase,
+      mockDeleteUseCase
     );
   });
 
@@ -150,6 +159,16 @@ export function useOperationAdapter(): UseOperationAdapterResult {
       const result = await viewModel.loadOperation(id);
       forceUpdate();
       return result;
+    } catch (error) {
+      forceUpdate();
+      throw error;
+    }
+  }, [viewModel, forceUpdate]);
+
+  const deleteOperation = useCallback(async (id: string): Promise<void> => {
+    try {
+      await viewModel.deleteOperation(id);
+      forceUpdate();
     } catch (error) {
       forceUpdate();
       throw error;
@@ -202,6 +221,7 @@ export function useOperationAdapter(): UseOperationAdapterResult {
     createOperation,
     updateOperation,
     loadOperation,
+    deleteOperation,
     setOperation,
     reset,
     

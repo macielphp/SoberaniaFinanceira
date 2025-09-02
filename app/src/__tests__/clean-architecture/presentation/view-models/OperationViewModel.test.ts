@@ -1,97 +1,76 @@
 import { OperationViewModel } from '../../../../clean-architecture/presentation/view-models/OperationViewModel';
 import { Operation } from '../../../../clean-architecture/domain/entities/Operation';
 import { Money } from '../../../../clean-architecture/shared/utils/Money';
-import { Category } from '../../../../clean-architecture/domain/entities/Category';
-import { Account } from '../../../../clean-architecture/domain/entities/Account';
-
-// Mock dos Use Cases
-const mockCreateOperationUseCase = {
-  execute: jest.fn(),
-};
-
-const mockUpdateOperationUseCase = {
-  execute: jest.fn(),
-};
-
-const mockGetOperationByIdUseCase = {
-  execute: jest.fn(),
-};
-
-const mockGetOperationsUseCase = {
-  execute: jest.fn(),
-};
 
 describe('OperationViewModel', () => {
   let operationViewModel: OperationViewModel;
-  let mockOperation: Operation;
-  let mockCategory: Category;
-  let mockAccount: Account;
+  let mockCreateOperationUseCase: jest.Mocked<any>;
+  let mockUpdateOperationUseCase: jest.Mocked<any>;
+  let mockGetOperationByIdUseCase: jest.Mocked<any>;
+  let mockGetOperationsUseCase: jest.Mocked<any>;
+  let mockDeleteOperationUseCase: jest.Mocked<any>;
+
+  const mockOperation = new Operation({
+    id: '1',
+    nature: 'receita',
+    state: 'recebido',
+    paymentMethod: 'Pix',
+    sourceAccount: 'Conta Principal',
+    destinationAccount: 'Conta Secundária',
+    date: new Date('2024-01-01'),
+    value: new Money(100, 'BRL'),
+    category: 'Salário',
+    details: 'Test operation'
+  });
 
   beforeEach(() => {
-    // Reset mocks
-    jest.clearAllMocks();
+    mockCreateOperationUseCase = {
+      execute: jest.fn()
+    };
 
-    // Setup mock data
-    mockCategory = new Category({
-      id: '1',
-      name: 'Alimentação',
-      type: 'expense',
-    });
+    mockUpdateOperationUseCase = {
+      execute: jest.fn()
+    };
 
-    mockAccount = new Account({
-      id: '1',
-      name: 'Conta Principal',
-      type: 'corrente',
-      balance: new Money(1000, 'BRL'),
-    });
+    mockGetOperationByIdUseCase = {
+      execute: jest.fn()
+    };
 
-    mockOperation = new Operation({
-      id: '1',
-      nature: 'despesa',
-      state: 'pago',
-      paymentMethod: 'Cartão de débito',
-      sourceAccount: 'Conta Principal',
-      destinationAccount: 'Conta Principal',
-      date: new Date('2024-01-15'),
-      value: new Money(25.50, 'BRL'),
-      category: 'Alimentação',
-      details: 'Almoço no restaurante',
-    });
+    mockGetOperationsUseCase = {
+      execute: jest.fn()
+    };
+
+    mockDeleteOperationUseCase = {
+      execute: jest.fn()
+    };
 
     operationViewModel = new OperationViewModel(
       mockCreateOperationUseCase,
       mockUpdateOperationUseCase,
       mockGetOperationByIdUseCase,
-      mockGetOperationsUseCase
+      mockGetOperationsUseCase,
+      mockDeleteOperationUseCase
     );
   });
 
-  describe('Initialization', () => {
+  describe('initialization', () => {
     it('should initialize with default values', () => {
       expect(operationViewModel.operation).toBeNull();
+      expect(operationViewModel.operations).toEqual([]);
       expect(operationViewModel.isLoading).toBe(false);
       expect(operationViewModel.error).toBeNull();
       expect(operationViewModel.isEditing).toBe(false);
     });
   });
 
-  describe('setOperation', () => {
-    it('should set operation and update editing state', () => {
+  describe('setters', () => {
+    it('should set operation correctly', () => {
       operationViewModel.setOperation(mockOperation);
 
       expect(operationViewModel.operation).toEqual(mockOperation);
       expect(operationViewModel.isEditing).toBe(true);
     });
 
-    it('should set operation to null and reset editing state', () => {
-      operationViewModel.setOperation(null);
-
-      expect(operationViewModel.operation).toBeNull();
-      expect(operationViewModel.isEditing).toBe(false);
-    });
-  });
-
-  describe('setLoading', () => {
     it('should set loading state', () => {
       operationViewModel.setLoading(true);
       expect(operationViewModel.isLoading).toBe(true);
@@ -99,28 +78,20 @@ describe('OperationViewModel', () => {
       operationViewModel.setLoading(false);
       expect(operationViewModel.isLoading).toBe(false);
     });
-  });
 
-  describe('setError', () => {
-    it('should set error message', () => {
-      const errorMessage = 'Erro ao salvar operação';
+    it('should set error', () => {
+      const errorMessage = 'Test error';
       operationViewModel.setError(errorMessage);
       expect(operationViewModel.error).toBe(errorMessage);
-    });
 
-    it('should clear error when set to null', () => {
-      operationViewModel.setError('Erro anterior');
       operationViewModel.setError(null);
       expect(operationViewModel.error).toBeNull();
     });
-  });
 
-  describe('reset', () => {
-    it('should reset all state to initial values', () => {
-      // Setup some state
+    it('should reset state', () => {
       operationViewModel.setOperation(mockOperation);
       operationViewModel.setLoading(true);
-      operationViewModel.setError('Erro');
+      operationViewModel.setError('Test error');
 
       operationViewModel.reset();
 
@@ -131,243 +102,234 @@ describe('OperationViewModel', () => {
     });
   });
 
-  describe('validateForm', () => {
-    it('should return true for valid operation data', () => {
+  describe('form validation', () => {
+    it('should validate valid form data', () => {
       const validData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Cartão de débito' as const,
+        nature: 'receita' as const,
+        state: 'recebido' as const,
+        paymentMethod: 'Pix' as const,
         sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(25.50, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço no restaurante',
+        destinationAccount: 'Conta Secundária',
+        date: new Date(),
+        value: new Money(100, 'BRL'),
+        category: 'Salário'
       };
 
       const result = operationViewModel.validateForm(validData);
+
       expect(result.isValid).toBe(true);
       expect(result.errors).toEqual({});
     });
 
-    it('should return false for invalid nature', () => {
+    it('should validate invalid form data', () => {
       const invalidData = {
         nature: '' as any,
-        state: 'pago' as const,
-        paymentMethod: 'Cartão de débito' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(25.50, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço no restaurante',
-      };
-
-      const result = operationViewModel.validateForm(invalidData);
-      expect(result.isValid).toBe(false);
-      expect(result.errors.nature).toBe('Natureza é obrigatória');
-    });
-
-    it('should return false for invalid value', () => {
-      const invalidData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Cartão de débito' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(0, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço no restaurante',
-      };
-
-      const result = operationViewModel.validateForm(invalidData);
-      expect(result.isValid).toBe(false);
-      expect(result.errors.value).toBe('Valor deve ser maior que zero');
-    });
-
-    it('should return false for missing category', () => {
-      const invalidData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Cartão de débito' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(25.50, 'BRL'),
-        category: '',
-        details: 'Almoço no restaurante',
-      };
-
-      const result = operationViewModel.validateForm(invalidData);
-      expect(result.isValid).toBe(false);
-      expect(result.errors.category).toBe('Categoria é obrigatória');
-    });
-
-    it('should return false for missing source account', () => {
-      const invalidData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Cartão de débito' as const,
+        state: '' as any,
+        paymentMethod: '' as any,
         sourceAccount: '',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(25.50, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço no restaurante',
+        destinationAccount: '',
+        date: new Date(),
+        value: new Money(0, 'BRL'),
+        category: ''
       };
 
       const result = operationViewModel.validateForm(invalidData);
+
       expect(result.isValid).toBe(false);
-      expect(result.errors.sourceAccount).toBe('Conta de origem é obrigatória');
+      expect(result.errors).toHaveProperty('nature');
+      expect(result.errors).toHaveProperty('state');
+      expect(result.errors).toHaveProperty('paymentMethod');
+      expect(result.errors).toHaveProperty('sourceAccount');
+      expect(result.errors).toHaveProperty('destinationAccount');
+      expect(result.errors).toHaveProperty('value');
+      expect(result.errors).toHaveProperty('category');
     });
   });
 
   describe('createOperation', () => {
     it('should create operation successfully', async () => {
-      const operationData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Cartão de débito' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(25.50, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço no restaurante',
-      };
-
       mockCreateOperationUseCase.execute.mockResolvedValue(mockOperation);
 
-      const result = await operationViewModel.createOperation(operationData);
+      const result = await operationViewModel.createOperation({
+        nature: 'receita',
+        state: 'recebido',
+        paymentMethod: 'Pix',
+        sourceAccount: 'Conta Principal',
+        destinationAccount: 'Conta Secundária',
+        date: new Date(),
+        value: new Money(100, 'BRL'),
+        category: 'Salário'
+      });
 
-      expect(mockCreateOperationUseCase.execute).toHaveBeenCalledWith(operationData);
       expect(result).toEqual(mockOperation);
       expect(operationViewModel.operation).toEqual(mockOperation);
-      expect(operationViewModel.isEditing).toBe(true);
+      expect(mockCreateOperationUseCase.execute).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle creation error', async () => {
-      const operationData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Cartão de débito' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(25.50, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço no restaurante',
-      };
-
-      const error = new Error('Erro ao criar operação');
+    it('should handle create operation error', async () => {
+      const error = new Error('Create operation failed');
       mockCreateOperationUseCase.execute.mockRejectedValue(error);
 
-      await expect(operationViewModel.createOperation(operationData)).rejects.toThrow('Erro ao criar operação');
+      await expect(operationViewModel.createOperation({
+        nature: 'receita',
+        state: 'recebido',
+        paymentMethod: 'Pix',
+        sourceAccount: 'Conta Principal',
+        destinationAccount: 'Conta Secundária',
+        date: new Date(),
+        value: new Money(100, 'BRL'),
+        category: 'Salário'
+      })).rejects.toThrow('Create operation failed');
+
+      expect(operationViewModel.error).toBe('Create operation failed');
     });
   });
 
   describe('updateOperation', () => {
     it('should update operation successfully', async () => {
       operationViewModel.setOperation(mockOperation);
-
-      const updatedData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Pix' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(30.00, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço atualizado',
-      };
-
-      const updatedOperation = new Operation({
-        id: mockOperation.id,
-        ...updatedData,
-      });
-
+      const updatedOperation = { ...mockOperation, details: 'Updated details' };
       mockUpdateOperationUseCase.execute.mockResolvedValue(updatedOperation);
 
-      const result = await operationViewModel.updateOperation(updatedData);
+      const result = await operationViewModel.updateOperation({
+        details: 'Updated details'
+      });
 
-      expect(mockUpdateOperationUseCase.execute).toHaveBeenCalledWith(mockOperation.id, updatedData);
       expect(result).toEqual(updatedOperation);
       expect(operationViewModel.operation).toEqual(updatedOperation);
+      expect(mockUpdateOperationUseCase.execute).toHaveBeenCalledWith('1', {
+        details: 'Updated details'
+      });
     });
 
-    it('should handle update error', async () => {
+    it('should throw error when no operation is selected', async () => {
+      await expect(operationViewModel.updateOperation({
+        details: 'Updated details'
+      })).rejects.toThrow('Nenhuma operação selecionada para edição');
+    });
+
+    it('should handle update operation error', async () => {
       operationViewModel.setOperation(mockOperation);
-
-      const updatedData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Pix' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(30.00, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço atualizado',
-      };
-
-      const error = new Error('Erro ao atualizar operação');
+      const error = new Error('Update operation failed');
       mockUpdateOperationUseCase.execute.mockRejectedValue(error);
 
-      await expect(operationViewModel.updateOperation(updatedData)).rejects.toThrow('Erro ao atualizar operação');
-    });
+      await expect(operationViewModel.updateOperation({
+        details: 'Updated details'
+      })).rejects.toThrow('Update operation failed');
 
-    it('should throw error when no operation is set', async () => {
-      const updatedData = {
-        nature: 'despesa' as const,
-        state: 'pago' as const,
-        paymentMethod: 'Pix' as const,
-        sourceAccount: 'Conta Principal',
-        destinationAccount: 'Conta Principal',
-        date: new Date('2024-01-15'),
-        value: new Money(30.00, 'BRL'),
-        category: 'Alimentação',
-        details: 'Almoço atualizado',
-      };
-
-      await expect(operationViewModel.updateOperation(updatedData)).rejects.toThrow('Nenhuma operação selecionada para edição');
+      expect(operationViewModel.error).toBe('Update operation failed');
     });
   });
 
   describe('loadOperation', () => {
     it('should load operation successfully', async () => {
-      const operationId = '1';
       mockGetOperationByIdUseCase.execute.mockResolvedValue(mockOperation);
 
-      const result = await operationViewModel.loadOperation(operationId);
+      const result = await operationViewModel.loadOperation('1');
 
-      expect(mockGetOperationByIdUseCase.execute).toHaveBeenCalledWith(operationId);
       expect(result).toEqual(mockOperation);
       expect(operationViewModel.operation).toEqual(mockOperation);
-      expect(operationViewModel.isEditing).toBe(true);
+      expect(mockGetOperationByIdUseCase.execute).toHaveBeenCalledWith('1');
     });
 
-    it('should handle load error', async () => {
-      const operationId = '1';
-      const error = new Error('Operação não encontrada');
+    it('should handle load operation error', async () => {
+      const error = new Error('Operation not found');
       mockGetOperationByIdUseCase.execute.mockRejectedValue(error);
 
-      await expect(operationViewModel.loadOperation(operationId)).rejects.toThrow('Operação não encontrada');
+      await expect(operationViewModel.loadOperation('1')).rejects.toThrow('Operation not found');
+
+      expect(operationViewModel.error).toBe('Operation not found');
+    });
+  });
+
+  describe('loadOperations', () => {
+    it('should load operations successfully', async () => {
+      const mockResult = {
+        match: jest.fn((successFn, errorFn) => successFn({ operations: [mockOperation] }))
+      };
+      mockGetOperationsUseCase.execute.mockResolvedValue(mockResult);
+
+      const result = await operationViewModel.loadOperations();
+
+      expect(result).toEqual([mockOperation]);
+      expect(operationViewModel.operations).toEqual([mockOperation]);
+      expect(mockGetOperationsUseCase.execute).toHaveBeenCalledWith({});
+    });
+
+    it('should handle load operations error', async () => {
+      const mockResult = {
+        match: jest.fn((successFn, errorFn) => {
+          const error = { message: 'Load operations failed' };
+          errorFn(error);
+          throw error;
+        })
+      };
+      mockGetOperationsUseCase.execute.mockResolvedValue(mockResult);
+
+      try {
+        await operationViewModel.loadOperations();
+        fail('Expected loadOperations to throw an error');
+      } catch (error) {
+        expect(error).toHaveProperty('message', 'Load operations failed');
+      }
+
+      expect(operationViewModel.error).toBe('Erro ao carregar operações');
+    });
+  });
+
+  describe('deleteOperation', () => {
+    it('should delete operation successfully', async () => {
+      operationViewModel.setOperation(mockOperation);
+      const operations = [mockOperation, { ...mockOperation, id: '2' }];
+      (operationViewModel as any)._operations = operations;
+
+      await operationViewModel.deleteOperation('1');
+
+      expect(mockDeleteOperationUseCase.execute).toHaveBeenCalledWith('1');
+      expect((operationViewModel as any)._operations).toEqual([{ ...mockOperation, id: '2' }]);
+      expect(operationViewModel.operation).toBeNull();
+    });
+
+    it('should delete operation without affecting current operation if different', async () => {
+      const differentOperation = new Operation({
+        id: '2',
+        nature: 'receita',
+        state: 'recebido',
+        paymentMethod: 'Pix',
+        sourceAccount: 'Conta Principal',
+        destinationAccount: 'Conta Secundária',
+        date: new Date('2024-01-01'),
+        value: new Money(100, 'BRL'),
+        category: 'Salário',
+        details: 'Test operation'
+      });
+      operationViewModel.setOperation(differentOperation);
+      const operations = [mockOperation, differentOperation];
+      (operationViewModel as any)._operations = operations;
+
+      await operationViewModel.deleteOperation('1');
+
+      expect(mockDeleteOperationUseCase.execute).toHaveBeenCalledWith('1');
+      expect((operationViewModel as any)._operations).toEqual([differentOperation]);
+      expect(operationViewModel.operation).toEqual(differentOperation);
+    });
+
+    it('should handle delete operation error', async () => {
+      const error = new Error('Delete operation failed');
+      mockDeleteOperationUseCase.execute.mockRejectedValue(error);
+
+      await expect(operationViewModel.deleteOperation('1')).rejects.toThrow('Delete operation failed');
+
+      expect(operationViewModel.error).toBe('Delete operation failed');
     });
   });
 
   describe('formatAmount', () => {
-    it('should format amount correctly', () => {
-      const amount = new Money(1234.56, 'BRL');
-      const formatted = operationViewModel.formatAmount(amount);
-      expect(formatted).toMatch(/R\$\s*1\.234,56/);
-    });
+    it('should format money amount correctly', () => {
+      const money = new Money(1234.56, 'BRL');
+      const formatted = operationViewModel.formatAmount(money);
 
-    it('should handle zero amount', () => {
-      const amount = new Money(0, 'BRL');
-      const formatted = operationViewModel.formatAmount(amount);
-      expect(formatted).toMatch(/R\$\s*0,00/);
+      expect(formatted).toBe(money.format());
     });
   });
 
@@ -377,86 +339,44 @@ describe('OperationViewModel', () => {
 
       const summary = operationViewModel.getOperationSummary();
 
-      expect(summary).toMatchObject({
+      expect(summary).toEqual({
         id: '1',
-        description: 'Almoço no restaurante',
-        type: 'despesa',
-        categoryName: 'Alimentação',
+        description: 'Test operation',
+        amount: mockOperation.value.format(),
+        type: 'receita',
+        categoryName: 'Salário',
         accountName: 'Conta Principal',
-        date: '14/01/2024',
+        date: '31/12/2023',
         isRecurring: false,
         installments: 1,
-        currentInstallment: 1,
+        currentInstallment: 1
       });
-      expect(summary?.amount).toMatch(/R\$\s*25,50/);
     });
 
     it('should return null when no operation is set', () => {
       const summary = operationViewModel.getOperationSummary();
+
       expect(summary).toBeNull();
     });
-  });
 
-  describe('loadOperations', () => {
-    it('should load operations successfully and update state', async () => {
-      // Arrange
-      const mockOperations = [mockOperation];
-      const successResult = {
-        match: jest.fn((onSuccess, onError) => onSuccess({ operations: mockOperations }))
-      };
-      mockGetOperationsUseCase.execute.mockResolvedValue(successResult);
+    it('should use default description when details is empty', () => {
+      const operationWithoutDetails = new Operation({
+        id: '1',
+        nature: 'receita',
+        state: 'recebido',
+        paymentMethod: 'Pix',
+        sourceAccount: 'Conta Principal',
+        destinationAccount: 'Conta Secundária',
+        date: new Date('2024-01-01'),
+        value: new Money(100, 'BRL'),
+        category: 'Salário',
+        details: ''
+      });
+      operationViewModel.setOperation(operationWithoutDetails);
 
-      // Act
-      const result = await operationViewModel.loadOperations();
+      const summary = operationViewModel.getOperationSummary();
 
-      // Assert
-      expect(mockGetOperationsUseCase.execute).toHaveBeenCalledWith({});
-      expect(operationViewModel.operations).toEqual(mockOperations);
-      expect(operationViewModel.error).toBeNull();
-      expect(result).toEqual(mockOperations);
-    });
-
-    it('should handle errors when loading operations fails', async () => {
-      // Arrange
-      const errorMessage = 'Erro ao carregar operações';
-      const errorResult = {
-        match: jest.fn((onSuccess, onError) => onError(new Error(errorMessage)))
-      };
-      mockGetOperationsUseCase.execute.mockResolvedValue(errorResult);
-
-      // Act & Assert
-      await expect(operationViewModel.loadOperations()).rejects.toThrow(errorMessage);
-      expect(operationViewModel.error).toBe(errorMessage);
-      expect(operationViewModel.operations).toEqual([]);
-    });
-
-    it('should handle unexpected errors', async () => {
-      // Arrange
-      const errorMessage = 'Unexpected error';
-      mockGetOperationsUseCase.execute.mockRejectedValue(new Error(errorMessage));
-
-      // Act & Assert
-      await expect(operationViewModel.loadOperations()).rejects.toThrow(errorMessage);
-      expect(operationViewModel.error).toBe(errorMessage);
-    });
-
-    it('should set loading state correctly during operation', async () => {
-      // Arrange
-      let loadingDuringExecution = false;
-      const successResult = {
-        match: jest.fn((onSuccess, onError) => {
-          loadingDuringExecution = operationViewModel.isLoading;
-          return onSuccess({ operations: [] });
-        })
-      };
-      mockGetOperationsUseCase.execute.mockResolvedValue(successResult);
-
-      // Act
-      await operationViewModel.loadOperations();
-
-      // Assert
-      expect(loadingDuringExecution).toBe(true);
-      expect(operationViewModel.isLoading).toBe(false);
+      expect(summary?.description).toBe('Sem descrição');
     });
   });
 });

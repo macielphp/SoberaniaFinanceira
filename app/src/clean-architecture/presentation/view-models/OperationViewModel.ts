@@ -18,6 +18,10 @@ interface GetOperationsUseCase {
   execute(request: any): Promise<any>;
 }
 
+interface DeleteOperationUseCase {
+  execute(id: string): Promise<void>;
+}
+
 // Interfaces para os dados
 interface CreateOperationData {
   nature: 'receita' | 'despesa';
@@ -72,7 +76,8 @@ export class OperationViewModel {
     private createOperationUseCase: CreateOperationUseCase,
     private updateOperationUseCase: UpdateOperationUseCase,
     private getOperationByIdUseCase: GetOperationByIdUseCase,
-    private getOperationsUseCase: GetOperationsUseCase
+    private getOperationsUseCase: GetOperationsUseCase,
+    private deleteOperationUseCase: DeleteOperationUseCase
   ) {}
 
   // Getters
@@ -262,6 +267,29 @@ export class OperationViewModel {
       throw error;
     } finally {
       this._isLoading = false;
+    }
+  }
+
+  async deleteOperation(id: string): Promise<void> {
+    try {
+      this.setLoading(true);
+      this.setError(null);
+
+      await this.deleteOperationUseCase.execute(id);
+      
+      // Remove from local operations array
+      this._operations = this._operations.filter(op => op.id !== id);
+      
+      // Clear current operation if it was the deleted one
+      if (this._operation && this._operation.id === id) {
+        this.setOperation(null);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao deletar operação';
+      this.setError(errorMessage);
+      throw error;
+    } finally {
+      this.setLoading(false);
     }
   }
 }
