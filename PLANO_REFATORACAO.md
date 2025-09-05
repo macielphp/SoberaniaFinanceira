@@ -69,7 +69,12 @@
 
 ## FASE 6: Screens (Composition Layer) 🚧 EM ANDAMENTO
 - [x] Implementar HomeScreen ✅ CONCLUÍDA
-- [ ] Implementar RegisterScreen
+- [x] Implementar RegisterScreen ✅ PARCIALMENTE CONCLUÍDA
+  - [x] RegisterSubScreen.tsx
+  - [x] ManageSubScreen.tsx
+  - [ ] SettingsSubScreen.tsx
+  - [ ] CategoriesSubScreen.tsx
+  - [ ] AccountsSubScreen.tsx
 - [ ] Implementar AccountScreen
 - [ ] Implementar GoalScreen
 - [ ] Implementar OperationScreen
@@ -90,7 +95,16 @@
 
 ## STATUS ATUAL: FASE 6 EM ANDAMENTO 🚧
 
-**Próximo passo:** Implementar RegisterScreen (Composition Layer)
+**Próximo passo:** Completar RegisterScreen (SettingsSubScreen, CategoriesSubScreen, AccountsSubScreen)
+
+### 🎉 **FASE 6 - Screens Implementation EM ANDAMENTO!**
+
+#### **✅ Conquistas Recentes:**
+- **🏗️ BudgetItemViewModel** implementado com TDD (100% testes passando)
+- **📊 MonthlyFinanceSummaryViewModel** implementado com TDD (100% testes passando)
+- **📝 RegisterSubScreen** implementado com TDD (100% testes passando)
+- **🔧 ManageSubScreen** implementado com TDD (100% testes passando)
+- **🧪 Testes Totais**: 1.332 testes passando (100% green)
 
 ### 🎉 **FASE 5 - Migration Strategy FINALIZADA!**
 

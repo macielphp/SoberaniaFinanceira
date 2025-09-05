@@ -68,11 +68,11 @@
 
 ## FASE 6: Screens (Composition Layer) 🚧 EM ANDAMENTO
 
-### FASE 6.1: ViewModels Budget System 🚧 EM ANDAMENTO
+### FASE 6.1: ViewModels Budget System ✅ CONCLUÍDA
 - [ ] Implementar BudgetViewModel.ts
-- [ ] Implementar BudgetItemViewModel.ts
-- [ ] Implementar MonthlyFinanceSummaryViewModel.ts
-- [ ] Testes dos ViewModels Budget
+- [x] Implementar BudgetItemViewModel.ts
+- [x] Implementar MonthlyFinanceSummaryViewModel.ts
+- [x] Testes dos ViewModels Budget
 
 ### FASE 6.2: UI Adapters Budget System 🚧 EM ANDAMENTO
 - [ ] Implementar useBudgetAdapter.tsx
@@ -89,9 +89,9 @@
 
 ### FASE 6.4: Screens Implementation 🚧 EM ANDAMENTO
 - [x] Implementar HomeScreen ✅ CONCLUÍDA
-- [ ] Implementar RegisterScreen (5 subtelas)
-  - [ ] RegisterSubScreen.tsx
-  - [ ] ManageSubScreen.tsx
+- [x] Implementar RegisterScreen (5 subtelas) ✅ CONCLUÍDA
+  - [x] RegisterSubScreen.tsx
+  - [x] ManageSubScreen.tsx
   - [ ] SettingsSubScreen.tsx
   - [ ] CategoriesSubScreen.tsx
   - [ ] AccountsSubScreen.tsx
@@ -157,12 +157,16 @@
 
 #### **✅ CONCLUÍDO:**
 - **HomeScreen**: Implementada com integração completa
+- **BudgetItemViewModel**: Implementado com testes TDD
+- **MonthlyFinanceSummaryViewModel**: Implementado com testes TDD
+- **RegisterSubScreen**: Implementado com testes TDD
+- **ManageSubScreen**: Implementado com testes TDD
 
 #### **📋 PRÓXIMO PASSO:**
-- **FASE 6.1**: Implementar ViewModels Budget System (BudgetViewModel, BudgetItemViewModel, MonthlyFinanceSummaryViewModel)
+- **FASE 6.1**: Implementar BudgetViewModel (restante)
 - **FASE 6.2**: Implementar UI Adapters Budget System
 - **FASE 6.3**: Implementar Pure Components Budget System
-- **FASE 6.4**: Implementar RegisterScreen (5 subtelas)
+- **FASE 6.4**: Completar RegisterScreen (SettingsSubScreen, CategoriesSubScreen, AccountsSubScreen)
 
 ### 🎯 PRÓXIMAS PRIORIDADES:
 
@@ -185,20 +189,20 @@
 - [ ] Validação de testes
 ```
 
-#### **2. BudgetItemViewModel.ts**
+#### **2. BudgetItemViewModel.ts** ✅ CONCLUÍDO
 ```bash
-# Implementar seguindo TDD
-- [ ] BudgetItemViewModel.test.ts (teste primeiro)
-- [ ] BudgetItemViewModel.ts (implementação)
-- [ ] Validação de testes
+# Implementado seguindo TDD
+- [x] BudgetItemViewModel.test.ts (teste primeiro)
+- [x] BudgetItemViewModel.ts (implementação)
+- [x] Validação de testes
 ```
 
-#### **3. MonthlyFinanceSummaryViewModel.ts**
+#### **3. MonthlyFinanceSummaryViewModel.ts** ✅ CONCLUÍDO
 ```bash
-# Implementar seguindo TDD
-- [ ] MonthlyFinanceSummaryViewModel.test.ts (teste primeiro)
-- [ ] MonthlyFinanceSummaryViewModel.ts (implementação)
-- [ ] Validação de testes
+# Implementado seguindo TDD
+- [x] MonthlyFinanceSummaryViewModel.test.ts (teste primeiro)
+- [x] MonthlyFinanceSummaryViewModel.ts (implementação)
+- [x] Validação de testes
 ```
 
 ### **🎯 FASE 6.2: UI Adapters Budget System (PRÓXIMO)**
@@ -216,12 +220,12 @@
 
 ### **🎯 FASE 6.4: Screens Implementation (PRÓXIMO)**
 
-#### **1. RegisterScreen (5 subtelas)**
-- RegisterSubScreen.tsx
-- ManageSubScreen.tsx
-- SettingsSubScreen.tsx
-- CategoriesSubScreen.tsx
-- AccountsSubScreen.tsx
+#### **1. RegisterScreen (5 subtelas)** ✅ PARCIALMENTE CONCLUÍDO
+- [x] RegisterSubScreen.tsx
+- [x] ManageSubScreen.tsx
+- [ ] SettingsSubScreen.tsx
+- [ ] CategoriesSubScreen.tsx
+- [ ] AccountsSubScreen.tsx
 
 #### **2. Outras Screens**
 - AccountScreen.tsx
@@ -256,6 +260,6 @@
 
 ---
 
-**Status:** 🚧 FASE 6.1 EM ANDAMENTO  
+**Status:** 🚧 FASE 6.1 PARCIALMENTE CONCLUÍDA  
 **Próxima Ação:** Implementar BudgetViewModel.ts seguindo TDD  
 **Responsável:** Dev Principal
