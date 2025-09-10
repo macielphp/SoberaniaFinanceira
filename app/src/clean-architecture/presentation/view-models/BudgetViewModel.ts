@@ -1,405 +1,308 @@
-import { Budget } from '../../domain/entities/Budget';
-import { BudgetItem } from '../../domain/entities/BudgetItem';
-import { IBudgetRepository } from '../../domain/repositories/IBudgetRepository';
-import { IBudgetItemRepository } from '../../domain/repositories/IBudgetItemRepository';
-import { Result, success, failure } from '../../shared/utils/Result';
-import { Money } from '../../shared/utils/Money';
+// ViewModel: BudgetViewModel
+// Gerencia o estado e lógica de apresentação para orçamentos
+// Segue Clean Architecture - conecta UI aos Use Cases
 
-export interface CreateBudgetDTO {
+import { Budget } from '../../domain/entities/Budget';
+import { IBudgetRepository } from '../../domain/repositories/IBudgetRepository';
+import { CreateBudgetUseCase } from '../../domain/use-cases/CreateBudgetUseCase';
+import { UpdateBudgetUseCase } from '../../domain/use-cases/UpdateBudgetUseCase';
+import { DeleteBudgetUseCase } from '../../domain/use-cases/DeleteBudgetUseCase';
+import { GetBudgetsUseCase } from '../../domain/use-cases/GetBudgetsUseCase';
+import { GetBudgetByIdUseCase } from '../../domain/use-cases/GetBudgetByIdUseCase';
+import { ActivateBudgetUseCase } from '../../domain/use-cases/ActivateBudgetUseCase';
+
+export interface CreateBudgetData {
   userId: string;
   name: string;
   startPeriod: Date;
   endPeriod: Date;
   type: 'manual';
-  totalPlannedValue: Money;
+  totalPlannedValue: import('../../shared/utils/Money').Money;
 }
 
-export interface UpdateBudgetDTO {
+export interface UpdateBudgetData {
   name?: string;
   startPeriod?: Date;
   endPeriod?: Date;
-  totalPlannedValue?: Money;
+  type?: 'manual';
+  totalPlannedValue?: import('../../shared/utils/Money').Money;
+  isActive?: boolean;
+  status?: 'active' | 'inactive' | 'expired';
 }
 
 export class BudgetViewModel {
-  private _budgets: Budget[] = [];
-  private _loading: boolean = false;
-  private _error: string | null = null;
-  private _selectedBudget: Budget | null = null;
+  public loading: boolean = false;
+  public error: string | null = null;
+  public budgets: Budget[] = [];
+  public currentBudget: Budget | null = null;
 
-  constructor(
-    private budgetRepository: IBudgetRepository,
-    private budgetItemRepository: IBudgetItemRepository
-  ) {}
+  private createBudgetUseCase: CreateBudgetUseCase;
+  private updateBudgetUseCase: UpdateBudgetUseCase;
+  private deleteBudgetUseCase: DeleteBudgetUseCase;
+  private getBudgetsUseCase: GetBudgetsUseCase;
+  private getBudgetByIdUseCase: GetBudgetByIdUseCase;
+  private activateBudgetUseCase: ActivateBudgetUseCase;
 
-  // Getters for state
-  get budgets(): Budget[] {
-    return this._budgets;
+  constructor(budgetRepository: IBudgetRepository) {
+    this.createBudgetUseCase = new CreateBudgetUseCase(budgetRepository);
+    this.updateBudgetUseCase = new UpdateBudgetUseCase(budgetRepository);
+    this.deleteBudgetUseCase = new DeleteBudgetUseCase(budgetRepository);
+    this.getBudgetsUseCase = new GetBudgetsUseCase(budgetRepository);
+    this.getBudgetByIdUseCase = new GetBudgetByIdUseCase(budgetRepository);
+    this.activateBudgetUseCase = new ActivateBudgetUseCase(budgetRepository);
   }
 
-  get loading(): boolean {
-    return this._loading;
-  }
-
-  get error(): string | null {
-    return this._error;
-  }
-
-  get selectedBudget(): Budget | null {
-    return this._selectedBudget;
-  }
-
-  // Setters for state
-  set budgets(value: Budget[]) {
-    this._budgets = value;
-  }
-
-  set loading(value: boolean) {
-    this._loading = value;
-  }
-
-  set error(value: string | null) {
-    this._error = value;
-  }
-
-  set selectedBudget(value: Budget | null) {
-    this._selectedBudget = value;
-  }
-
-  /**
-   * Load all budgets
-   */
-  async loadBudgets(): Promise<void> {
+  // Public methods
+  async loadBudgets(userId: string): Promise<void> {
     this.loading = true;
     this.error = null;
 
     try {
-      const budgets = await this.budgetRepository.findAll();
-      this.budgets = budgets;
+      const result = await this.getBudgetsUseCase.execute({ userId });
+      
+      if (result.isSuccess()) {
+        this.budgets = result.getOrElse({ budgets: [] }).budgets;
+      } else {
+        const error = result.getOrThrow();
+        this.error = error instanceof Error ? error.message : 'Failed to load budgets';
+        this.budgets = [];
+      }
     } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Failed to load budgets';
+      this.error = error instanceof Error ? error.message : 'Unknown error occurred';
       this.budgets = [];
     } finally {
       this.loading = false;
     }
   }
 
-  /**
-   * Load budgets by user
-   */
-  async loadBudgetsByUser(userId: string): Promise<void> {
+  async createBudget(budgetData: CreateBudgetData): Promise<Budget> {
     this.loading = true;
     this.error = null;
 
     try {
-      const budgets = await this.budgetRepository.findByUser(userId);
-      this.budgets = budgets;
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Failed to load user budgets';
-      this.budgets = [];
-    } finally {
+      const result = await this.createBudgetUseCase.execute(budgetData);
+      
+      if (result.isSuccess()) {
+        const budget = result.getOrElse({ budget: null as any }).budget;
+        if (budget) {
+          this.budgets.push(budget);
+          this.loading = false;
+          return budget;
+        }
+      }
+      
+      const error = result.getOrThrow();
+      this.error = error instanceof Error ? error.message : 'Failed to create budget';
       this.loading = false;
+      throw new Error(this.error);
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.loading = false;
+      throw error;
     }
   }
 
-  /**
-   * Create a new budget
-   */
-  async createBudget(data: CreateBudgetDTO): Promise<Result<Budget>> {
+  async updateBudget(budgetId: string, updateData: UpdateBudgetData): Promise<Budget> {
+    this.loading = true;
     this.error = null;
 
     try {
-      const budget = new Budget({
-        id: '', // Will be generated by repository
-        userId: data.userId,
-        name: data.name,
-        startPeriod: data.startPeriod,
-        endPeriod: data.endPeriod,
-        type: data.type,
-        totalPlannedValue: data.totalPlannedValue
-      });
+      const result = await this.updateBudgetUseCase.execute({ budgetId, ...updateData });
+      
+      if (result.isSuccess()) {
+        const budget = result.getOrElse({ budget: null as any }).budget;
+        if (budget) {
+          // Update the budget in the list
+          const index = this.budgets.findIndex(b => b.id === budgetId);
+          if (index !== -1) {
+            this.budgets[index] = budget;
+          }
 
-      const savedBudget = await this.budgetRepository.save(budget);
-      return success(savedBudget);
+          // Update current budget if it's the same
+          if (this.currentBudget?.id === budgetId) {
+            this.currentBudget = budget;
+          }
+          
+          this.loading = false;
+          return budget;
+        }
+      }
+      
+      const error = result.getOrThrow();
+      this.error = error instanceof Error ? error.message : 'Failed to update budget';
+      this.loading = false;
+      throw new Error(this.error);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create budget';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
+      this.error = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.loading = false;
+      throw error;
     }
   }
 
-  /**
-   * Update an existing budget
-   */
-  async updateBudget(budgetId: string, data: UpdateBudgetDTO): Promise<Result<Budget>> {
+  async deleteBudget(budgetId: string): Promise<boolean> {
+    this.loading = true;
     this.error = null;
 
     try {
-      const existingBudget = await this.budgetRepository.findById(budgetId);
-      if (!existingBudget) {
-        const errorMessage = 'Budget not found';
-        this.error = errorMessage;
-        return failure(new Error(errorMessage));
+      const result = await this.deleteBudgetUseCase.execute({ budgetId });
+      
+      if (result.isSuccess()) {
+        const success = result.getOrElse({ success: false }).success;
+        if (success) {
+          // Remove the budget from the list
+          this.budgets = this.budgets.filter(budget => budget.id !== budgetId);
+
+          // Clear current budget if it's the same
+          if (this.currentBudget?.id === budgetId) {
+            this.currentBudget = null;
+          }
+        }
+        
+        this.loading = false;
+        return success;
       }
-
-      let updatedBudget = existingBudget;
-
-      if (data.name !== undefined) {
-        updatedBudget = updatedBudget.updateName(data.name);
-      }
-
-      if (data.startPeriod !== undefined) {
-        // Note: Budget entity might need a method to update startPeriod
-        // For now, we'll create a new budget with updated data
-        updatedBudget = new Budget({
-          id: existingBudget.id,
-          userId: existingBudget.userId,
-          name: existingBudget.name,
-          startPeriod: data.startPeriod,
-          endPeriod: existingBudget.endPeriod,
-          type: existingBudget.type,
-          totalPlannedValue: existingBudget.totalPlannedValue,
-          isActive: existingBudget.isActive,
-          status: existingBudget.status,
-          createdAt: existingBudget.createdAt
-        });
-      }
-
-      if (data.endPeriod !== undefined) {
-        // Note: Budget entity might need a method to update endPeriod
-        // For now, we'll create a new budget with updated data
-        updatedBudget = new Budget({
-          id: existingBudget.id,
-          userId: existingBudget.userId,
-          name: existingBudget.name,
-          startPeriod: existingBudget.startPeriod,
-          endPeriod: data.endPeriod,
-          type: existingBudget.type,
-          totalPlannedValue: existingBudget.totalPlannedValue,
-          isActive: existingBudget.isActive,
-          status: existingBudget.status,
-          createdAt: existingBudget.createdAt
-        });
-      }
-
-      if (data.totalPlannedValue !== undefined) {
-        updatedBudget = updatedBudget.updateTotalPlannedValue(data.totalPlannedValue);
-      }
-
-      const savedBudget = await this.budgetRepository.save(updatedBudget);
-      return success(savedBudget);
+      
+      const error = result.getOrThrow();
+      this.error = error instanceof Error ? error.message : 'Failed to delete budget';
+      this.loading = false;
+      throw new Error(this.error);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update budget';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
+      this.error = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.loading = false;
+      throw error;
     }
   }
 
-  /**
-   * Delete a budget
-   */
-  async deleteBudget(budgetId: string): Promise<Result<boolean>> {
+  async getBudgetById(budgetId: string): Promise<Budget> {
+    this.loading = true;
     this.error = null;
 
     try {
-      const deleteResult = await this.budgetRepository.delete(budgetId);
-      return success(deleteResult);
+      const result = await this.getBudgetByIdUseCase.execute({ budgetId });
+      
+      if (result.isSuccess()) {
+        const budget = result.getOrElse({ budget: null as any }).budget;
+        if (budget) {
+          this.currentBudget = budget;
+          this.loading = false;
+          return budget;
+        }
+      }
+      
+      const error = result.getOrThrow();
+      this.error = error instanceof Error ? error.message : 'Budget not found';
+      this.currentBudget = null;
+      this.loading = false;
+      throw new Error(this.error);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete budget';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
+      this.error = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.currentBudget = null;
+      this.loading = false;
+      throw error;
     }
   }
 
-  /**
-   * Activate a budget
-   */
-  async activateBudget(budgetId: string): Promise<Result<Budget>> {
+  async activateBudget(budgetId: string): Promise<Budget> {
+    this.loading = true;
     this.error = null;
 
     try {
-      const existingBudget = await this.budgetRepository.findById(budgetId);
-      if (!existingBudget) {
-        const errorMessage = 'Budget not found';
-        this.error = errorMessage;
-        return failure(new Error(errorMessage));
-      }
+      const result = await this.activateBudgetUseCase.execute({ budgetId });
+      
+      if (result.isSuccess()) {
+        const budget = result.getOrElse({ budget: null as any }).budget;
+        if (budget) {
+          // Update the budget in the list
+          const index = this.budgets.findIndex(b => b.id === budgetId);
+          if (index !== -1) {
+            this.budgets[index] = budget;
+          }
 
-      const activatedBudget = existingBudget.activate();
-      const savedBudget = await this.budgetRepository.save(activatedBudget);
-      return success(savedBudget);
+          // Update current budget if it's the same
+          if (this.currentBudget?.id === budgetId) {
+            this.currentBudget = budget;
+          }
+          
+          this.loading = false;
+          return budget;
+        }
+      }
+      
+      const error = result.getOrThrow();
+      this.error = error instanceof Error ? error.message : 'Failed to activate budget';
+      this.loading = false;
+      throw new Error(this.error);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to activate budget';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
+      this.error = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.loading = false;
+      throw error;
     }
   }
 
-  /**
-   * Deactivate a budget
-   */
-  async deactivateBudget(budgetId: string): Promise<Result<Budget>> {
-    this.error = null;
-
-    try {
-      const existingBudget = await this.budgetRepository.findById(budgetId);
-      if (!existingBudget) {
-        const errorMessage = 'Budget not found';
-        this.error = errorMessage;
-        return failure(new Error(errorMessage));
-      }
-
-      const deactivatedBudget = existingBudget.deactivate();
-      const savedBudget = await this.budgetRepository.save(deactivatedBudget);
-      return success(savedBudget);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to deactivate budget';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
-    }
-  }
-
-  /**
-   * Select a budget by ID
-   */
-  async selectBudget(budgetId: string): Promise<void> {
-    this.error = null;
-
-    try {
-      const budget = await this.budgetRepository.findById(budgetId);
-      if (!budget) {
-        this.error = 'Budget not found';
-        this.selectedBudget = null;
-        return;
-      }
-
-      this.selectedBudget = budget;
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Failed to find budget';
-      this.selectedBudget = null;
-    }
-  }
-
-  /**
-   * Clear error
-   */
   clearError(): void {
     this.error = null;
   }
 
-  /**
-   * Get active budget from budgets array
-   */
-  getActiveBudget(): Budget | null {
-    return this.budgets.find(budget => budget.isActive) || null;
+  setCurrentBudget(budget: Budget | null): void {
+    this.currentBudget = budget;
   }
 
-  /**
-   * Get budget by ID from budgets array
-   */
-  getBudgetById(budgetId: string): Budget | null {
-    return this.budgets.find(budget => budget.id === budgetId) || null;
+  // Helper methods
+  getActiveBudgets(): Budget[] {
+    return this.budgets.filter(budget => budget.isActive);
   }
 
-  /**
-   * Get budget items for a specific budget
-   */
-  async getBudgetItems(budgetId: string): Promise<BudgetItem[]> {
-    try {
-      return await this.budgetItemRepository.findByBudget(budgetId);
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Failed to load budget items';
-      return [];
-    }
+  getBudgetsByType(type: 'manual'): Budget[] {
+    return this.budgets.filter(budget => budget.type === type);
   }
 
-  /**
-   * Create budget item
-   */
-  async createBudgetItem(budgetItem: BudgetItem): Promise<Result<BudgetItem>> {
-    this.error = null;
-
-    try {
-      const savedBudgetItem = await this.budgetItemRepository.save(budgetItem);
-      return success(savedBudgetItem);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create budget item';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
-    }
-  }
-
-  /**
-   * Update budget item
-   */
-  async updateBudgetItem(budgetItem: BudgetItem): Promise<Result<BudgetItem>> {
-    this.error = null;
-
-    try {
-      const savedBudgetItem = await this.budgetItemRepository.save(budgetItem);
-      return success(savedBudgetItem);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update budget item';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
-    }
-  }
-
-  /**
-   * Delete budget item
-   */
-  async deleteBudgetItem(budgetItemId: string): Promise<Result<boolean>> {
-    this.error = null;
-
-    try {
-      const deleteResult = await this.budgetItemRepository.delete(budgetItemId);
-      return success(deleteResult);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete budget item';
-      this.error = errorMessage;
-      return failure(new Error(errorMessage));
-    }
-  }
-
-  /**
-   * Calculate budget performance
-   */
-  async calculateBudgetPerformance(budgetId: string): Promise<{
-    plannedTotal: Money;
-    actualTotal: Money;
-    variance: Money;
-    percentageUsed: number;
-  }> {
-    try {
-      const budgetItems = await this.budgetItemRepository.findByBudget(budgetId);
+  getBudgetsByDateRange(startDate: Date, endDate: Date): Budget[] {
+    return this.budgets.filter(budget => {
+      const budgetStart = budget.startPeriod;
+      const budgetEnd = budget.endPeriod;
       
-      const plannedTotal = budgetItems.reduce(
-        (sum, item) => sum.add(item.plannedValue),
-        new Money(0, 'BRL')
+      return (
+        (budgetStart >= startDate && budgetStart <= endDate) ||
+        (budgetEnd >= startDate && budgetEnd <= endDate) ||
+        (budgetStart <= startDate && budgetEnd >= endDate)
       );
+    });
+  }
 
-      const actualTotal = budgetItems.reduce(
-        (sum, item) => sum.add(item.actualValue || new Money(0, 'BRL')),
-        new Money(0, 'BRL')
-      );
+  getBudgetsByStatus(status: 'active' | 'inactive' | 'expired'): Budget[] {
+    return this.budgets.filter(budget => budget.status === status);
+  }
 
-      const variance = plannedTotal.subtract(actualTotal);
-      const percentageUsed = plannedTotal.value > 0 ? (actualTotal.value / plannedTotal.value) * 100 : 0;
+  getTotalPlannedValue(): number {
+    return this.budgets.reduce((total, budget) => {
+      return total + budget.totalPlannedValue.value;
+    }, 0);
+  }
 
-      return {
-        plannedTotal,
-        actualTotal,
-        variance,
-        percentageUsed
-      };
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Failed to calculate budget performance';
-      return {
-        plannedTotal: new Money(0, 'BRL'),
-        actualTotal: new Money(0, 'BRL'),
-        variance: new Money(0, 'BRL'),
-        percentageUsed: 0
-      };
-    }
+  getTotalPlannedValueByType(type: 'manual'): number {
+    return this.getBudgetsByType(type).reduce((total, budget) => {
+      return total + budget.totalPlannedValue.value;
+    }, 0);
+  }
+
+  getBudgetsCount(): number {
+    return this.budgets.length;
+  }
+
+  getActiveBudgetsCount(): number {
+    return this.getActiveBudgets().length;
+  }
+
+  hasActiveBudgets(): boolean {
+    return this.getActiveBudgets().length > 0;
+  }
+
+  isBudgetActive(budgetId: string): boolean {
+    const budget = this.budgets.find(b => b.id === budgetId);
+    return budget ? budget.isActive : false;
+  }
+
+  getBudgetByIdSync(budgetId: string): Budget | null {
+    return this.budgets.find(budget => budget.id === budgetId) || null;
   }
 }

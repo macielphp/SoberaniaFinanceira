@@ -1,406 +1,390 @@
 import { BudgetViewModel } from '../../../../clean-architecture/presentation/view-models/BudgetViewModel';
 import { Budget } from '../../../../clean-architecture/domain/entities/Budget';
 import { Money } from '../../../../clean-architecture/shared/utils/Money';
-import { Result } from '../../../../clean-architecture/shared/utils/Result';
+import { Result, success, failure } from '../../../../clean-architecture/shared/utils/Result';
 
-// Mock repositories
-const mockBudgetRepository = {
-  save: jest.fn(),
-  findById: jest.fn(),
-  findAll: jest.fn(),
-  findByUser: jest.fn(),
-  findActiveByUser: jest.fn(),
-  findByDateRange: jest.fn(),
-  delete: jest.fn(),
-  deleteAll: jest.fn(),
-  count: jest.fn(),
+// Mock dos Use Cases
+const mockCreateBudgetUseCase = {
+  execute: jest.fn(),
 };
 
-const mockBudgetItemRepository = {
-  save: jest.fn(),
-  findById: jest.fn(),
-  findByBudget: jest.fn(),
-  findByCategory: jest.fn(),
-  findAll: jest.fn(),
-  delete: jest.fn(),
-  deleteAll: jest.fn(),
-  count: jest.fn(),
+const mockUpdateBudgetUseCase = {
+  execute: jest.fn(),
 };
+
+const mockDeleteBudgetUseCase = {
+  execute: jest.fn(),
+};
+
+const mockGetBudgetsUseCase = {
+  execute: jest.fn(),
+};
+
+const mockGetBudgetByIdUseCase = {
+  execute: jest.fn(),
+};
+
+const mockActivateBudgetUseCase = {
+  execute: jest.fn(),
+};
+
+jest.mock('../../../../clean-architecture/domain/use-cases/CreateBudgetUseCase', () => ({
+  CreateBudgetUseCase: jest.fn(() => mockCreateBudgetUseCase),
+}));
+
+jest.mock('../../../../clean-architecture/domain/use-cases/UpdateBudgetUseCase', () => ({
+  UpdateBudgetUseCase: jest.fn(() => mockUpdateBudgetUseCase),
+}));
+
+jest.mock('../../../../clean-architecture/domain/use-cases/DeleteBudgetUseCase', () => ({
+  DeleteBudgetUseCase: jest.fn(() => mockDeleteBudgetUseCase),
+}));
+
+jest.mock('../../../../clean-architecture/domain/use-cases/GetBudgetsUseCase', () => ({
+  GetBudgetsUseCase: jest.fn(() => mockGetBudgetsUseCase),
+}));
+
+jest.mock('../../../../clean-architecture/domain/use-cases/GetBudgetByIdUseCase', () => ({
+  GetBudgetByIdUseCase: jest.fn(() => mockGetBudgetByIdUseCase),
+}));
+
+jest.mock('../../../../clean-architecture/domain/use-cases/ActivateBudgetUseCase', () => ({
+  ActivateBudgetUseCase: jest.fn(() => mockActivateBudgetUseCase),
+}));
 
 describe('BudgetViewModel', () => {
-  let viewModel: BudgetViewModel;
-  let mockBudget: Budget;
+  let budgetViewModel: BudgetViewModel;
+
+  const mockBudget = new Budget({
+    id: '1',
+    userId: 'user1',
+    name: 'Orçamento Mensal',
+    startPeriod: new Date('2024-01-01'),
+    endPeriod: new Date('2024-01-31'),
+    type: 'manual',
+    totalPlannedValue: new Money(5000),
+    isActive: true,
+    status: 'active',
+    createdAt: new Date('2024-01-01'),
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    viewModel = new BudgetViewModel(mockBudgetRepository, mockBudgetItemRepository);
-    
-    mockBudget = new Budget({
-      id: 'budget-123',
-      userId: 'user-456',
-      name: 'Orçamento Janeiro 2024',
-      startPeriod: new Date('2024-01-01'),
-      endPeriod: new Date('2024-01-31'),
-      type: 'manual',
-      totalPlannedValue: new Money(5000, 'BRL')
-    });
+    const mockBudgetRepository = {} as any;
+    budgetViewModel = new BudgetViewModel(mockBudgetRepository);
   });
 
-  describe('Initial State', () => {
-    it('should initialize with empty budgets array', () => {
-      expect(viewModel.budgets).toEqual([]);
-    });
-
-    it('should initialize with loading false', () => {
-      expect(viewModel.loading).toBe(false);
-    });
-
-    it('should initialize with error null', () => {
-      expect(viewModel.error).toBeNull();
-    });
-
-    it('should initialize with selectedBudget null', () => {
-      expect(viewModel.selectedBudget).toBeNull();
+  describe('initialization', () => {
+    it('should initialize with empty state', () => {
+      expect(budgetViewModel.budgets).toEqual([]);
+      expect(budgetViewModel.currentBudget).toBeNull();
+      expect(budgetViewModel.loading).toBe(false);
+      expect(budgetViewModel.error).toBeNull();
     });
   });
 
   describe('loadBudgets', () => {
     it('should load budgets successfully', async () => {
       const mockBudgets = [mockBudget];
-      mockBudgetRepository.findAll.mockResolvedValue(mockBudgets);
+      mockGetBudgetsUseCase.execute.mockResolvedValue(success({ budgets: mockBudgets }));
 
-      await viewModel.loadBudgets();
+      await budgetViewModel.loadBudgets('user1');
 
-      expect(viewModel.budgets).toEqual(mockBudgets);
-      expect(viewModel.loading).toBe(false);
-      expect(viewModel.error).toBeNull();
-      expect(mockBudgetRepository.findAll).toHaveBeenCalled();
+      expect(mockGetBudgetsUseCase.execute).toHaveBeenCalledWith({ userId: 'user1' });
+      expect(budgetViewModel.budgets).toEqual(mockBudgets);
+      expect(budgetViewModel.loading).toBe(false);
+      expect(budgetViewModel.error).toBeNull();
     });
 
     it('should handle error when loading budgets fails', async () => {
       const errorMessage = 'Failed to load budgets';
-      mockBudgetRepository.findAll.mockRejectedValue(new Error(errorMessage));
+      mockGetBudgetsUseCase.execute.mockResolvedValue(failure(new Error(errorMessage)));
 
-      await viewModel.loadBudgets();
+      await budgetViewModel.loadBudgets('user1');
 
-      expect(viewModel.budgets).toEqual([]);
-      expect(viewModel.loading).toBe(false);
-      expect(viewModel.error).toBe(errorMessage);
-    });
-
-    it('should set loading to true during operation', async () => {
-      mockBudgetRepository.findAll.mockResolvedValue([]);
-
-      const loadPromise = viewModel.loadBudgets();
-      
-      expect(viewModel.loading).toBe(true);
-      
-      await loadPromise;
-      
-      expect(viewModel.loading).toBe(false);
-    });
-  });
-
-  describe('loadBudgetsByUser', () => {
-    it('should load budgets by user successfully', async () => {
-      const userId = 'user-456';
-      const mockBudgets = [mockBudget];
-      mockBudgetRepository.findByUser.mockResolvedValue(mockBudgets);
-
-      await viewModel.loadBudgetsByUser(userId);
-
-      expect(viewModel.budgets).toEqual(mockBudgets);
-      expect(viewModel.loading).toBe(false);
-      expect(viewModel.error).toBeNull();
-      expect(mockBudgetRepository.findByUser).toHaveBeenCalledWith(userId);
-    });
-
-    it('should handle error when loading budgets by user fails', async () => {
-      const userId = 'user-456';
-      const errorMessage = 'Failed to load user budgets';
-      mockBudgetRepository.findByUser.mockRejectedValue(new Error(errorMessage));
-
-      await viewModel.loadBudgetsByUser(userId);
-
-      expect(viewModel.budgets).toEqual([]);
-      expect(viewModel.loading).toBe(false);
-      expect(viewModel.error).toBe(errorMessage);
+      expect(budgetViewModel.budgets).toEqual([]);
+      expect(budgetViewModel.error).toBe(errorMessage);
+      expect(budgetViewModel.loading).toBe(false);
     });
   });
 
   describe('createBudget', () => {
     it('should create budget successfully', async () => {
-      const createData = {
-        userId: 'user-456',
+      const budgetData = {
+        userId: 'user1',
         name: 'Novo Orçamento',
         startPeriod: new Date('2024-02-01'),
         endPeriod: new Date('2024-02-29'),
         type: 'manual' as const,
-        totalPlannedValue: new Money(3000, 'BRL')
+        totalPlannedValue: new Money(6000),
       };
 
-      mockBudgetRepository.save.mockResolvedValue(mockBudget);
+      const newBudget = new Budget({
+        id: '2',
+        ...budgetData,
+        isActive: true,
+        status: 'active',
+        createdAt: new Date(),
+      });
 
-      const result = await viewModel.createBudget(createData);
+      mockCreateBudgetUseCase.execute.mockResolvedValue(success({ budget: newBudget }));
 
-      expect(mockBudgetRepository.save).toHaveBeenCalled();
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getOrThrow()).toEqual(mockBudget);
-      expect(viewModel.error).toBeNull();
+      const result = await budgetViewModel.createBudget(budgetData);
+
+      expect(mockCreateBudgetUseCase.execute).toHaveBeenCalledWith(budgetData);
+      expect(result).toEqual(newBudget);
+      expect(budgetViewModel.budgets).toContain(newBudget);
+      expect(budgetViewModel.loading).toBe(false);
+      expect(budgetViewModel.error).toBeNull();
     });
 
     it('should handle error when creating budget fails', async () => {
-      const createData = {
-        userId: 'user-456',
+      const budgetData = {
+        userId: 'user1',
         name: 'Novo Orçamento',
         startPeriod: new Date('2024-02-01'),
         endPeriod: new Date('2024-02-29'),
         type: 'manual' as const,
-        totalPlannedValue: new Money(3000, 'BRL')
+        totalPlannedValue: new Money(6000),
       };
 
       const errorMessage = 'Failed to create budget';
-      mockBudgetRepository.save.mockRejectedValue(new Error(errorMessage));
+      mockCreateBudgetUseCase.execute.mockResolvedValue(failure(new Error(errorMessage)));
 
-      const result = await viewModel.createBudget(createData);
-
-      expect(result.isFailure()).toBe(true);
-      expect(() => result.getOrThrow()).toThrow('Failed to create budget');
-      expect(viewModel.error).toBe(errorMessage);
+      await expect(budgetViewModel.createBudget(budgetData)).rejects.toThrow(errorMessage);
+      expect(budgetViewModel.error).toBe(errorMessage);
+      expect(budgetViewModel.loading).toBe(false);
     });
   });
 
   describe('updateBudget', () => {
     it('should update budget successfully', async () => {
-      const budgetId = 'budget-123';
       const updateData = {
         name: 'Orçamento Atualizado',
-        totalPlannedValue: new Money(6000, 'BRL')
+        totalPlannedValue: new Money(7000),
       };
 
       const updatedBudget = new Budget({
         id: mockBudget.id,
         userId: mockBudget.userId,
-        name: 'Orçamento Atualizado',
+        name: updateData.name || mockBudget.name,
         startPeriod: mockBudget.startPeriod,
         endPeriod: mockBudget.endPeriod,
         type: mockBudget.type,
-        totalPlannedValue: new Money(6000, 'BRL'),
+        totalPlannedValue: updateData.totalPlannedValue || mockBudget.totalPlannedValue,
         isActive: mockBudget.isActive,
         status: mockBudget.status,
-        createdAt: mockBudget.createdAt
+        createdAt: mockBudget.createdAt,
       });
 
-      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
-      mockBudgetRepository.save.mockResolvedValue(updatedBudget);
+      mockUpdateBudgetUseCase.execute.mockResolvedValue(success({ budget: updatedBudget }));
 
-      const result = await viewModel.updateBudget(budgetId, updateData);
+      const result = await budgetViewModel.updateBudget('1', updateData);
 
-      expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
-      expect(mockBudgetRepository.save).toHaveBeenCalled();
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getOrThrow()).toEqual(updatedBudget);
-      expect(viewModel.error).toBeNull();
+      expect(mockUpdateBudgetUseCase.execute).toHaveBeenCalledWith({ budgetId: '1', ...updateData });
+      expect(result).toEqual(updatedBudget);
+      expect(budgetViewModel.loading).toBe(false);
+      expect(budgetViewModel.error).toBeNull();
     });
 
     it('should handle error when updating budget fails', async () => {
-      const budgetId = 'budget-123';
-      const updateData = {
-        name: 'Orçamento Atualizado'
-      };
-
+      const updateData = { name: 'Orçamento Atualizado' };
       const errorMessage = 'Failed to update budget';
-      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
-      mockBudgetRepository.save.mockRejectedValue(new Error(errorMessage));
+      mockUpdateBudgetUseCase.execute.mockResolvedValue(failure(new Error(errorMessage)));
 
-      const result = await viewModel.updateBudget(budgetId, updateData);
-
-      expect(result.isFailure()).toBe(true);
-      expect(() => result.getOrThrow()).toThrow('Failed to update budget');
-      expect(viewModel.error).toBe(errorMessage);
+      await expect(budgetViewModel.updateBudget('1', updateData)).rejects.toThrow(errorMessage);
+      expect(budgetViewModel.error).toBe(errorMessage);
+      expect(budgetViewModel.loading).toBe(false);
     });
   });
 
   describe('deleteBudget', () => {
     it('should delete budget successfully', async () => {
-      const budgetId = 'budget-123';
-      mockBudgetRepository.delete.mockResolvedValue(true);
+      mockDeleteBudgetUseCase.execute.mockResolvedValue(success({ success: true }));
 
-      const result = await viewModel.deleteBudget(budgetId);
+      const result = await budgetViewModel.deleteBudget('1');
 
-      expect(mockBudgetRepository.delete).toHaveBeenCalledWith(budgetId);
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getOrThrow()).toBe(true);
-      expect(viewModel.error).toBeNull();
+      expect(mockDeleteBudgetUseCase.execute).toHaveBeenCalledWith({ budgetId: '1' });
+      expect(result).toBe(true);
+      expect(budgetViewModel.loading).toBe(false);
+      expect(budgetViewModel.error).toBeNull();
     });
 
     it('should handle error when deleting budget fails', async () => {
-      const budgetId = 'budget-123';
       const errorMessage = 'Failed to delete budget';
-      mockBudgetRepository.delete.mockRejectedValue(new Error(errorMessage));
+      mockDeleteBudgetUseCase.execute.mockResolvedValue(failure(new Error(errorMessage)));
 
-      const result = await viewModel.deleteBudget(budgetId);
+      await expect(budgetViewModel.deleteBudget('1')).rejects.toThrow(errorMessage);
+      expect(budgetViewModel.error).toBe(errorMessage);
+      expect(budgetViewModel.loading).toBe(false);
+    });
+  });
 
-      expect(result.isFailure()).toBe(true);
-      expect(() => result.getOrThrow()).toThrow('Failed to delete budget');
-      expect(viewModel.error).toBe(errorMessage);
+  describe('getBudgetById', () => {
+    it('should get budget by id successfully', async () => {
+      mockGetBudgetByIdUseCase.execute.mockResolvedValue(success({ budget: mockBudget }));
+
+      const result = await budgetViewModel.getBudgetById('1');
+
+      expect(mockGetBudgetByIdUseCase.execute).toHaveBeenCalledWith({ budgetId: '1' });
+      expect(result).toEqual(mockBudget);
+      expect(budgetViewModel.currentBudget).toEqual(mockBudget);
+      expect(budgetViewModel.loading).toBe(false);
+      expect(budgetViewModel.error).toBeNull();
+    });
+
+    it('should handle error when getting budget by id fails', async () => {
+      const errorMessage = 'Budget not found';
+      mockGetBudgetByIdUseCase.execute.mockResolvedValue(failure(new Error(errorMessage)));
+
+      await expect(budgetViewModel.getBudgetById('1')).rejects.toThrow(errorMessage);
+      expect(budgetViewModel.currentBudget).toBeNull();
+      expect(budgetViewModel.error).toBe(errorMessage);
+      expect(budgetViewModel.loading).toBe(false);
     });
   });
 
   describe('activateBudget', () => {
     it('should activate budget successfully', async () => {
-      const budgetId = 'budget-123';
-      const activatedBudget = mockBudget.activate();
-      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
-      mockBudgetRepository.save.mockResolvedValue(activatedBudget);
+      const activatedBudget = new Budget({
+        id: mockBudget.id,
+        userId: mockBudget.userId,
+        name: mockBudget.name,
+        startPeriod: mockBudget.startPeriod,
+        endPeriod: mockBudget.endPeriod,
+        type: mockBudget.type,
+        totalPlannedValue: mockBudget.totalPlannedValue,
+        isActive: true,
+        status: 'active',
+        createdAt: mockBudget.createdAt,
+      });
 
-      const result = await viewModel.activateBudget(budgetId);
+      mockActivateBudgetUseCase.execute.mockResolvedValue(success({ budget: activatedBudget }));
 
-      expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
-      expect(mockBudgetRepository.save).toHaveBeenCalled();
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getOrThrow()).toEqual(activatedBudget);
-      expect(result.getOrThrow()?.isActive).toBe(true);
-      expect(viewModel.error).toBeNull();
+      const result = await budgetViewModel.activateBudget('1');
+
+      expect(mockActivateBudgetUseCase.execute).toHaveBeenCalledWith({ budgetId: '1' });
+      expect(result).toEqual(activatedBudget);
+      expect(budgetViewModel.loading).toBe(false);
+      expect(budgetViewModel.error).toBeNull();
     });
 
     it('should handle error when activating budget fails', async () => {
-      const budgetId = 'budget-123';
       const errorMessage = 'Failed to activate budget';
-      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
-      mockBudgetRepository.save.mockRejectedValue(new Error(errorMessage));
+      mockActivateBudgetUseCase.execute.mockResolvedValue(failure(new Error(errorMessage)));
 
-      const result = await viewModel.activateBudget(budgetId);
-
-      expect(result.isFailure()).toBe(true);
-      expect(() => result.getOrThrow()).toThrow('Failed to activate budget');
-      expect(viewModel.error).toBe(errorMessage);
+      await expect(budgetViewModel.activateBudget('1')).rejects.toThrow(errorMessage);
+      expect(budgetViewModel.error).toBe(errorMessage);
+      expect(budgetViewModel.loading).toBe(false);
     });
   });
 
-  describe('deactivateBudget', () => {
-    it('should deactivate budget successfully', async () => {
-      const budgetId = 'budget-123';
-      const deactivatedBudget = mockBudget.deactivate();
-      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
-      mockBudgetRepository.save.mockResolvedValue(deactivatedBudget);
+  describe('helper methods', () => {
+    beforeEach(() => {
+      const activeBudget = new Budget({
+        id: '1',
+        userId: 'user1',
+        name: 'Orçamento Ativo',
+        startPeriod: new Date('2024-01-01'),
+        endPeriod: new Date('2024-01-31'),
+        type: 'manual',
+        totalPlannedValue: new Money(5000),
+        isActive: true,
+        status: 'active',
+        createdAt: new Date('2024-01-01'),
+      });
 
-      const result = await viewModel.deactivateBudget(budgetId);
+      const inactiveBudget = new Budget({
+        id: '2',
+        userId: 'user1',
+        name: 'Orçamento Inativo',
+        startPeriod: new Date('2024-01-01'),
+        endPeriod: new Date('2024-01-31'),
+        type: 'manual',
+        totalPlannedValue: new Money(3000),
+        isActive: false,
+        status: 'inactive',
+        createdAt: new Date('2024-01-01'),
+      });
 
-      expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
-      expect(mockBudgetRepository.save).toHaveBeenCalled();
-      expect(result.isSuccess()).toBe(true);
-      expect(result.getOrThrow()).toEqual(deactivatedBudget);
-      expect(result.getOrThrow()?.isActive).toBe(false);
-      expect(viewModel.error).toBeNull();
+      budgetViewModel.budgets = [activeBudget, inactiveBudget];
     });
 
-    it('should handle error when deactivating budget fails', async () => {
-      const budgetId = 'budget-123';
-      const errorMessage = 'Failed to deactivate budget';
-      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
-      mockBudgetRepository.save.mockRejectedValue(new Error(errorMessage));
+    it('should get active budgets', () => {
+      const activeBudgets = budgetViewModel.getActiveBudgets();
+      expect(activeBudgets).toHaveLength(1);
+      expect(activeBudgets[0].isActive).toBe(true);
+    });
 
-      const result = await viewModel.deactivateBudget(budgetId);
+    it('should get budgets by type', () => {
+      const manualBudgets = budgetViewModel.getBudgetsByType('manual');
+      expect(manualBudgets).toHaveLength(2);
+      expect(manualBudgets.every(budget => budget.type === 'manual')).toBe(true);
+    });
 
-      expect(result.isFailure()).toBe(true);
-      expect(() => result.getOrThrow()).toThrow('Failed to deactivate budget');
-      expect(viewModel.error).toBe(errorMessage);
+    it('should get budgets by date range', () => {
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+      const budgetsInRange = budgetViewModel.getBudgetsByDateRange(startDate, endDate);
+      expect(budgetsInRange).toHaveLength(2);
+    });
+
+    it('should get budgets by status', () => {
+      const activeBudgets = budgetViewModel.getBudgetsByStatus('active');
+      expect(activeBudgets).toHaveLength(1);
+      expect(activeBudgets[0].status).toBe('active');
+    });
+
+    it('should calculate total planned value', () => {
+      const total = budgetViewModel.getTotalPlannedValue();
+      expect(total).toBe(8000); // 5000 + 3000
+    });
+
+    it('should calculate total planned value by type', () => {
+      const total = budgetViewModel.getTotalPlannedValueByType('manual');
+      expect(total).toBe(8000);
+    });
+
+    it('should get budgets count', () => {
+      expect(budgetViewModel.getBudgetsCount()).toBe(2);
+    });
+
+    it('should get active budgets count', () => {
+      expect(budgetViewModel.getActiveBudgetsCount()).toBe(1);
+    });
+
+    it('should check if has active budgets', () => {
+      expect(budgetViewModel.hasActiveBudgets()).toBe(true);
+    });
+
+    it('should check if budget is active', () => {
+      expect(budgetViewModel.isBudgetActive('1')).toBe(true);
+      expect(budgetViewModel.isBudgetActive('2')).toBe(false);
+      expect(budgetViewModel.isBudgetActive('3')).toBe(false);
+    });
+
+    it('should get budget by id synchronously', () => {
+      const budget = budgetViewModel.getBudgetByIdSync('1');
+      expect(budget).toEqual(budgetViewModel.budgets[0]);
+      
+      const notFound = budgetViewModel.getBudgetByIdSync('3');
+      expect(notFound).toBeNull();
     });
   });
 
-  describe('selectBudget', () => {
-    it('should select budget successfully', async () => {
-      const budgetId = 'budget-123';
-      mockBudgetRepository.findById.mockResolvedValue(mockBudget);
-
-      await viewModel.selectBudget(budgetId);
-
-      expect(mockBudgetRepository.findById).toHaveBeenCalledWith(budgetId);
-      expect(viewModel.selectedBudget).toEqual(mockBudget);
-      expect(viewModel.error).toBeNull();
-    });
-
-    it('should handle error when selecting budget fails', async () => {
-      const budgetId = 'budget-123';
-      const errorMessage = 'Failed to find budget';
-      mockBudgetRepository.findById.mockRejectedValue(new Error(errorMessage));
-
-      await viewModel.selectBudget(budgetId);
-
-      expect(viewModel.selectedBudget).toBeNull();
-      expect(viewModel.error).toBe(errorMessage);
-    });
-
-    it('should handle budget not found', async () => {
-      const budgetId = 'budget-123';
-      mockBudgetRepository.findById.mockResolvedValue(null);
-
-      await viewModel.selectBudget(budgetId);
-
-      expect(viewModel.selectedBudget).toBeNull();
-      expect(viewModel.error).toBe('Budget not found');
-    });
-  });
-
-  describe('clearError', () => {
+  describe('state management', () => {
     it('should clear error', () => {
-      viewModel.error = 'Some error';
+      budgetViewModel.error = 'Test error';
+      budgetViewModel.clearError();
+      expect(budgetViewModel.error).toBeNull();
+    });
+
+    it('should set current budget', () => {
+      budgetViewModel.setCurrentBudget(mockBudget);
+      expect(budgetViewModel.currentBudget).toEqual(mockBudget);
       
-      viewModel.clearError();
-      
-      expect(viewModel.error).toBeNull();
-    });
-  });
-
-  describe('getActiveBudget', () => {
-    it('should return active budget from budgets array', () => {
-      const activeBudget = mockBudget.activate();
-      const inactiveBudget = mockBudget.deactivate();
-      
-      viewModel.budgets = [inactiveBudget, activeBudget];
-
-      const result = viewModel.getActiveBudget();
-
-      expect(result).toEqual(activeBudget);
-    });
-
-    it('should return null when no active budget exists', () => {
-      const inactiveBudget = mockBudget.deactivate();
-      viewModel.budgets = [inactiveBudget];
-
-      const result = viewModel.getActiveBudget();
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null when budgets array is empty', () => {
-      viewModel.budgets = [];
-
-      const result = viewModel.getActiveBudget();
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('getBudgetById', () => {
-    it('should return budget by id', () => {
-      const budgetId = 'budget-123';
-      viewModel.budgets = [mockBudget];
-
-      const result = viewModel.getBudgetById(budgetId);
-
-      expect(result).toEqual(mockBudget);
-    });
-
-    it('should return null when budget not found', () => {
-      const budgetId = 'non-existent';
-      viewModel.budgets = [mockBudget];
-
-      const result = viewModel.getBudgetById(budgetId);
-
-      expect(result).toBeNull();
+      budgetViewModel.setCurrentBudget(null);
+      expect(budgetViewModel.currentBudget).toBeNull();
     });
   });
 });
