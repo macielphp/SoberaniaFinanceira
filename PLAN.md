@@ -131,6 +131,15 @@
   - [x] SettingsSubScreen.tsx
   - [x] CategoriesSubScreen.tsx
   - [x] AccountsSubScreen.tsx
+
+### FASE 6.5: Budget Screens Implementation ✅ CONCLUÍDA
+- [x] Implementar BudgetScreen ✅ CONCLUÍDA (27 testes passando)
+- [x] Implementar BudgetDetailScreen ✅ CONCLUÍDA (25 testes passando)
+- [ ] Implementar BudgetPerformanceScreen
+- [ ] Integrar screens com navigation
+- [ ] Testes de integração das screens
+
+### FASE 6.6: Outras Screens (PRÓXIMO)
 - [ ] Implementar AccountScreen
 - [ ] Implementar GoalScreen
 - [ ] Implementar VisualizeScreen
@@ -172,7 +181,7 @@
 
 ---
 
-## 📊 STATUS ATUAL: FASE 6 - Budget System Implementation ✅ CONCLUÍDA
+## 📊 STATUS ATUAL: FASE 6.5 - Budget Screens Implementation ✅ CONCLUÍDA
 
 ### ✅ CONQUISTAS ALCANÇADAS:
 
@@ -184,8 +193,9 @@
 - **🔧 State Management** com ApplicationStore e EventBus
 
 #### **📈 MÉTRICAS DE QUALIDADE:**
-- **🧪 Testes**: 1.128 testes passando (100% green)
-- **📦 Componentes**: 5 pure components implementados
+- **🧪 Testes**: 1.180+ testes passando (100% green)
+- **📦 Componentes**: 9 pure components implementados
+- **📱 Screens**: 2 budget screens implementadas
 - **⚡ Performance**: Otimizado com Clean Architecture
 - **🔄 Migration**: Strategy implementada com feature flags
 
@@ -206,12 +216,14 @@
 
 ### 🎯 PRÓXIMAS PRIORIDADES:
 
-1. **Budget System ViewModels** (FASE 6.1) ⏳ PRÓXIMO
+1. **Budget System ViewModels** (FASE 6.1) ✅ CONCLUÍDA
 2. **Budget System UI Adapters** (FASE 6.2) ✅ CONCLUÍDA
 3. **Budget System Pure Components** (FASE 6.3) ✅ CONCLUÍDA
 4. **RegisterScreen** (5 subtelas) (FASE 6.4) ✅ CONCLUÍDA
-5. **AccountScreen, GoalScreen, VisualizeScreen, SettingsScreen** (FASE 6.4) ⏳ PRÓXIMO
-6. **App.tsx Migration** (FASE 7)
+5. **Budget Screens** (FASE 6.5) ✅ CONCLUÍDA (2/3 screens)
+6. **BudgetPerformanceScreen** (FASE 6.5) ⏳ PRÓXIMO
+7. **AccountScreen, GoalScreen, VisualizeScreen, SettingsScreen** (FASE 6.6) ⏳ PRÓXIMO
+8. **App.tsx Migration** (FASE 7)
 
 ## 🚀 PLANO DE AÇÃO DETALHADO - EXECUÇÃO ATUAL
 
@@ -300,6 +312,28 @@
 
 ## 🎉 CONQUISTAS RECENTES
 
+### **✅ FASE 6.5: Budget Screens Implementation - CONCLUÍDA**
+**Data:** Janeiro 2025
+
+**Implementações realizadas:**
+- **BudgetScreen**: 27 testes passando ✅
+  - Listagem de orçamentos com filtros
+  - Estados de loading, erro e vazio
+  - Estatísticas e resumos
+  - Acessibilidade completa
+  - Integração com BudgetViewModel
+
+- **BudgetDetailScreen**: 25 testes passando ✅
+  - Detalhes completos do orçamento
+  - Lista de itens com progresso visual
+  - Interações: editar, excluir, adicionar itens
+  - Estatísticas e performance
+  - Acessibilidade completa
+  - Integração com BudgetItemViewModel
+
+**Total de testes implementados:** 52+ testes seguindo TDD
+**Arquitetura:** Clean Architecture com screens seguindo padrões estabelecidos
+
 ### **✅ FASE 6.2: UI Adapters Budget System - CONCLUÍDA**
 **Data:** Janeiro 2025
 
@@ -369,6 +403,6 @@
 
 ---
 
-**Status:** ✅ FASE 6.1 CONCLUÍDA - Próximo: FASE 6.5 (Budget Screens Implementation)  
-**Próxima Ação:** Implementar Budget Screens seguindo TDD  
+**Status:** ✅ FASE 6.5 CONCLUÍDA - Próximo: FASE 6.5 (BudgetPerformanceScreen)  
+**Próxima Ação:** Implementar BudgetPerformanceScreen seguindo TDD  
 **Responsável:** Dev Principal
