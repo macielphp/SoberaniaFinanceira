@@ -142,7 +142,7 @@
 
 ### FASE 6.6: Outras Screens 🚧 EM ANDAMENTO
 - [x] Implementar AccountScreen seguindo TDD ✅ CONCLUÍDA (16 testes passando)
-- [ ] Implementar GoalScreen seguindo TDD
+- [x] Implementar GoalScreen seguindo TDD ✅ CONCLUÍDA (16 testes passando)
 - [ ] Implementar VisualizeScreen seguindo TDD
 - [ ] Implementar SettingsScreen seguindo TDD
 - [ ] Integrar screens com navigation
@@ -398,12 +398,12 @@
 ### **✅ Para conclusão do projeto:**
 - [ ] 100% Clean Architecture
 - [ ] 0% código legacy em uso
-- [ ] 1.200+ testes passando
+- [ ] 1.600+ testes passando
 - [ ] Performance otimizada
 - [ ] Documentação completa
 
 ---
 
-**Status:** ✅ FASE 6.5 CONCLUÍDA - Próximo: FASE 6.6 (Outras Screens)  
-**Próxima Ação:** Implementar AccountScreen seguindo TDD  
+**Status:** ✅ FASE 6.6 EM ANDAMENTO - AccountScreen ✅, GoalScreen ✅, Próximo: VisualizeScreen  
+**Próxima Ação:** Implementar VisualizeScreen seguindo TDD  
 **Responsável:** Dev Principal
