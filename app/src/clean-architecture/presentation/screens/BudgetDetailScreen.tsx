@@ -23,7 +23,10 @@ interface BudgetDetailScreenProps {
   onEdit?: (budget: Budget) => void;
   onDelete?: (budget: Budget) => void;
   onAddItem?: (budget: Budget) => void;
-  onItemPress?: (item: BudgetItem) => void;
+  onItemPress?: (budgetItem: BudgetItem) => void;
+  onNavigateToEdit?: (budget: Budget) => void;
+  onNavigateToAddItem?: (budget: Budget) => void;
+  onNavigateToEditItem?: (budgetItem: BudgetItem) => void;
 }
 
 export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
@@ -32,9 +35,12 @@ export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
   onDelete,
   onAddItem,
   onItemPress,
+  onNavigateToEdit,
+  onNavigateToAddItem,
+  onNavigateToEditItem,
 }) => {
   const [budgetViewModel] = useState(() => new BudgetViewModel({} as any));
-  const [budgetItemViewModel] = useState(() => new BudgetItemViewModel({} as any));
+  const [budgetItemViewModel] = useState(() => new BudgetItemViewModel({} as any, {} as any));
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,11 +66,11 @@ export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
         setError('Orçamento não encontrado');
         return;
       }
-
+      
       // Load budget items
-      const result = await budgetItemViewModel.getBudgetItems(budgetId);
+      const result = await budgetItemViewModel.getBudgetItemsByBudget(budgetId);
       if (result.isSuccess()) {
-        setBudgetItems(result.getOrThrow());
+        setBudgetItems(result.getOrThrow().budgetItems);
       } else {
         setError('Erro ao carregar itens do orçamento');
       }
@@ -76,41 +82,59 @@ export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
     }
   }, [budgetViewModel, budgetItemViewModel, budgetId]);
 
-  const handleEdit = useCallback(() => {
+  const handleEditBudget = useCallback(() => {
     const budget = budgetViewModel.getBudgetByIdSync(budgetId);
     if (budget) {
       onEdit?.(budget);
+      onNavigateToEdit?.(budget);
     }
-  }, [budgetViewModel, budgetId, onEdit]);
-
-  const handleDelete = useCallback(() => {
-    const budget = budgetViewModel.getBudgetByIdSync(budgetId);
-    if (budget) {
-      Alert.alert(
-        'Confirmar Exclusão',
-        `Tem certeza que deseja excluir o orçamento "${budget.name}"?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Excluir',
-            style: 'destructive',
-            onPress: () => onDelete?.(budget),
-          },
-        ]
-      );
-    }
-  }, [budgetViewModel, budgetId, onDelete]);
+  }, [budgetViewModel, budgetId, onEdit, onNavigateToEdit]);
 
   const handleAddItem = useCallback(() => {
     const budget = budgetViewModel.getBudgetByIdSync(budgetId);
     if (budget) {
       onAddItem?.(budget);
+      onNavigateToAddItem?.(budget);
     }
-  }, [budgetViewModel, budgetId, onAddItem]);
+  }, [budgetViewModel, budgetId, onAddItem, onNavigateToAddItem]);
 
-  const handleItemPress = useCallback((item: BudgetItem) => {
-    onItemPress?.(item);
+  const handleDeleteBudget = useCallback(() => {
+    const budget = budgetViewModel.getBudgetByIdSync(budgetId);
+    if (budget) {
+      onDelete?.(budget);
+    }
+  }, [budgetViewModel, budgetId, onDelete]);
+
+  const handleEditItem = useCallback((budgetItem: BudgetItem) => {
+    onNavigateToEditItem?.(budgetItem);
+  }, [onNavigateToEditItem]);
+
+  const handleItemPress = useCallback((budgetItem: BudgetItem) => {
+    onItemPress?.(budgetItem);
   }, [onItemPress]);
+
+  const handleDeleteItem = useCallback(async (budgetItem: BudgetItem) => {
+    Alert.alert(
+      'Confirmar Exclusão',
+      `Tem certeza que deseja excluir o item "${budgetItem.categoryName}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Mock delete for now - in real implementation this would call the ViewModel
+              console.log('Deleting budget item:', budgetItem.id);
+              await loadBudgetData();
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o item');
+            }
+          },
+        },
+      ]
+    );
+  }, [budgetItemViewModel, loadBudgetData]);
 
   const handleRetry = useCallback(() => {
     loadBudgetData();
@@ -142,80 +166,85 @@ export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
     }
   };
 
-  const getItemStatusText = (item: BudgetItem): string => {
-    if (!item.actualValue) return 'Sem dados';
-    if (item.isOverBudget()) return 'Acima do orçamento';
-    if (item.isUnderBudget()) return 'Dentro do orçamento';
-    return 'No orçamento';
+  const getProgressPercentage = (planned: Money, actual: Money): number => {
+    if (planned.value === 0) return 0;
+    return Math.min((actual.value / planned.value) * 100, 100);
   };
 
-  const getItemStatusColor = (item: BudgetItem): string => {
-    if (!item.actualValue) return '#757575';
-    if (item.isOverBudget()) return '#f44336';
-    if (item.isUnderBudget()) return '#4caf50';
-    return '#2196f3';
+  const getProgressColor = (percentage: number): string => {
+    if (percentage <= 80) return '#4caf50';
+    if (percentage <= 100) return '#ff9800';
+    return '#f44336';
   };
 
-  const calculateTotalPlanned = (): Money => {
-    return budgetItems.reduce((total, item) => {
-      return new Money(total.value + item.plannedValue.value, 'BRL');
-    }, new Money(0, 'BRL'));
-  };
-
-  const calculateTotalActual = (): Money => {
-    return budgetItems.reduce((total, item) => {
-      const actualValue = item.actualValue?.value || 0;
-      return new Money(total.value + actualValue, 'BRL');
-    }, new Money(0, 'BRL'));
-  };
-
-  const calculateProgress = (): number => {
-    const totalPlanned = calculateTotalPlanned().value;
-    const totalActual = calculateTotalActual().value;
+  const renderBudgetItem = ({ item }: { item: BudgetItem }) => {
+    const actualValue = item.actualValue || new Money(0, 'BRL');
+    const progressPercentage = getProgressPercentage(item.plannedValue, actualValue);
+    const progressColor = getProgressColor(progressPercentage);
     
-    if (totalPlanned === 0) return 0;
-    return Math.round((totalActual / totalPlanned) * 100);
-  };
-
-  const renderBudgetItem = ({ item }: { item: BudgetItem }) => (
-    <TouchableOpacity
-      style={styles.budgetItemCard}
-      onPress={() => handleItemPress(item)}
-      accessibilityLabel={`Item do orçamento ${item.categoryName}`}
-      accessibilityHint="Toque para ver detalhes do item"
-    >
-      <View style={styles.budgetItemHeader}>
-        <Text style={styles.budgetItemName}>{item.categoryName}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getItemStatusColor(item) }]}>
-          <Text style={styles.statusText}>{getItemStatusText(item)}</Text>
+    return (
+      <TouchableOpacity 
+        style={styles.budgetItemCard}
+        onPress={() => handleItemPress(item)}
+        accessibilityLabel={`Item ${item.categoryName}`}
+        accessibilityHint="Toque para ver detalhes do item"
+      >
+        <View style={styles.budgetItemHeader}>
+          <Text style={styles.budgetItemCategory}>{item.categoryName}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: progressColor }]}>
+            <Text style={styles.statusText}>{Math.round(progressPercentage)}%</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.budgetItemInfo}>
-        <View style={styles.budgetItemValues}>
-          <Text style={styles.budgetItemValue}>
-            Planejado: {formatMoney(item.plannedValue)}
-          </Text>
-          {item.actualValue && (
-            <Text style={styles.budgetItemValue}>
-              Realizado: {formatMoney(item.actualValue)}
+        <View style={styles.budgetItemInfo}>
+          <View style={styles.budgetItemValues}>
+            <Text style={styles.budgetItemPlanned}>
+              Planejado: {formatMoney(item.plannedValue)}
             </Text>
-          )}
+            <Text style={styles.budgetItemActual}>
+              Realizado: {formatMoney(actualValue)}
+            </Text>
+          </View>
+          
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { 
+                  width: `${Math.min(progressPercentage, 100)}%`,
+                  backgroundColor: progressColor 
+                }
+              ]} 
+            />
+          </View>
         </View>
-        
-        {item.actualValue && (
-          <Text style={styles.budgetItemPercentage}>
-            {item.calculatePercentageCompletion()}%
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+
+        <View style={styles.budgetItemActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleEditItem(item)}
+            accessibilityLabel="Editar item"
+            accessibilityHint="Toque para editar este item"
+          >
+            <Text style={styles.actionButtonText}>Editar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={() => handleDeleteItem(item)}
+            accessibilityLabel="Excluir item"
+            accessibilityHint="Toque para excluir este item"
+          >
+            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Excluir</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyTitle}>Nenhum item encontrado</Text>
-      <Text style={styles.emptySubtitle}>Adicione itens ao seu orçamento</Text>
+      <Text style={styles.emptySubtitle}>Adicione itens ao seu orçamento para começar</Text>
       <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
         <Text style={styles.addButtonText}>Adicionar Item</Text>
       </TouchableOpacity>
@@ -251,9 +280,9 @@ export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
     return renderErrorState();
   }
 
-  const totalPlanned = calculateTotalPlanned();
-  const totalActual = calculateTotalActual();
-  const progress = calculateProgress();
+  const totalPlanned = budgetItems.reduce((sum, item) => sum + item.plannedValue.value, 0);
+  const totalActual = budgetItems.reduce((sum, item) => sum + (item.actualValue?.value || 0), 0);
+  const totalProgress = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
 
   return (
     <View style={styles.container}>
@@ -261,20 +290,20 @@ export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
         <Text style={styles.title}>{budget.name}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleEdit}
+            style={styles.editButton}
+            onPress={handleEditBudget}
             accessibilityLabel="Editar orçamento"
             accessibilityHint="Toque para editar este orçamento"
           >
-            <Text style={styles.actionButtonText}>Editar</Text>
+            <Text style={styles.editButtonText}>Editar</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={handleDelete}
+            style={styles.deleteButton}
+            onPress={handleDeleteBudget}
             accessibilityLabel="Excluir orçamento"
             accessibilityHint="Toque para excluir este orçamento"
           >
-            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Excluir</Text>
+            <Text style={styles.deleteButtonText}>Excluir</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -286,60 +315,62 @@ export const BudgetDetailScreen: React.FC<BudgetDetailScreenProps> = ({
             <Text style={styles.statusText}>{getStatusText(budget.status)}</Text>
           </View>
         </View>
-
+        
         <Text style={styles.budgetPeriod}>
           {formatDate(budget.startPeriod)} - {formatDate(budget.endPeriod)}
         </Text>
         <Text style={styles.budgetType}>{budget.type === 'manual' ? 'Manual' : budget.type}</Text>
-        <Text style={styles.budgetProgress}>Progresso: {progress}%</Text>
       </View>
 
-      <View style={styles.statisticsContainer}>
-        <Text style={styles.statisticsTitle}>Estatísticas</Text>
-        <View style={styles.statisticsRow}>
-          <Text style={styles.statisticText}>
-            Total Planejado: {formatMoney(totalPlanned)}
+      <View style={styles.summaryContainer}>
+        <Text style={styles.summaryTitle}>Resumo</Text>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText}>
+            Total Planejado: {formatMoney(new Money(totalPlanned, 'BRL'))}
           </Text>
-          <Text style={styles.statisticText}>
-            Total Realizado: {formatMoney(totalActual)}
+          <Text style={styles.summaryText}>
+            Total Realizado: {formatMoney(new Money(totalActual, 'BRL'))}
           </Text>
         </View>
-        <Text style={styles.statisticText}>
-          Diferença: {formatMoney(new Money(totalPlanned.value - totalActual.value, 'BRL'))}
-        </Text>
-        <Text style={styles.statisticText}>
-          Performance: {progress}%
+        <View style={styles.progressBar}>
+          <View 
+            style={[
+              styles.progressFill, 
+              { 
+                width: `${Math.min(totalProgress, 100)}%`,
+                backgroundColor: getProgressColor(totalProgress)
+              }
+            ]} 
+          />
+        </View>
+        <Text style={styles.progressText}>
+          Progresso Geral: {Math.round(totalProgress)}%
         </Text>
       </View>
 
       <View style={styles.itemsHeader}>
         <Text style={styles.itemsTitle}>Itens do Orçamento</Text>
         <TouchableOpacity
-          style={styles.addButton}
+          style={styles.addItemButton}
           onPress={handleAddItem}
-          accessibilityLabel="Adicionar item ao orçamento"
-          accessibilityHint="Toque para adicionar um novo item ao orçamento"
+          accessibilityLabel="Adicionar item"
+          accessibilityHint="Toque para adicionar um novo item"
         >
-          <Text style={styles.addButtonText}>Adicionar Item</Text>
+          <Text style={styles.addItemButtonText}>+ Adicionar</Text>
         </TouchableOpacity>
       </View>
 
-      {budgetItems.length > 0 ? (
-        <FlatList
-          data={budgetItems}
-          renderItem={renderBudgetItem}
-          keyExtractor={(item) => item.id}
-          style={styles.budgetItemsList}
-          testID="budget-items-list"
-          accessibilityLabel="Lista de itens do orçamento"
-          removeClippedSubviews={false}
-          initialNumToRender={10}
-        />
-      ) : (
-        <View style={styles.budgetItemsList}>
-          {renderEmptyState()}
-        </View>
-      )}
+      <View style={styles.itemsList}>
+        {budgetItems.length > 0 ? (
+          budgetItems.map((item) => (
+            <View key={item.id}>
+              {renderBudgetItem({ item })}
+            </View>
+          ))
+        ) : (
+          renderEmptyState()
+        )}
+      </View>
     </View>
   );
 };
@@ -364,25 +395,29 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
   },
+  editButton: {
+    backgroundColor: '#2196f3',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  editButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   headerActions: {
     flexDirection: 'row',
-  },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginLeft: 8,
-    backgroundColor: '#f0f0f0',
+    gap: 8,
   },
   deleteButton: {
-    backgroundColor: '#ffebee',
-  },
-  actionButtonText: {
-    fontSize: 12,
-    color: '#666',
+    backgroundColor: '#f44336',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   deleteButtonText: {
-    color: '#f44336',
+    color: '#fff',
+    fontWeight: 'bold',
   },
   budgetInfo: {
     backgroundColor: '#fff',
@@ -396,14 +431,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   budgetValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#2196f3',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   statusText: {
     color: '#fff',
@@ -411,39 +446,48 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   budgetPeriod: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
     marginBottom: 4,
   },
   budgetType: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 4,
-  },
-  budgetProgress: {
     fontSize: 14,
-    color: '#2196f3',
-    fontWeight: 'bold',
+    color: '#999',
   },
-  statisticsContainer: {
+  summaryContainer: {
     backgroundColor: '#fff',
     padding: 16,
     marginBottom: 8,
   },
-  statisticsTitle: {
+  summaryTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
     color: '#333',
   },
-  statisticsRow: {
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  statisticText: {
+  summaryText: {
     fontSize: 14,
     color: '#666',
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   itemsHeader: {
     flexDirection: 'row',
@@ -459,17 +503,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  addButton: {
-    backgroundColor: '#2196f3',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  addItemButton: {
+    backgroundColor: '#4caf50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
-  addButtonText: {
+  addItemButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 12,
   },
-  budgetItemsList: {
+  itemsList: {
     flex: 1,
     padding: 16,
   },
@@ -490,29 +535,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  budgetItemName: {
+  budgetItemCategory: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
     flex: 1,
   },
   budgetItemInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 12,
   },
   budgetItemValues: {
-    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  budgetItemValue: {
+  budgetItemPlanned: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 2,
   },
-  budgetItemPercentage: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2196f3',
+  budgetItemActual: {
+    fontSize: 14,
+    color: '#666',
+  },
+  budgetItemActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  actionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -532,6 +590,16 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 24,
     textAlign: 'center',
+  },
+  addButton: {
+    backgroundColor: '#4caf50',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,
