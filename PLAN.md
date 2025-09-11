@@ -136,14 +136,15 @@
 - [x] Implementar BudgetScreen ✅ CONCLUÍDA (27 testes passando)
 - [x] Implementar BudgetDetailScreen ✅ CONCLUÍDA (25 testes passando)
 - [x] Implementar BudgetPerformanceScreen ✅ CONCLUÍDA (6 testes passando)
+- [x] Corrigir falhas de testes (useBudgetAdapter, PerformanceIntegration) ✅ CONCLUÍDA
 - [ ] Integrar screens com navigation
 - [ ] Testes de integração das screens
 
-### FASE 6.6: Outras Screens (PRÓXIMO)
-- [ ] Implementar AccountScreen
-- [ ] Implementar GoalScreen
-- [ ] Implementar VisualizeScreen
-- [ ] Implementar SettingsScreen
+### FASE 6.6: Outras Screens 🚧 EM ANDAMENTO
+- [x] Implementar AccountScreen seguindo TDD ✅ CONCLUÍDA (16 testes passando)
+- [ ] Implementar GoalScreen seguindo TDD
+- [ ] Implementar VisualizeScreen seguindo TDD
+- [ ] Implementar SettingsScreen seguindo TDD
 - [ ] Integrar screens com navigation
 - [ ] Testes de integração das screens
 

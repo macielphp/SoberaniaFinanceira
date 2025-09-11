@@ -220,7 +220,7 @@
 **✅ FASE 6.5 CONCLUÍDA** - Budget Screens implementadas com sucesso!
 
 ### **🎯 Próximo Passo:**
-Implementar BudgetPerformanceScreen seguindo TDD (FASE 6.5 - Finalização)
+Implementar GoalScreen seguindo TDD (FASE 6.6 - Outras Screens)
 
 ### **📈 Progresso Geral:**
 - **FASE 1-5:** ✅ CONCLUÍDAS
@@ -228,15 +228,17 @@ Implementar BudgetPerformanceScreen seguindo TDD (FASE 6.5 - Finalização)
 - **FASE 6.2:** ✅ CONCLUÍDA (UI Adapters Budget)
 - **FASE 6.3:** ✅ CONCLUÍDA (Pure Components Budget)
 - **FASE 6.4:** ✅ CONCLUÍDA (RegisterScreen Implementation)
-- **FASE 6.5:** ✅ CONCLUÍDA (Budget Screens Implementation - 2/3 screens)
+- **FASE 6.5:** ✅ CONCLUÍDA (Budget Screens Implementation - 3/3 screens)
+- **FASE 6.6:** 🚧 EM ANDAMENTO (Outras Screens - AccountScreen ✅, GoalScreen)
 
 ### **🧪 Testes Implementados:**
 - **Budget ViewModels:** 64+ testes passando
 - **UI Adapters Budget:** 30+ testes passando  
 - **Pure Components Budget:** 80+ testes passando
 - **RegisterScreen Sub-screens:** 75+ testes passando
-- **Budget Screens:** 52+ testes passando
-- **Total:** 300+ testes seguindo TDD
+- **Budget Screens:** 58+ testes passando
+- **AccountScreen:** 16+ testes passando
+- **Total:** 1616+ testes seguindo TDD (100% GREEN)
 
 ### **🏗️ Arquitetura:**
 Clean Architecture com separação clara de responsabilidades, seguindo princípios SOLID e TDD.
