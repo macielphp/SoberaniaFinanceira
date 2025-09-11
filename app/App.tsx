@@ -18,6 +18,11 @@ import { db } from './src/database/db';
 
 // Clean Architecture imports
 import { HomeScreen } from './src/clean-architecture/presentation/screens/HomeScreen';
+import { RegisterScreen } from './src/clean-architecture/presentation/screens/RegisterScreen';
+import { VisualizeScreen } from './src/clean-architecture/presentation/screens/VisualizeScreen';
+import { AccountScreen } from './src/clean-architecture/presentation/screens/AccountScreen';
+import { GoalScreen } from './src/clean-architecture/presentation/screens/GoalScreen';
+import { SettingsScreen } from './src/clean-architecture/presentation/screens/SettingsScreen';
 import { FeatureFlagManager } from './src/clean-architecture/shared/feature-flags/FeatureFlags';
 import { MigrationWrapper } from './src/clean-architecture/shared/migration/MigrationWrapper';
 import { initializeContainer } from './src/clean-architecture/shared/di/Container';
@@ -38,8 +43,13 @@ const Tab = createBottomTabNavigator();
 // Inicializar Feature Flag Manager
 const featureFlagManager = new FeatureFlagManager();
 
-// Habilitar a nova HomeScreen da Clean Architecture
+// Habilitar todas as screens da Clean Architecture
 featureFlagManager.enable('USE_CLEAN_HOME_SCREEN');
+featureFlagManager.enable('USE_CLEAN_REGISTER_SCREEN');
+featureFlagManager.enable('USE_CLEAN_VISUALIZE_SCREEN');
+featureFlagManager.enable('USE_CLEAN_ACCOUNT_SCREEN');
+featureFlagManager.enable('USE_CLEAN_GOAL_SCREEN');
+featureFlagManager.enable('USE_CLEAN_SETTINGS_SCREEN');
 
 // Componente wrapper para a Home Screen com migração
 function HomeScreenWrapper({ navigation }: any) {
@@ -49,6 +59,66 @@ function HomeScreenWrapper({ navigation }: any) {
       featureFlagManager={featureFlagManager}
       legacyComponent={<Home navigation={navigation} />}
       cleanComponent={<HomeScreen navigation={navigation} />}
+    />
+  );
+}
+
+// Componente wrapper para a Register Screen com migração
+function RegisterScreenWrapper({ navigation }: any) {
+  return (
+    <MigrationWrapper
+      featureFlag="USE_CLEAN_REGISTER_SCREEN"
+      featureFlagManager={featureFlagManager}
+      legacyComponent={<Register navigation={navigation} />}
+      cleanComponent={<Register navigation={navigation} />}
+    />
+  );
+}
+
+// Componente wrapper para a Visualize Screen com migração
+function VisualizeScreenWrapper({ navigation }: any) {
+  return (
+    <MigrationWrapper
+      featureFlag="USE_CLEAN_VISUALIZE_SCREEN"
+      featureFlagManager={featureFlagManager}
+      legacyComponent={<Visualize />}
+      cleanComponent={<VisualizeScreen />}
+    />
+  );
+}
+
+// Componente wrapper para a Account Screen com migração
+function AccountScreenWrapper({ navigation }: any) {
+  return (
+    <MigrationWrapper
+      featureFlag="USE_CLEAN_ACCOUNT_SCREEN"
+      featureFlagManager={featureFlagManager}
+      legacyComponent={<Accounts />}
+      cleanComponent={<AccountScreen />}
+    />
+  );
+}
+
+// Componente wrapper para a Goal Screen com migração
+function GoalScreenWrapper({ navigation }: any) {
+  return (
+    <MigrationWrapper
+      featureFlag="USE_CLEAN_GOAL_SCREEN"
+      featureFlagManager={featureFlagManager}
+      legacyComponent={<Goals />}
+      cleanComponent={<GoalScreen />}
+    />
+  );
+}
+
+// Componente wrapper para a Settings Screen com migração
+function SettingsScreenWrapper({ navigation }: any) {
+  return (
+    <MigrationWrapper
+      featureFlag="USE_CLEAN_SETTINGS_SCREEN"
+      featureFlagManager={featureFlagManager}
+      legacyComponent={<Settings />}
+      cleanComponent={<SettingsScreen />}
     />
   );
 }
@@ -93,11 +163,11 @@ function MyTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreenWrapper} />
-      <Tab.Screen name="Register" component={Register} />
-      <Tab.Screen name="Visualize" component={Visualize} />
-      <Tab.Screen name="Accounts" component={Accounts} />
-      <Tab.Screen name="Goals" component={Goals} />
-      <Tab.Screen name="Settings" component={Settings} />
+      <Tab.Screen name="Register" component={RegisterScreenWrapper} />
+      <Tab.Screen name="Visualize" component={VisualizeScreenWrapper} />
+      <Tab.Screen name="Accounts" component={AccountScreenWrapper} />
+      <Tab.Screen name="Goals" component={GoalScreenWrapper} />
+      <Tab.Screen name="Settings" component={SettingsScreenWrapper} />
     </Tab.Navigator>
   );
 }

@@ -8,7 +8,11 @@ export type FeatureFlags =
   | 'USE_CLEAN_ACCOUNT_CARD'
   | 'USE_CLEAN_OPERATION_CARD'
   | 'USE_CLEAN_HOME_SCREEN'
-  | 'USE_CLEAN_REGISTER_SCREEN';
+  | 'USE_CLEAN_REGISTER_SCREEN'
+  | 'USE_CLEAN_VISUALIZE_SCREEN'
+  | 'USE_CLEAN_ACCOUNT_SCREEN'
+  | 'USE_CLEAN_GOAL_SCREEN'
+  | 'USE_CLEAN_SETTINGS_SCREEN';
 
 export interface IFeatureFlagManager {
   isEnabled(flag: FeatureFlags): boolean;
@@ -37,7 +41,11 @@ export class FeatureFlagManager implements IFeatureFlagManager {
       'USE_CLEAN_ACCOUNT_CARD',
       'USE_CLEAN_OPERATION_CARD',
       'USE_CLEAN_HOME_SCREEN',
-      'USE_CLEAN_REGISTER_SCREEN'
+      'USE_CLEAN_REGISTER_SCREEN',
+      'USE_CLEAN_VISUALIZE_SCREEN',
+      'USE_CLEAN_ACCOUNT_SCREEN',
+      'USE_CLEAN_GOAL_SCREEN',
+      'USE_CLEAN_SETTINGS_SCREEN'
     ];
 
     allFlags.forEach(flag => {
@@ -69,7 +77,11 @@ export class FeatureFlagManager implements IFeatureFlagManager {
       'USE_CLEAN_ACCOUNT_CARD',
       'USE_CLEAN_OPERATION_CARD',
       'USE_CLEAN_HOME_SCREEN',
-      'USE_CLEAN_REGISTER_SCREEN'
+      'USE_CLEAN_REGISTER_SCREEN',
+      'USE_CLEAN_VISUALIZE_SCREEN',
+      'USE_CLEAN_ACCOUNT_SCREEN',
+      'USE_CLEAN_GOAL_SCREEN',
+      'USE_CLEAN_SETTINGS_SCREEN'
     ];
 
     allFlags.forEach(flag => {
