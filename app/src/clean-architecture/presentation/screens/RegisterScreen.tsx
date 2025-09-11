@@ -9,14 +9,14 @@ import {
   Alert,
   FlatList,
 } from 'react-native';
-import { RegisterScreenViewModel, ViewMode } from './RegisterScreenViewModel.js';
-import { OperationViewModel } from '../view-models/OperationViewModel.js';
-import { CategoryViewModel } from '../view-models/CategoryViewModel.js';
-import { AccountViewModel } from '../view-models/AccountViewModel.js';
-import { Operation } from '../../domain/entities/Operation.js';
-import { Category } from '../../domain/entities/Category.js';
-import { Account } from '../../domain/entities/Account.js';
-import { Money } from '../../shared/utils/Money.js';
+import { RegisterScreenViewModel, ViewMode } from './RegisterScreenViewModel';
+import { OperationViewModel } from '../view-models/OperationViewModel';
+import { CategoryViewModel } from '../view-models/CategoryViewModel';
+import { AccountViewModel } from '../view-models/AccountViewModel';
+import { Operation } from '../../domain/entities/Operation';
+import { Category } from '../../domain/entities/Category';
+import { Account } from '../../domain/entities/Account';
+import { Money } from '../../shared/utils/Money';   
 
 interface RegisterScreenProps {
   navigation?: any;
