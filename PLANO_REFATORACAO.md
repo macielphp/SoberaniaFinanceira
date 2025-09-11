@@ -192,23 +192,21 @@
 - **Funcionalidades completas**: Listagem, detalhes, performance, filtros, estatísticas
 - **Integração perfeita** com ViewModels e UI Adapters
 
-#### **📋 Tarefas Restantes:**
+#### **📋 Próximas Tarefas (FASE 7):**
 - [ ] Integrar screens com navigation
 - [ ] Testes de integração das screens
 
-### **🎯 FASE 6.4: Outras Screens (PRÓXIMO)**
+### **🎯 FASE 6.6: Outras Screens** ✅ CONCLUÍDA
 - [x] Implementar AccountScreen seguindo TDD
 - [x] Implementar GoalScreen seguindo TDD
 - [x] Implementar VisualizeScreen seguindo TDD
 - [x] Implementar SettingsScreen seguindo TDD
-- [ ] Implementar SettingsScreen seguindo TDD
-- [ ] Integrar screens com navigation
-- [ ] Testes de integração das screens
 
-### **🎯 FASE 7: App.tsx Migration (FUTURO)**
+### **🎯 FASE 7: App.tsx Migration (PRÓXIMA)**
 - [ ] Migrar App.tsx para Clean Architecture
 - [ ] Remover imports legacy
-- [ ] Implementar screens Clean Architecture
+- [ ] Integrar screens com navigation
+- [ ] Testes de integração das screens
 - [ ] Remover FinanceProvider
 - [ ] Remover MigrationWrapper
 - [ ] Atualizar navigation
