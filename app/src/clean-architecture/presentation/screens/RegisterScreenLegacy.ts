@@ -8,7 +8,7 @@ import { AccountViewModel } from '../view-models/AccountViewModel';
 
 export type ViewMode = 'register' | 'manage' | 'settings' | 'categories' | 'accounts';
 
-export class RegisterScreen {
+export class RegisterScreenViewModel {
   private currentView: ViewMode = 'register';
   private showAccountForm: boolean = false;
   private showCategoryForm: boolean = false;

@@ -15,12 +15,11 @@ import { GoalScreen } from './src/clean-architecture/presentation/screens/GoalSc
 import { SettingsScreen } from './src/clean-architecture/presentation/screens/SettingsScreen';
 import { initializeContainer } from './src/clean-architecture/shared/di/Container';
 
-// Legacy import temporário (RegisterScreen ainda não tem componente React)
-import Register from './src/screens/Register/Register';
+// Clean Architecture RegisterScreen
+import RegisterScreen from './src/clean-architecture/presentation/screens/RegisterScreen';
 
 // ✅ MIGRAÇÃO CONCLUÍDA - Agora usando Clean Architecture
-// - 5/6 screens usando Clean Architecture (HomeScreen, VisualizeScreen, AccountScreen, GoalScreen, SettingsScreen)
-// - 1/6 screen legacy temporária (Register - será migrada quando RegisterScreen tiver componente React)
+// - 6/6 screens usando Clean Architecture (HomeScreen, RegisterScreen, VisualizeScreen, AccountScreen, GoalScreen, SettingsScreen)
 // - FinanceProvider foi removido (substituído pelo sistema de DI da Clean Architecture)
 // - MigrationWrapper foi removido (não há mais componentes legados)
 // - Feature flags foram removidas (todas as screens são Clean Architecture)
@@ -34,7 +33,7 @@ function MyTabs() {
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={({ route }: { route: any }) => ({
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: {
@@ -45,7 +44,7 @@ function MyTabs() {
           zIndex: 10,
           padding: insets.bottom > 0 ? insets.bottom : 10,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
           let iconName: string = '';
 
           if (route.name === 'Home') {
@@ -69,7 +68,7 @@ function MyTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Register" component={Register} />
+      <Tab.Screen name="Register" component={RegisterScreen} />
       <Tab.Screen name="Visualize" component={VisualizeScreen} />
       <Tab.Screen name="Accounts" component={AccountScreen} />
       <Tab.Screen name="Goals" component={GoalScreen} />
