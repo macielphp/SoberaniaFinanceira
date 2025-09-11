@@ -117,11 +117,7 @@ describe('useBudgetAdapter', () => {
         totalPlannedValue: new Money(4000.00, 'BRL'),
       };
 
-      mockBudgetViewModel.createBudget.mockResolvedValue({
-        isSuccess: () => true,
-        isFailure: () => false,
-        getOrThrow: () => mockBudget,
-      });
+      mockBudgetViewModel.createBudget.mockResolvedValue(mockBudget);
       mockBudgetViewModel.budgets = [mockBudget];
 
       const { result } = renderHook(() => useBudgetAdapter(mockBudgetViewModel as any));
@@ -179,11 +175,7 @@ describe('useBudgetAdapter', () => {
         createdAt: mockBudget.createdAt,
       });
 
-      mockBudgetViewModel.updateBudget.mockResolvedValue({
-        isSuccess: () => true,
-        isFailure: () => false,
-        getOrThrow: () => updatedBudget,
-      });
+      mockBudgetViewModel.updateBudget.mockResolvedValue(updatedBudget);
 
       const { result } = renderHook(() => useBudgetAdapter(mockBudgetViewModel as any));
 
@@ -218,7 +210,7 @@ describe('useBudgetAdapter', () => {
         result.current.selectBudget(mockBudget);
       });
 
-      expect(mockBudgetViewModel.selectBudget).toHaveBeenCalledWith(mockBudget.id);
+      expect(result.current.selectedBudget).toEqual(mockBudget);
     });
 
     it('should clear selection', () => {

@@ -3,7 +3,7 @@
 // Conecta React com a camada de apresentação Clean Architecture
 
 import { useState, useCallback } from 'react';
-import { BudgetViewModel, CreateBudgetDTO, UpdateBudgetDTO } from '../view-models/BudgetViewModel';
+import { BudgetViewModel, CreateBudgetData, UpdateBudgetData } from '../view-models/BudgetViewModel';
 import { Budget } from '../../domain/entities/Budget';
 import { Money } from '../../shared/utils/Money';
 
@@ -17,8 +17,8 @@ export interface UseBudgetAdapterResult {
 
   // Actions
   loadBudgets: () => Promise<void>;
-  createBudget: (data: CreateBudgetDTO) => Promise<Budget>;
-  updateBudget: (id: string, data: UpdateBudgetDTO) => Promise<Budget>;
+  createBudget: (data: CreateBudgetData) => Promise<Budget>;
+  updateBudget: (id: string, data: UpdateBudgetData) => Promise<Budget>;
   deleteBudget: (id: string) => Promise<void>;
   selectBudget: (budget: Budget) => void;
   clearSelection: () => void;
@@ -50,7 +50,7 @@ export function useBudgetAdapter(
       findByBudgetId: async (budgetId: string) => [],
     };
 
-    return new BudgetViewModel(mockBudgetRepository as any, mockBudgetItemRepository as any);
+    return new BudgetViewModel(mockBudgetRepository as any);
   });
 
   // State management
@@ -71,7 +71,7 @@ export function useBudgetAdapter(
       setLoading(true);
       setError(null);
       
-      await budgetViewModel.loadBudgets();
+      await budgetViewModel.loadBudgets('user-1');
       setBudgets(budgetViewModel.budgets);
       forceUpdate();
     } catch (error) {
@@ -85,25 +85,15 @@ export function useBudgetAdapter(
     }
   }, [budgetViewModel, forceUpdate]);
 
-  const createBudget = useCallback(async (data: CreateBudgetDTO): Promise<Budget> => {
+  const createBudget = useCallback(async (data: CreateBudgetData): Promise<Budget> => {
     try {
       setLoading(true);
       setError(null);
       
-      const result = await budgetViewModel.createBudget(data);
-      
-      if (result.isSuccess()) {
-        const budget = result.getOrThrow();
-        setBudgets(prev => [...prev, budget]);
-        forceUpdate();
-        return budget;
-      } else {
-        const error = result.getOrThrow();
-        setError(error instanceof Error ? error.message : 'Erro ao criar orçamento');
-        setLoading(false);
-        forceUpdate();
-        throw error;
-      }
+      const budget = await budgetViewModel.createBudget(data);
+      setBudgets(prev => [...prev, budget]);
+      forceUpdate();
+      return budget;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao criar orçamento';
       setError(errorMessage);
@@ -115,25 +105,15 @@ export function useBudgetAdapter(
     }
   }, [budgetViewModel, forceUpdate]);
 
-  const updateBudget = useCallback(async (id: string, data: UpdateBudgetDTO): Promise<Budget> => {
+  const updateBudget = useCallback(async (id: string, data: UpdateBudgetData): Promise<Budget> => {
     try {
       setLoading(true);
       setError(null);
       
-      const result = await budgetViewModel.updateBudget(id, data);
-      
-      if (result.isSuccess()) {
-        const budget = result.getOrThrow();
-        setBudgets(prev => prev.map(b => b.id === id ? budget : b));
-        forceUpdate();
-        return budget;
-      } else {
-        const error = result.getOrThrow();
-        setError(error instanceof Error ? error.message : 'Erro ao atualizar orçamento');
-        setLoading(false);
-        forceUpdate();
-        throw error;
-      }
+      const budget = await budgetViewModel.updateBudget(id, data);
+      setBudgets(prev => prev.map(b => b.id === id ? budget : b));
+      forceUpdate();
+      return budget;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar orçamento';
       setError(errorMessage);
@@ -165,7 +145,7 @@ export function useBudgetAdapter(
   }, [budgetViewModel, forceUpdate]);
 
   const selectBudget = useCallback((budget: Budget) => {
-    budgetViewModel.selectBudget(budget.id);
+    // budgetViewModel.selectBudget(budget.id); // Method not available
     setSelectedBudget(budget);
     forceUpdate();
   }, [budgetViewModel, forceUpdate]);
