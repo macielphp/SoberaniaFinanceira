@@ -68,11 +68,25 @@ export class RegisterScreenViewModel {
 
   // Lifecycle
   async onMount(): Promise<void> {
-    await Promise.all([
-      this.operationViewModel.loadOperations(),
-      this.categoryViewModel.loadCategories(),
-      this.accountViewModel.getAllAccounts()
-    ]);
+    console.log('🔄 RegisterScreenViewModel: Iniciando onMount...');
+    try {
+      console.log('📊 RegisterScreenViewModel: Carregando operações...');
+      await this.operationViewModel.loadOperations();
+      console.log('✅ RegisterScreenViewModel: Operações carregadas');
+      
+      console.log('📊 RegisterScreenViewModel: Carregando categorias...');
+      await this.categoryViewModel.loadCategories();
+      console.log('✅ RegisterScreenViewModel: Categorias carregadas');
+      
+      console.log('📊 RegisterScreenViewModel: Carregando contas...');
+      await this.accountViewModel.getAllAccounts();
+      console.log('✅ RegisterScreenViewModel: Contas carregadas');
+      
+      console.log('✅ RegisterScreenViewModel: onMount concluído com sucesso');
+    } catch (error) {
+      console.error('❌ RegisterScreenViewModel: Erro no onMount:', error);
+      throw error;
+    }
   }
 
   // Operation Management

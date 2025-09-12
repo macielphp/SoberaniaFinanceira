@@ -1,4 +1,4 @@
-import { CategoryViewModel } from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
+import CategoryViewModel from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
 import { Category } from '../../../../clean-architecture/domain/entities/Category';
 
 // Mock dos Use Cases
@@ -260,7 +260,10 @@ describe('CategoryViewModel', () => {
   describe('loadCategories', () => {
     it('should load categories successfully', async () => {
       const categories = [mockCategory];
-      mockGetCategoriesUseCase.execute.mockResolvedValue(categories);
+      const mockResult = {
+        match: jest.fn((onSuccess) => onSuccess({ categories, total: categories.length }))
+      };
+      mockGetCategoriesUseCase.execute.mockResolvedValue(mockResult);
 
       const result = await categoryViewModel.loadCategories();
 

@@ -132,11 +132,18 @@ export class AccountViewModel {
   }
 
   async getAllAccounts(): Promise<Account[]> {
+    console.log('🔄 AccountViewModel: Iniciando getAllAccounts...');
     try {
       this.loading = true;
       this.error = null;
 
+      console.log('📊 AccountViewModel: Chamando getAccountsUseCase.execute...');
+      console.log('📊 AccountViewModel: getAccountsUseCase:', !!this.getAccountsUseCase);
+      console.log('📊 AccountViewModel: getAccountsUseCase.execute:', !!this.getAccountsUseCase?.execute);
+      
       const result = await this.getAccountsUseCase.execute({});
+      console.log('✅ AccountViewModel: getAccountsUseCase.execute concluído');
+      
       const accounts = result.match(
         (response) => response.accounts,
         (error) => {
@@ -145,8 +152,10 @@ export class AccountViewModel {
         }
       );
       this.accounts = accounts;
+      console.log('✅ AccountViewModel: getAllAccounts concluído com sucesso, contas:', accounts.length);
       return accounts;
     } catch (error) {
+      console.error('❌ AccountViewModel: Erro em getAllAccounts:', error);
       this.error = error instanceof Error ? error.message : 'Erro ao carregar contas';
       throw error;
     } finally {

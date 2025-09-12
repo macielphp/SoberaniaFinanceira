@@ -248,11 +248,18 @@ export class OperationViewModel {
   }
 
   async loadOperations(): Promise<Operation[]> {
+    console.log('🔄 OperationViewModel: Iniciando loadOperations...');
     try {
       this._isLoading = true;
       this._error = null;
 
+      console.log('📊 OperationViewModel: Chamando getOperationsUseCase.execute...');
+      console.log('📊 OperationViewModel: getOperationsUseCase:', !!this.getOperationsUseCase);
+      console.log('📊 OperationViewModel: getOperationsUseCase.execute:', !!this.getOperationsUseCase?.execute);
+      
       const result = await this.getOperationsUseCase.execute({});
+      console.log('✅ OperationViewModel: getOperationsUseCase.execute concluído');
+      
       const operations = result.match(
         (response: any) => response.operations,
         (error: any) => {
@@ -261,8 +268,10 @@ export class OperationViewModel {
         }
       );
       this._operations = operations;
+      console.log('✅ OperationViewModel: loadOperations concluído com sucesso, operações:', operations.length);
       return operations;
     } catch (error) {
+      console.error('❌ OperationViewModel: Erro em loadOperations:', error);
       this._error = error instanceof Error ? error.message : 'Erro ao carregar operações';
       throw error;
     } finally {

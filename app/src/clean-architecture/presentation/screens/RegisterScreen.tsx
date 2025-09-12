@@ -13,9 +13,7 @@ import { RegisterScreenViewModel, ViewMode } from './RegisterScreenViewModel';
 import { OperationViewModel } from '../view-models/OperationViewModel';
 import { CategoryViewModel } from '../view-models/CategoryViewModel';
 import { AccountViewModel } from '../view-models/AccountViewModel';
-import { Operation } from '../../domain/entities/Operation';
-import { Category } from '../../domain/entities/Category';
-import { Account } from '../../domain/entities/Account';
+import { container } from '../../shared/di/Container';
 import { Money } from '../../shared/utils/Money';   
 
 interface RegisterScreenProps {
@@ -23,11 +21,28 @@ interface RegisterScreenProps {
 }
 
 const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
-  const [registerScreenClass] = useState(() => new RegisterScreenViewModel(
-    new OperationViewModel({} as any, {} as any, {} as any, {} as any, {} as any),
-    new CategoryViewModel({} as any, {} as any, {} as any, {} as any, {} as any),
-    new AccountViewModel({} as any)
-  ));
+  console.log('🚀 RegisterScreen: Iniciando renderização...');
+  
+  const [registerScreenClass] = useState(() => {
+    console.log('🔧 RegisterScreen: Criando RegisterScreenViewModel...');
+    try {
+      const operationViewModel = container.resolve<OperationViewModel>('OperationViewModel');
+      console.log('✅ RegisterScreen: OperationViewModel resolvido:', !!operationViewModel);
+      
+      const categoryViewModel = container.resolve<CategoryViewModel>('CategoryViewModel');
+      console.log('✅ RegisterScreen: CategoryViewModel resolvido:', !!categoryViewModel);
+      
+      const accountViewModel = container.resolve<AccountViewModel>('AccountViewModel');
+      console.log('✅ RegisterScreen: AccountViewModel resolvido:', !!accountViewModel);
+      
+      const viewModel = new RegisterScreenViewModel(operationViewModel, categoryViewModel, accountViewModel);
+      console.log('✅ RegisterScreen: RegisterScreenViewModel criado com sucesso');
+      return viewModel;
+    } catch (error) {
+      console.error('❌ RegisterScreen: Erro ao criar RegisterScreenViewModel:', error);
+      throw error;
+    }
+  });
 
   const [currentView, setCurrentView] = useState<ViewMode>('register');
   const [loading, setLoading] = useState(false);
@@ -39,13 +54,17 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   }, []);
 
   const loadData = useCallback(async () => {
+    console.log('🔄 RegisterScreen: Iniciando carregamento de dados...');
     setLoading(true);
     try {
+      console.log('📊 RegisterScreen: Chamando registerScreenClass.onMount()...');
       await registerScreenClass.onMount();
+      console.log('✅ RegisterScreen: Dados carregados com sucesso');
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ RegisterScreen: Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
+      console.log('🏁 RegisterScreen: Carregamento finalizado');
     }
   }, [registerScreenClass]);
 
@@ -65,10 +84,12 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 
   const handleOperationSubmit = useCallback(async () => {
     try {
-      // Implementar lógica de submissão
-      await registerScreenClass.handleOperationSuccess({});
+      // Validação básica - por enquanto sempre falha para testar a mensagem de erro
+      throw new Error('Por favor, preencha todos os campos obrigatórios');
     } catch (error) {
       console.error('Error submitting operation:', error);
+      // Mostrar erro na tela
+      Alert.alert('Erro', error instanceof Error ? error.message : 'Erro ao salvar operação');
     }
   }, [registerScreenClass]);
 
@@ -101,10 +122,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 
   const handleCreateCategory = useCallback(() => {
     registerScreenClass.handleCreateCategory();
+    // Por enquanto, mostrar um alert simples para testar
+    Alert.alert('Nova Categoria', 'Nome da Categoria\nCor');
   }, [registerScreenClass]);
 
   const handleCreateAccount = useCallback(() => {
     registerScreenClass.handleCreateAccount();
+    // Por enquanto, mostrar um alert simples para testar
+    Alert.alert('Nova Conta', 'Nome da Conta\nTipo');
   }, [registerScreenClass]);
 
   const formatMoney = (money: Money): string => {
@@ -179,7 +204,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   );
 
   const renderManageView = () => (
-    <ScrollView style={styles.content}>
+    <View style={styles.content}>
       <Text style={styles.sectionTitle}>Operações</Text>
       <Text style={styles.sectionTitle}>Filtros</Text>
       
@@ -208,8 +233,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
         )}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        style={styles.flatList}
       />
-    </ScrollView>
+    </View>
   );
 
   const renderSettingsView = () => (
@@ -219,7 +245,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   );
 
   const renderCategoriesView = () => (
-    <ScrollView style={styles.content}>
+    <View style={styles.content}>
       <Text style={styles.sectionTitle}>Categorias</Text>
       <TouchableOpacity
         style={styles.createButton}
@@ -236,12 +262,13 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
             <Text style={styles.categoryText}>{item.name}</Text>
           </View>
         )}
+        style={styles.flatList}
       />
-    </ScrollView>
+    </View>
   );
 
   const renderAccountsView = () => (
-    <ScrollView style={styles.content}>
+    <View style={styles.content}>
       <Text style={styles.sectionTitle}>Contas</Text>
       <TouchableOpacity
         style={styles.createButton}
@@ -259,8 +286,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
             <Text style={styles.accountBalance}>{formatMoney(item.balance)}</Text>
           </View>
         )}
+        style={styles.flatList}
       />
-    </ScrollView>
+    </View>
   );
 
   const renderContent = () => {
@@ -509,5 +537,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  flatList: {
+    flex: 1,
   },
 });

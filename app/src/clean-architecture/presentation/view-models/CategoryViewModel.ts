@@ -1,4 +1,5 @@
 import { Category } from '../../domain/entities/Category';
+import { Result } from '../../shared/utils/Result';
 
 // Interfaces para os Use Cases
 interface CreateCategoryUseCase {
@@ -14,7 +15,7 @@ interface GetCategoryByIdUseCase {
 }
 
 interface GetCategoriesUseCase {
-  execute(): Promise<Category[]>;
+  execute(): Promise<Result<GetCategoriesResponse, Error>>;
 }
 
 interface DeleteCategoryUseCase {
@@ -25,6 +26,11 @@ interface DeleteCategoryUseCase {
 interface CreateCategoryData {
   name: string;
   type: 'income' | 'expense';
+}
+
+interface GetCategoriesResponse {
+  categories: Category[];
+  total: number;
 }
 
 interface UpdateCategoryData {
@@ -44,7 +50,7 @@ interface CategorySummary {
   transactionCount: number;
 }
 
-export class CategoryViewModel {
+export default class CategoryViewModel {
   private _category: Category | null = null;
   private _categories: Category[] = [];
   private _isLoading: boolean = false;
@@ -178,14 +184,31 @@ export class CategoryViewModel {
   }
 
   async loadCategories(): Promise<Category[]> {
+    console.log('🔄 CategoryViewModel: Iniciando loadCategories...');
     try {
       this.setLoading(true);
       this.setError(null);
 
-      const categories = await this.getCategoriesUseCase.execute();
+      console.log('📊 CategoryViewModel: Chamando getCategoriesUseCase.execute...');
+      console.log('📊 CategoryViewModel: getCategoriesUseCase:', !!this.getCategoriesUseCase);
+      console.log('📊 CategoryViewModel: getCategoriesUseCase.execute:', !!this.getCategoriesUseCase?.execute);
+      
+      const result = await this.getCategoriesUseCase.execute();
+      console.log('✅ CategoryViewModel: getCategoriesUseCase.execute concluído');
+      
+      const categories = result.match(
+        (response) => response.categories,
+        (error) => {
+          console.error('❌ CategoryViewModel: Erro no Result:', error);
+          throw error;
+        }
+      );
+      
       this.setCategories(categories);
+      console.log('✅ CategoryViewModel: loadCategories concluído com sucesso, categorias:', categories.length);
       return categories;
     } catch (error) {
+      console.error('❌ CategoryViewModel: Erro em loadCategories:', error);
       this.setError(error instanceof Error ? error.message : 'Erro ao carregar categorias');
       throw error;
     } finally {
