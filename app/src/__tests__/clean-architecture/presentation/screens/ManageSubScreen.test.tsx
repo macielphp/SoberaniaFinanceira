@@ -1,7 +1,7 @@
 import React from 'react';
 import { ManageSubScreen } from '../../../../clean-architecture/presentation/screens/ManageSubScreen';
 import { OperationViewModel } from '../../../../clean-architecture/presentation/view-models/OperationViewModel';
-import { CategoryViewModel } from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
+import CategoryViewModel from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
 import { AccountViewModel } from '../../../../clean-architecture/presentation/view-models/AccountViewModel';
 import { Operation } from '../../../../clean-architecture/domain/entities/Operation';
 import { Money } from '../../../../clean-architecture/shared/utils/Money';

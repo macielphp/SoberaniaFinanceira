@@ -33,6 +33,16 @@ const mockGoalViewModel = {
   setError: jest.fn(),
 };
 
+// Mock do Container DI
+jest.mock('../../../../clean-architecture/shared/di/Container', () => ({
+  container: {
+    resolve: jest.fn((serviceName: string) => {
+      if (serviceName === 'GoalViewModel') return mockGoalViewModel;
+      throw new Error(`Service not registered: ${serviceName}`);
+    })
+  }
+}));
+
 // Mock do GoalViewModel constructor
 jest.mock('../../../../clean-architecture/presentation/view-models/GoalViewModel', () => ({
   GoalViewModel: jest.fn(() => mockGoalViewModel),

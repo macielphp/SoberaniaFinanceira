@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
-import { CategoryViewModel } from '../view-models/CategoryViewModel';
+import CategoryViewModel from '../view-models/CategoryViewModel';
 import { Category } from '../../domain/entities/Category';
+import { Success } from '../../shared/utils/Result';
 
 // Interfaces para Create/Update categorias
 export interface CreateCategoryData {
@@ -94,7 +95,7 @@ export function useCategoryAdapter(): UseCategoryAdapterResult {
           new Category({ id: '2', name: 'Alimentação', type: 'expense' }),
           new Category({ id: '3', name: 'Transporte', type: 'expense' }),
         ];
-        return categories;
+        return new Success<{ categories: Category[]; total: number }, Error>({ categories, total: categories.length });
       }
     };
 

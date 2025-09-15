@@ -11,10 +11,11 @@ import {
 import { OperationSummaryViewModel } from '../view-models/OperationSummaryViewModel';
 import CategoryViewModel from '../view-models/CategoryViewModel';
 import { Money } from '../../shared/utils/Money';
+import { container } from '../../shared/di/Container';
 
 export const VisualizeScreen: React.FC = () => {
-  const [operationSummaryViewModel] = useState(() => new OperationSummaryViewModel({} as any, {} as any));
-  const [categoryViewModel] = useState(() => new CategoryViewModel({} as any, {} as any, {} as any, {} as any, {} as any));
+  const [operationSummaryViewModel] = useState(() => container.resolve<OperationSummaryViewModel>('OperationSummaryViewModel'));
+  const [categoryViewModel] = useState(() => container.resolve<CategoryViewModel>('CategoryViewModel'));
   const [selectedPeriod, setSelectedPeriod] = useState<string>('lastMonth');
   const [selectedNature, setSelectedNature] = useState<string>('all');
   const [refreshing, setRefreshing] = useState(false);

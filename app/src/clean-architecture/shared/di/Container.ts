@@ -99,6 +99,7 @@ export function initializeContainer(): void {
     const { OperationViewModel } = require('../../presentation/view-models/OperationViewModel');
     const { GoalViewModel } = require('../../presentation/view-models/GoalViewModel');
     const CategoryViewModel = require('../../presentation/view-models/CategoryViewModel').default;
+    const { OperationSummaryViewModel } = require('../../presentation/view-models/OperationSummaryViewModel');
     
     // Importar repositórios
     const { SQLiteAccountRepository } = require('../../data/repositories/SQLiteAccountRepository');
@@ -220,6 +221,12 @@ export function initializeContainer(): void {
         getCategoriesUseCase,
         deleteCategoryUseCase
       );
+    });
+    
+    container.registerSingleton('OperationSummaryViewModel', () => {
+      const operationRepo = container.resolve('OperationRepository');
+      const categoryRepo = container.resolve('CategoryRepository');
+      return new OperationSummaryViewModel(operationRepo, categoryRepo);
     });
     
     console.log('🏗️ Container DI inicializado com sucesso!');

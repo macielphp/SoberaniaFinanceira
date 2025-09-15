@@ -55,7 +55,7 @@ export class OperationMapper {
       value: new Money(dto.value, 'BRL'),
       category: dto.category,
       details: dto.details,
-      receipt: dto.receipt ? new Blob([dto.receipt]) : undefined,
+      receipt: dto.receipt ? new Blob([dto.receipt as unknown as ArrayBuffer]) : undefined,
       createdAt: new Date(dto.createdAt)
     });
   }

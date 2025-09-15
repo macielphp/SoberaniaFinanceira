@@ -24,6 +24,21 @@ const mockCategoryViewModel = {
   loadCategories: jest.fn(),
 };
 
+// Mock do Container DI
+jest.mock('../../../../clean-architecture/shared/di/Container', () => ({
+  container: {
+    resolve: jest.fn((serviceName: string) => {
+      if (serviceName === 'OperationSummaryViewModel') {
+        return mockOperationSummaryViewModel;
+      }
+      if (serviceName === 'CategoryViewModel') {
+        return mockCategoryViewModel;
+      }
+      return {};
+    }),
+  },
+}));
+
 // Mock das dependências
 jest.mock('../../../../clean-architecture/shared/utils/Money', () => ({
   Money: jest.fn().mockImplementation((value: number) => ({

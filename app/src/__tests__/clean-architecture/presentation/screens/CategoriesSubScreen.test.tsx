@@ -3,7 +3,7 @@
 // Integra com CategoryViewModel
 
 import { CategoriesSubScreen } from '../../../../clean-architecture/presentation/screens/CategoriesSubScreen';
-import { CategoryViewModel } from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
+import CategoryViewModel from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
 import { Category } from '../../../../clean-architecture/domain/entities/Category';
 
 // Mock CategoryViewModel

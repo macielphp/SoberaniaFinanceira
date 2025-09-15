@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 import RegisterScreen from '../../../../clean-architecture/presentation/screens/RegisterScreen';
 import { RegisterScreenViewModel } from '../../../../clean-architecture/presentation/screens/RegisterScreenViewModel';
 import { OperationViewModel } from '../../../../clean-architecture/presentation/view-models/OperationViewModel';
-import { CategoryViewModel } from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
+import CategoryViewModel from '../../../../clean-architecture/presentation/view-models/CategoryViewModel';
 import { AccountViewModel } from '../../../../clean-architecture/presentation/view-models/AccountViewModel';
 
 // Mock Alert
@@ -19,6 +19,8 @@ const mockOperationViewModel = {
   createOperation: jest.fn(),
   updateOperation: jest.fn(),
   deleteOperation: jest.fn(),
+  validateForm: jest.fn(),
+  reset: jest.fn(),
   clearError: jest.fn(),
   setError: jest.fn(),
 };
@@ -223,6 +225,12 @@ describe('RegisterScreen', () => {
 
   describe('register form', () => {
     it('should handle form submission for new operation', async () => {
+      // Configurar mock para retornar erro de validação
+      mockOperationViewModel.validateForm.mockReturnValue({
+        isValid: false,
+        errors: ['Por favor, preencha todos os campos obrigatórios']
+      });
+
       const { getByTestId } = render(<RegisterScreen />);
 
       await waitFor(() => {
@@ -236,6 +244,12 @@ describe('RegisterScreen', () => {
     });
 
     it('should handle form submission for editing operation', async () => {
+      // Configurar mock para retornar erro de validação
+      mockOperationViewModel.validateForm.mockReturnValue({
+        isValid: false,
+        errors: ['Por favor, preencha todos os campos obrigatórios']
+      });
+
       const { getByTestId } = render(<RegisterScreen />);
 
       await waitFor(() => {
@@ -249,6 +263,12 @@ describe('RegisterScreen', () => {
     });
 
     it('should validate form fields', async () => {
+      // Configurar mock para retornar erro de validação
+      mockOperationViewModel.validateForm.mockReturnValue({
+        isValid: false,
+        errors: ['Por favor, preencha todos os campos obrigatórios']
+      });
+
       const { getByTestId } = render(<RegisterScreen />);
 
       await waitFor(() => {

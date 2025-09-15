@@ -9,6 +9,18 @@ import { AccountViewModel } from '../../../../clean-architecture/presentation/vi
 import { Account } from '../../../../clean-architecture/domain/entities/Account';
 import { Money } from '../../../../clean-architecture/shared/utils/Money';
 
+// Mock do Container DI
+jest.mock('../../../../clean-architecture/shared/di/Container', () => ({
+  container: {
+    resolve: jest.fn((serviceName: string) => {
+      if (serviceName === 'AccountViewModel') {
+        return mockAccountViewModel;
+      }
+      return {};
+    }),
+  },
+}));
+
 // Mock do Money
 jest.mock('../../../../clean-architecture/shared/utils/Money', () => ({
   Money: jest.fn().mockImplementation((amount: number, currency: string = 'BRL') => ({

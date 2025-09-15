@@ -15,6 +15,7 @@ import {
 import { GoalViewModel } from '../view-models/GoalViewModel';
 import { Goal } from '../../domain/entities/Goal';
 import { Money } from '../../shared/utils/Money';
+import { container } from '../../shared/di/Container';
 
 interface GoalScreenProps {
   userId?: string;
@@ -29,7 +30,7 @@ export const GoalScreen: React.FC<GoalScreenProps> = ({
   onNavigateToEdit,
   onNavigateToDetail,
 }) => {
-  const [goalViewModel] = useState(() => new GoalViewModel({} as any));
+  const [goalViewModel] = useState(() => container.resolve<GoalViewModel>('GoalViewModel'));
 
   // Load goals on mount
   useEffect(() => {

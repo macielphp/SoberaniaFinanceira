@@ -15,6 +15,7 @@ import {
 import { AccountViewModel } from '../view-models/AccountViewModel';
 import { Account } from '../../domain/entities/Account';
 import { Money } from '../../shared/utils/Money';
+import { container } from '../../shared/di/Container';
 
 interface AccountScreenProps {
   userId?: string;
@@ -29,7 +30,7 @@ export const AccountScreen: React.FC<AccountScreenProps> = ({
   onNavigateToEdit,
   onNavigateToDetail,
 }) => {
-  const [accountViewModel] = useState(() => new AccountViewModel({} as any));
+  const [accountViewModel] = useState(() => container.resolve<AccountViewModel>('AccountViewModel'));
 
   // Load accounts on mount
   useEffect(() => {
