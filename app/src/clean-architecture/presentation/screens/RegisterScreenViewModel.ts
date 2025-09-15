@@ -3,7 +3,7 @@
 // Composição de 5 subtelas: register, manage, settings, categories, accounts
 
 import { OperationViewModel } from '../view-models/OperationViewModel';
-import { CategoryViewModel } from '../view-models/CategoryViewModel';
+import CategoryViewModel from '../view-models/CategoryViewModel';
 import { AccountViewModel } from '../view-models/AccountViewModel';
 
 export type ViewMode = 'register' | 'manage' | 'settings' | 'categories' | 'accounts';

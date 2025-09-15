@@ -71,6 +71,14 @@ export class OperationViewModel {
   private _isLoading: boolean = false;
   private _error: string | null = null;
   private _isEditing: boolean = false;
+  
+  // Form properties
+  private _operationType: 'income' | 'expense' = 'income';
+  private _amount: string = '';
+  private _description: string = '';
+  private _date: string = '';
+  private _selectedCategory: any = null;
+  private _selectedAccount: any = null;
 
   constructor(
     private createOperationUseCase: CreateOperationUseCase,
@@ -101,6 +109,31 @@ export class OperationViewModel {
     return this._isEditing;
   }
 
+  // Form getters
+  get operationType(): 'income' | 'expense' {
+    return this._operationType;
+  }
+
+  get amount(): string {
+    return this._amount;
+  }
+
+  get description(): string {
+    return this._description;
+  }
+
+  get date(): string {
+    return this._date;
+  }
+
+  get selectedCategory(): any {
+    return this._selectedCategory;
+  }
+
+  get selectedAccount(): any {
+    return this._selectedAccount;
+  }
+
   // Setters
   setOperation(operation: Operation | null): void {
     this._operation = operation;
@@ -120,6 +153,39 @@ export class OperationViewModel {
     this._isLoading = false;
     this._error = null;
     this._isEditing = false;
+    
+    // Reset form properties
+    this._operationType = 'income';
+    this._amount = '';
+    this._description = '';
+    this._date = '';
+    this._selectedCategory = null;
+    this._selectedAccount = null;
+  }
+
+  // Form setters
+  setOperationType(type: 'income' | 'expense'): void {
+    this._operationType = type;
+  }
+
+  setAmount(amount: string): void {
+    this._amount = amount;
+  }
+
+  setDescription(description: string): void {
+    this._description = description;
+  }
+
+  setSelectedCategory(category: any): void {
+    this._selectedCategory = category;
+  }
+
+  setSelectedAccount(account: any): void {
+    this._selectedAccount = account;
+  }
+
+  setDate(date: string): void {
+    this._date = date;
   }
 
   validateForm(data: CreateOperationData): ValidationResult {

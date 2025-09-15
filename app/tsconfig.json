@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "module": "Node16",
+    "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],

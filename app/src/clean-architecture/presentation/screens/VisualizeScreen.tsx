@@ -9,9 +9,7 @@ import {
   Alert 
 } from 'react-native';
 import { OperationSummaryViewModel } from '../view-models/OperationSummaryViewModel';
-import { CategoryViewModel } from '../view-models/CategoryViewModel';
-import { Operation } from '../../domain/entities/Operation';
-import { Category } from '../../domain/entities/Category';
+import CategoryViewModel from '../view-models/CategoryViewModel';
 import { Money } from '../../shared/utils/Money';
 
 export const VisualizeScreen: React.FC = () => {

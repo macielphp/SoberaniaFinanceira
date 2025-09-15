@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { RegisterScreenViewModel, ViewMode } from './RegisterScreenViewModel';
 import { OperationViewModel } from '../view-models/OperationViewModel';
-import { CategoryViewModel } from '../view-models/CategoryViewModel';
+import CategoryViewModel from '../view-models/CategoryViewModel';
 import { AccountViewModel } from '../view-models/AccountViewModel';
 import { container } from '../../shared/di/Container';
 import { Money } from '../../shared/utils/Money';   
@@ -82,16 +83,50 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
     setCurrentView(view);
   }, [registerScreenClass]);
 
+  const getFormData = useCallback(() => {
+    const operationViewModel = registerScreenClass.operationViewModel;
+    
+    // Converter dados do formulário para CreateOperationData
+    const formData = {
+      nature: operationViewModel.operationType === 'income' ? 'receita' as const : 'despesa' as const,
+      state: operationViewModel.operationType === 'income' ? 'receber' as const : 'pagar' as const,
+      paymentMethod: 'Pix' as const, // Por enquanto fixo
+      sourceAccount: operationViewModel.selectedAccount?.name || '',
+      destinationAccount: operationViewModel.selectedAccount?.name || '',
+      date: new Date(operationViewModel.date || new Date()),
+      value: new Money(parseFloat(operationViewModel.amount) || 0, 'BRL'),
+      category: operationViewModel.selectedCategory?.name || '',
+      details: operationViewModel.description || ''
+    };
+    
+    return formData;
+  }, [registerScreenClass]);
+
   const handleOperationSubmit = useCallback(async () => {
     try {
-      // Validação básica - por enquanto sempre falha para testar a mensagem de erro
-      throw new Error('Por favor, preencha todos os campos obrigatórios');
+      const formData = getFormData();
+      
+      // Validar formulário usando o OperationViewModel
+      const validationResult = registerScreenClass.operationViewModel.validateForm(formData);
+      
+      if (!validationResult.isValid) {
+        const errorMessages = Object.values(validationResult.errors).join('\n');
+        Alert.alert('Erro', errorMessages);
+        return;
+      }
+      
+      // Se validação passou, criar operação
+      await registerScreenClass.operationViewModel.createOperation(formData);
+      Alert.alert('Sucesso', 'Operação salva com sucesso!');
+      
+      // Limpar formulário
+      registerScreenClass.operationViewModel.reset();
+      
     } catch (error) {
       console.error('Error submitting operation:', error);
-      // Mostrar erro na tela
       Alert.alert('Erro', error instanceof Error ? error.message : 'Erro ao salvar operação');
     }
-  }, [registerScreenClass]);
+  }, [registerScreenClass, getFormData]);
 
   const handleEditOperation = useCallback((operationId: string) => {
     registerScreenClass.handleEditOperation(operationId);
@@ -185,13 +220,65 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
     <ScrollView style={styles.content}>
       <Text style={styles.sectionTitle}>Natureza</Text>
       <View style={styles.radioGroup}>
-        <TouchableOpacity style={styles.radioOption}>
-          <Text style={styles.radioText}>Receita</Text>
+        <TouchableOpacity 
+          style={[styles.radioOption, registerScreenClass.operationViewModel.operationType === 'income' && styles.selectedRadioOption]}
+          onPress={() => registerScreenClass.operationViewModel.setOperationType('income')}
+        >
+          <Text style={[styles.radioText, registerScreenClass.operationViewModel.operationType === 'income' && styles.selectedRadioText]}>
+            Receita
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.radioOption}>
-          <Text style={styles.radioText}>Despesa</Text>
+        <TouchableOpacity 
+          style={[styles.radioOption, registerScreenClass.operationViewModel.operationType === 'expense' && styles.selectedRadioOption]}
+          onPress={() => registerScreenClass.operationViewModel.setOperationType('expense')}
+        >
+          <Text style={[styles.radioText, registerScreenClass.operationViewModel.operationType === 'expense' && styles.selectedRadioText]}>
+            Despesa
+          </Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.sectionTitle}>Valor</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="0,00"
+        value={registerScreenClass.operationViewModel.amount}
+        onChangeText={registerScreenClass.operationViewModel.setAmount}
+        keyboardType="numeric"
+        testID="amount-input"
+      />
+
+      <Text style={styles.sectionTitle}>Descrição</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Descrição da operação"
+        value={registerScreenClass.operationViewModel.description}
+        onChangeText={registerScreenClass.operationViewModel.setDescription}
+        testID="description-input"
+      />
+
+      <Text style={styles.sectionTitle}>Categoria</Text>
+      <TouchableOpacity style={styles.pickerButton} testID="category-picker">
+        <Text style={styles.pickerButtonText}>
+          {registerScreenClass.operationViewModel.selectedCategory?.name || 'Selecionar Categoria'}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.sectionTitle}>Conta</Text>
+      <TouchableOpacity style={styles.pickerButton} testID="account-picker">
+        <Text style={styles.pickerButtonText}>
+          {registerScreenClass.operationViewModel.selectedAccount?.name || 'Selecionar Conta'}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.sectionTitle}>Data</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="DD/MM/AAAA"
+        value={registerScreenClass.operationViewModel.date}
+        onChangeText={registerScreenClass.operationViewModel.setDate}
+        testID="date-input"
+      />
 
       <TouchableOpacity
         style={styles.submitButton}
@@ -410,6 +497,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  selectedRadioOption: {
+    backgroundColor: '#007AFF',
+  },
+  selectedRadioText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  input: {
+    backgroundColor: '#2a2a2a',
+    color: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  pickerButton: {
+    backgroundColor: '#2a2a2a',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  pickerButtonText: {
     color: '#fff',
     fontSize: 16,
   },

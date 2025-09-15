@@ -3,7 +3,7 @@
 // Integra com OperationViewModel, CategoryViewModel e AccountViewModel
 
 import { OperationViewModel } from '../view-models/OperationViewModel';
-import { CategoryViewModel } from '../view-models/CategoryViewModel';
+import CategoryViewModel from '../view-models/CategoryViewModel';
 import { AccountViewModel } from '../view-models/AccountViewModel';
 import { Operation } from '../../domain/entities/Operation';
 

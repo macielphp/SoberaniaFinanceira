@@ -2,7 +2,7 @@
 // Responsável por gerenciar o estado e lógica de apresentação para gerenciamento de categorias
 // Integra com CategoryViewModel
 
-import { CategoryViewModel } from '../view-models/CategoryViewModel';
+import CategoryViewModel from '../view-models/CategoryViewModel';
 import { Category, CategoryType } from '../../domain/entities/Category';
 
 // Types for category data
